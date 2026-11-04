@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alumni Charts Integration Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f4f7fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .chart-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            min-height: 350px;
+        }
+        .chart-box h3 {
+            margin-bottom: 15px;
+            color: #1e4a76;
+        }
+        .chart-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .loading { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #1e4a76;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #16354d;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8fbfe;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e4a76;
+        }
+        .stat-label {
+            color: #6a7b8c;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Alumni Charts Integration Test</h1>
+        <p>This page tests the integration between JavaScript and Python chart generation.</p>
+
+        <div class="test-section">
+            <h2>API Health Check</h2>
+            <button onclick="checkAPIHealth()">Check API Status</button>
+            <div id="api-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Alumni Statistics</h2>
+            <button onclick="loadAlumniStats()">Load Stats from Python API</button>
+            <div id="alumni-stats"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Chart Generation</h2>
+            <button onclick="generateAllCharts()">Generate All Charts</button>
+            <button onclick="generateStatusChart()">Status Chart</button>
+            <button onclick="generateYearChart()">Year Distribution</button>
+            <button onclick="generateCollegeChart()">College Distribution</button>
+            <div id="chart-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Generated Charts</h2>
+            <div class="chart-container">
+                <div class="chart-box">
+                    <h3>Alumni Status Chart</h3>
+                    <div id="status-chart-container">
+                        <img src="http://localhost:5000/charts/alumni_status_chart.png" alt="Status Chart" class="chart-image" />
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h3>Year Distribution</h3>
+                    <div id="year-chart-container">
+                        <img src="http://localhost:5000/charts/year_distribution_chart.png" alt="Year Chart" class="chart-image" />
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h3>College Distribution</h3>
+                    <div id="college-chart-container">
+                        <img src="http://localhost:5000/charts/college_distribution_chart.png" alt="College Chart" class="chart-image" />
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h3>Course Distribution</h3>
+                    <div id="course-chart-container">
+                        <img src="http://localhost:5000/charts/course_distribution_chart.png" alt="Course Chart" class="chart-image" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        async function checkAPIHealth() {
+            const statusDiv = document.getElementById('api-status');
+            statusDiv.innerHTML = '<div class="status loading">Checking API health...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const result = await response.json();
+                
+                if (result.status === 'healthy') {
+                    statusDiv.innerHTML = `<div class="status success">✅ API is healthy - ${result.timestamp}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ API is not healthy</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ API Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadAlumniStats() {
+            const statsDiv = document.getElementById('alumni-stats');
+            statsDiv.innerHTML = '<div class="status loading">Loading alumni statistics...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/alumni/stats`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    statsDiv.innerHTML = `
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.total_alumni}</div>
+                                <div class="stat-label">Total Alumni</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.active_alumni}</div>
+                                <div class="stat-label">Active Alumni</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.engagement_rate}%</div>
+                                <div class="stat-label">Engagement Rate</div>
+                            </div>
+                        </div>
+                        <div class="status success">✅ Statistics loaded successfully</div>
+                    `;
+                } else {
+                    statsDiv.innerHTML = `<div class="status error">❌ Failed to load stats: ${result.error}</div>`;
+                }
+            } catch (error) {
+                statsDiv.innerHTML = `<div class="status error">❌ Error loading stats: ${error.message}</div>`;
+            }
+        }
+
+        async function generateAllCharts() {
+            const chartStatus = document.getElementById('chart-status');
+            chartStatus.innerHTML = '<div class="status loading">Generating all charts...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/charts/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    chartStatus.innerHTML = `<div class="status success">✅ Generated ${result.charts.length} charts: ${result.charts.join(', ')}</div>`;
+                    // Refresh chart images
+                    refreshChartImages();
+                } else {
+                    chartStatus.innerHTML = `<div class="status error">❌ Chart generation failed: ${result.error}</div>`;
+                }
+            } catch (error) {
+                chartStatus.innerHTML = `<div class="status error">❌ Error generating charts: ${error.message}</div>`;
+            }
+        }
+
+        async function generateStatusChart() {
+            const chartStatus = document.getElementById('chart-status');
+            chartStatus.innerHTML = '<div class="status loading">Generating status chart...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/charts/status`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    chartStatus.innerHTML = `<div class="status success">✅ Status chart generated: ${result.message}</div>`;
+                    document.getElementById('status-chart-container').innerHTML = 
+                        `<img src="http://localhost:5000${result.chart_url}" alt="Status Chart" class="chart-image" />`;
+                } else {
+                    chartStatus.innerHTML = `<div class="status error">❌ Status chart failed: ${result.error}</div>`;
+                }
+            } catch (error) {
+                chartStatus.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function generateYearChart() {
+            const chartStatus = document.getElementById('chart-status');
+            chartStatus.innerHTML = '<div class="status loading">Generating year distribution chart...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/charts/year-distribution`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    chartStatus.innerHTML = `<div class="status success">✅ Year chart generated: ${result.message}</div>`;
+                    document.getElementById('year-chart-container').innerHTML = 
+                        `<img src="http://localhost:5000${result.chart_url}" alt="Year Chart" class="chart-image" />`;
+                } else {
+                    chartStatus.innerHTML = `<div class="status error">❌ Year chart failed: ${result.error}</div>`;
+                }
+            } catch (error) {
+                chartStatus.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function generateCollegeChart() {
+            const chartStatus = document.getElementById('chart-status');
+            chartStatus.innerHTML = '<div class="status loading">Generating college distribution chart...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/charts/college-distribution`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    chartStatus.innerHTML = `<div class="status success">✅ College chart generated: ${result.message}</div>`;
+                    document.getElementById('college-chart-container').innerHTML = 
+                        `<img src="http://localhost:5000${result.chart_url}" alt="College Chart" class="chart-image" />`;
+                } else {
+                    chartStatus.innerHTML = `<div class="status error">❌ College chart failed: ${result.error}</div>`;
+                }
+            } catch (error) {
+                chartStatus.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        function refreshChartImages() {
+            const chartImages = document.querySelectorAll('.chart-image');
+            chartImages.forEach(img => {
+                const src = img.src;
+                img.src = src + '?t=' + new Date().getTime(); // Add timestamp to bypass cache
+            });
+        }
+
+        // Auto-check API health on page load
+        window.addEventListener('load', () => {
+            checkAPIHealth();
+            loadAlumniStats();
+        });
+    </script>
+</body>
+</html>

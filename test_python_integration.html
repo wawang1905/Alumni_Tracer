@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .chart-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .chart-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Python Integration Test for Alumni Tracer</h1>
+    <p>This page tests if the Alumni Tracer is using the Python script for chart generation.</p>
+
+    <div class="test-container">
+        <h2>1. API Connection Test</h2>
+        <button onclick="testAPIHealth()">Test API Health</button>
+        <div id="api-health-result"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>2. Chart Generation Test</h2>
+        <button onclick="testChartGeneration()">Generate Charts via Python</button>
+        <div id="chart-generation-result"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>3. Data Retrieval Test</h2>
+        <button onclick="testDataRetrieval()">Get Alumni Data from Python</button>
+        <div id="data-retrieval-result"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>4. Generated Charts Display</h2>
+        <div id="charts-display"></div>
+    </div>
+
+    <script>
+        const CHART_API_BASE = 'http://localhost:5000/api';
+
+        async function testAPIHealth() {
+            const resultDiv = document.getElementById('api-health-result');
+            resultDiv.innerHTML = '<div class="info">Testing API connection...</div>';
+            
+            try {
+                const response = await fetch(`${CHART_API_BASE}/health`);
+                const result = await response.json();
+                
+                if (result.status === 'healthy') {
+                    resultDiv.innerHTML = `<div class="success">✅ Python API is healthy and running at ${result.timestamp}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ API is not healthy</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Cannot connect to Python API: ${error.message}</div>`;
+            }
+        }
+
+        async function testChartGeneration() {
+            const resultDiv = document.getElementById('chart-generation-result');
+            resultDiv.innerHTML = '<div class="info">Generating charts via Python API...</div>';
+            
+            try {
+                const response = await fetch(`${CHART_API_BASE}/charts/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ Successfully generated ${result.charts.length} charts: ${result.charts.join(', ')}</div>`;
+                    displayGeneratedCharts();
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Chart generation failed: ${result.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error generating charts: ${error.message}</div>`;
+            }
+        }
+
+        async function testDataRetrieval() {
+            const resultDiv = document.getElementById('data-retrieval-result');
+            resultDiv.innerHTML = '<div class="info">Retrieving alumni data from Python...</div>';
+            
+            try {
+                const response = await fetch(`${CHART_API_BASE}/alumni/stats`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Successfully retrieved alumni data:</div>
+                        <ul>
+                            <li>Total Alumni: ${stats.total_alumni}</li>
+                            <li>Active Alumni: ${stats.active_alumni}</li>
+                            <li>Engagement Rate: ${stats.engagement_rate}%</li>
+                            <li>Status Breakdown: ${JSON.stringify(stats.status_counts)}</li>
+                        </ul>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Data retrieval failed: ${result.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error retrieving data: ${error.message}</div>`;
+            }
+        }
+
+        async function displayGeneratedCharts() {
+            const chartsDiv = document.getElementById('charts-display');
+            chartsDiv.innerHTML = '<h3>Generated Charts from Python:</h3>';
+            
+            const charts = [
+                { name: 'Alumni Status Chart', file: 'alumni_status_chart.png' },
+                { name: 'Year Distribution Chart', file: 'year_distribution_chart.png' },
+                { name: 'College Distribution Chart', file: 'college_distribution_chart.png' }
+            ];
+            
+            for (const chart of charts) {
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
+                chartContainer.innerHTML = `
+                    <h4>${chart.name}</h4>
+                    <img src="http://localhost:5000/charts/${chart.file}" alt="${chart.name}" class="chart-image" />
+                    <p><small>Generated by Python matplotlib</small></p>
+                `;
+                chartsDiv.appendChild(chartContainer);
+            }
+        }
+
+        // Auto-test API health on page load
+        window.addEventListener('load', () => {
+            testAPIHealth();
+        });
+    </script>
+</body>
+</html>

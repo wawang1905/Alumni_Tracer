@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Response Details | Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="CoordinatorCommon.css">
+    <!-- Coordinator sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('coordinator-sidebar-preload');
+            if (localStorage.getItem('coordinatorSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('coordinator-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body class="coordinator-survey-response-details-page">
+    <div class="coordinator-shell">
+        <aside class="coordinator-sidebar">
+            <div class="brand-block"><div class="brand-mark"><i class="fas fa-graduation-cap"></i></div><div><h1>Alumni Tracer</h1><p>USTP - Claveria</p></div></div>
+            <nav class="coordinator-nav" aria-label="Coordinator navigation">
+                <a class="nav-item" href="Dashboard.html"><i class="fas fa-table-columns"></i><span>Dashboard</span></a>
+                <a class="nav-item" href="Alumni.html"><i class="fas fa-users"></i><span>Alumni</span></a>
+                <div class="nav-group">
+                    <a class="nav-item active" href="SurveyResponses.html"><i class="fas fa-clipboard-check"></i><span>Surveys</span><i class="fas fa-chevron-down nav-caret"></i></a>
+                    <a class="nav-subitem active" href="SurveyResponses.html">Responses</a>
+                </div>
+                <a class="nav-item" href="Reports.html"><i class="fas fa-chart-line"></i><span>Reports</span></a>
+                <a class="nav-item" href="AlumniID.html"><i class="fas fa-id-card"></i><span>Alumni ID</span></a>
+                <a class="nav-item" href="Events.html"><i class="fas fa-calendar-days"></i><span>Events</span></a>
+                <a class="nav-item" href="Payments.html"><i class="fas fa-receipt"></i><span>Payments</span></a>
+                <a class="nav-item" href="Communication.html"><i class="fas fa-envelope-open-text"></i><span>Communication</span></a>
+            </nav>
+            <div class="coordinator-sidebar-footer">
+                <button id="coordinatorLogoutBtn" class="coordinator-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="coordinator-main survey-main survey-detail-main">
+            <header class="survey-topbar detail-topbar">
+                <button class="icon-btn" type="button"><i class="fas fa-bars"></i></button>
+                <div><h2>Survey Responses</h2><p>Surveys <i class="fas fa-chevron-right"></i> Responses <i class="fas fa-chevron-right"></i> Response Details</p></div>
+                <div class="topbar-spacer"></div>
+                <button class="bell-btn" type="button"><i class="far fa-bell"></i><span>3</span></button>
+                <div class="profile-chip"><span class="avatar-mini"><i class="fas fa-user"></i></span> Program Coordinator <i class="fas fa-chevron-down"></i></div>
+            </header>
+
+            <div class="detail-actions"><a class="outline-btn" id="detailBackLink" href="SurveyResponses.html"><i class="fas fa-arrow-left"></i> Back to Responses</a><button class="blue-btn" id="exportSingleResponse" type="button"><i class="fas fa-download"></i> Export This Response</button></div>
+            <section class="survey-summary-bar">
+                <div class="summary-name"><i class="fas fa-clipboard-list purple-soft"></i><div><h3><strong id="detailSurveyTitle">Loading survey…</strong> <span id="detailSurveyStatus">—</span></h3><p id="detailSurveyDates">—</p></div></div>
+                <div><span>Total Responses</span><strong id="detailTotalResponses">—</strong></div>
+                <div><span>Complete</span><strong class="green" id="detailCompleteResponses">—</strong></div>
+                <div><span>In Progress</span><strong class="amber" id="detailProgressResponses">—</strong></div>
+                <div class="rate-ring"><b id="detailAverageRate">—</b><span>Average Completion Rate</span></div>
+            </section>
+
+            <section class="detail-layout">
+                <aside class="response-list-panel">
+                    <div class="response-list-header">
+                        <h3>Responses List</h3>
+                        <span id="detailResponseCount" class="response-count-badge">Loading responses…</span>
+                    </div>
+                    <div class="list-filters"><label class="search-box"><input id="detailResponseSearch" type="search" placeholder="Search by name or email..." autocomplete="off"><i class="fas fa-search"></i></label></div>
+                    <div id="responseListItems" class="response-list-items"></div>
+                </aside>
+
+                <section class="response-detail-panel">
+                    <div class="detail-panel-head"><h3>Response Details <span id="detailResponseStatus">Completed</span></h3><div class="detail-panel-actions"><button class="outline-btn" id="previousResponseButton" type="button"><i class="fas fa-chevron-left"></i> Previous</button><button class="outline-btn" id="nextResponseButton" type="button">Next <i class="fas fa-chevron-right"></i></button><button class="review-btn" id="openReviewModalBtn" type="button"><i class="fas fa-stamp"></i> <span id="reviewBtnLabel">Review</span></button></div></div>
+                    <article class="student-card">
+                        <div class="student-main"><div class="initials">—</div><div><h4 id="detailName">Loading…</h4><p id="detailEmail">—</p><small id="detailCourse">—</small><b>Graduated: <span id="detailYear">—</span></b></div></div>
+                        <div class="student-meta"><p><i class="far fa-calendar"></i><span>Submitted At</span><strong id="detailSubmitted">—</strong></p><p><i class="far fa-id-card"></i><span>Alumni ID</span><strong id="detailAlumniId">—</strong></p></div>
+                    </article>
+                    <div id="detailReviewBanner" class="review-banner" hidden>
+                        <i class="fas fa-circle-check" id="reviewBannerIcon"></i>
+                        <div>
+                            <span id="reviewBannerStatus">—</span>
+                            <small id="reviewBannerMeta">—</small>
+                        </div>
+                    </div>
+                    <div class="question-list" id="detailQuestionList"><article><div><h4>Loading answers…</h4></div></article></div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModalOverlay" class="modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="reviewModalTitle">
+        <div class="review-modal">
+            <div class="review-modal-head">
+                <h3 id="reviewModalTitle"><i class="fas fa-stamp"></i> Review Response</h3>
+                <button class="modal-close-btn" id="closeReviewModalBtn" type="button" aria-label="Close"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="review-modal-body">
+                <label class="review-field-label" for="reviewStatusSelect">Review Decision <span class="required-star">*</span></label>
+                <div class="review-status-options">
+                    <label class="review-option" id="reviewOptionReviewed">
+                        <input type="radio" name="reviewStatus" value="reviewed" id="reviewRadioReviewed">
+                        <span class="review-option-inner">
+                            <i class="fas fa-circle-check"></i>
+                            <strong>Mark as Reviewed</strong>
+                            <small>This response has been reviewed and accepted.</small>
+                        </span>
+                    </label>
+                    <label class="review-option" id="reviewOptionRevision">
+                        <input type="radio" name="reviewStatus" value="needs_revision" id="reviewRadioRevision">
+                        <span class="review-option-inner">
+                            <i class="fas fa-triangle-exclamation"></i>
+                            <strong>Needs Revision</strong>
+                            <small>This response requires changes or follow-up.</small>
+                        </span>
+                    </label>
+                </div>
+                <label class="review-field-label" for="reviewCommentTextarea">Comment <span class="review-optional">(optional)</span></label>
+                <textarea id="reviewCommentTextarea" class="review-textarea" placeholder="Add a comment or note for this review…" rows="3"></textarea>
+            </div>
+            <div class="review-modal-foot">
+                <button class="outline-btn" id="cancelReviewBtn" type="button">Cancel</button>
+                <button class="blue-btn" id="submitReviewBtn" type="button"><i class="fas fa-stamp"></i> Submit Review</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="CoordinatorCommon.js"></script>
+</body>
+</html>

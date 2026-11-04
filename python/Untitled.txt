@@ -1,0 +1,326 @@
+/**
+ * Reports Graphs Module
+ * Handles survey batch statistics visualization on the Reports page
+ */
+
+// Store current batch stats data
+let currentReportBatchStats = null;
+
+// Color palette for chart options
+const REPORTS_PALETTE = ['#1e6f5c', '#2c7da0', '#61a5c2', '#89c2d9', '#f4a261', '#e76f51', '#9c89b8', '#5e548e'];
+
+/**
+ * Load surveys into the selector dropdown
+ */
+async function loadReportSurveySelector() {
+    const selector = document.getElementById('reportSurveySelector');
+    if (!selector) return;
+
+    try {
+        const response = await fetch(getSurveyListUrl(), { credentials: 'include', cache: 'no-store' });
+        if (!response.ok) throw new Error('Failed to load surveys');
+        
+        const result = await response.json();
+        const surveys = Array.isArray(result.data) ? result.data : [];
+        
+        selector.innerHTML = '<option value="">Select a survey...</option>' +
+            surveys.map(s => `<option value="${escapeHtml(String(s.id ?? ''))}">${escapeHtml(String(s.title ?? 'Untitled'))}</option>`).join('');
+    } catch (error) {
+        console.error('Error loading survey selector:', error);
+        selector.innerHTML = '<option value="">Unable to load surveys</option>';
+    }
+}
+
+/**
+ * Handle survey selection change - fetch and render batch stats
+ */
+async function onReportSurveyChange() {
+    const selector = document.getElementById('reportSurveySelector');
+    const container = document.getElementById('surveyBatchStatsContainer');
+    if (!selector || !container) return;
+
+    const surveyId = selector.value;
+    if (!surveyId) {
+        container.innerHTML = '<div class="reports-empty-state"><i class="fas fa-chart-line"></i><p>Select a survey above to view batch-separated response analytics.</p></div>';
+        currentReportBatchStats = null;
+        return;
+    }
+
+    container.innerHTML = '<div class="reports-loading"><i class="fas fa-spinner fa-spin"></i> Loading detailed analytics...</div>';
+
+    try {
+        const response = await fetch(getSurveyBatchStatisticsUrl(surveyId), { credentials: 'include', cache: 'no-store' });
+        if (!response.ok) throw new Error('Failed to load batch statistics');
+        
+        const result = await response.json();
+        if (!result.success || !result.data) throw new Error(result.message || 'No data available');
+        
+        currentReportBatchStats = result.data;
+        renderEnhancedBatchStats(currentReportBatchStats);
+    } catch (error) {
+        console.error('Error loading batch stats:', error);
+        container.innerHTML = `<div class="reports-error"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+/**
+ * Main rendering function for batch statistics with enhanced graphs
+ */
+function renderEnhancedBatchStats(data) {
+    const container = document.getElementById('surveyBatchStatsContainer');
+    if (!container) return;
+
+    const batches = Array.isArray(data?.batches) ? data.batches : [];
+    
+    if (batches.length === 0) {
+        container.innerHTML = '<div class="reports-empty-state">No batch data available for this survey.</div>';
+        return;
+    }
+
+    const totalResponses = batches.reduce((sum, b) => sum + Number(b.respondentCount || 0), 0);
+    const maxRate = Math.max(...batches.map(b => Number(b.responseRate || 0)), 1);
+    const chartHeight = 280;
+
+    // Generate bar chart HTML
+    let barsHtml = '';
+    let xLabelsHtml = '';
+    
+    batches.forEach(batch => {
+        const rate = Number(batch.responseRate || 0);
+        const barHeight = (rate / maxRate) * (chartHeight - 50);
+        const barColor = rate >= 70 ? '#10b981' : (rate >= 40 ? '#f59e0b' : '#ef4444');
+        const barClass = rate >= 70 ? 'reports-rate-high' : (rate >= 40 ? 'reports-rate-medium' : 'reports-rate-low');
+        
+        barsHtml += `
+            <div class="reports-bar-item">
+                <div class="reports-bar" style="height: ${Math.max(barHeight, 4)}px; background: ${barColor};">
+                    <span class="reports-bar-value">${rate}%</span>
+                </div>
+                <div class="reports-bar-label">${escapeHtml(String(batch.batch))}</div>
+                <div class="reports-bar-stats">${batch.respondentCount}/${batch.totalAlumni}</div>
+            </div>
+        `;
+        xLabelsHtml += `<div class="reports-x-label">${escapeHtml(String(batch.batch))}</div>`;
+    });
+
+    const barChartHtml = `
+        <div class="reports-chart-container">
+            <div class="reports-chart-header">
+                <h4><i class="fas fa-chart-simple"></i> Response Rate by Batch</h4>
+                <span><i class="fas fa-file-alt"></i> Total responses: ${totalResponses}</span>
+            </div>
+            <div class="reports-bar-chart" style="height: ${chartHeight}px;">
+                ${barsHtml}
+            </div>
+            <div class="reports-x-axis">${xLabelsHtml}</div>
+        </div>
+    `;
+
+    // Generate detailed breakdown per batch
+    let detailedHtml = `
+        <div style="margin-top: 28px;">
+            <div class="reports-chart-header" style="margin-bottom: 20px;">
+                <h4><i class="fas fa-chart-line"></i> Detailed Response Breakdown by Batch</h4>
+            </div>
+    `;
+
+    for (let idx = 0; idx < batches.length; idx++) {
+        const batch = batches[idx];
+        const totalAlumni = Number(batch.totalAlumni || 1);
+        const respondentCount = Number(batch.respondentCount || 0);
+        const responseRate = Number(batch.responseRate || 0);
+        const questions = Array.isArray(batch.questions) ? batch.questions : [];
+        
+        // Determine rate class for badge
+        let rateClass = 'reports-rate-low';
+        if (responseRate >= 70) rateClass = 'reports-rate-high';
+        else if (responseRate >= 40) rateClass = 'reports-rate-medium';
+        
+        // Group questions by category
+        const categoryMap = new Map();
+        for (const q of questions) {
+            const cat = q.categoryName || 'General';
+            if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+            categoryMap.get(cat).push(q);
+        }
+
+        let categoriesHtml = '';
+        
+        for (const [catName, catQuestions] of categoryMap.entries()) {
+            let catBlocks = '';
+            
+            for (const q of catQuestions) {
+                // Handle multiple choice / rating questions with breakdown data
+                if (q.questionType !== 'text' && q.breakdown && Object.keys(q.breakdown).length > 0) {
+                    const breakdown = q.breakdown || {};
+                    const entries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+                    const maxCount = Math.max(...entries.map(([, cnt]) => Number(cnt)), 1);
+                    
+                    let optionsRows = '';
+                    entries.forEach(([optionLabel, count], optIdx) => {
+                        const pctOfBatch = totalAlumni > 0 ? ((Number(count) / totalAlumni) * 100).toFixed(1) : '0';
+                        const pctOfRespondents = respondentCount > 0 ? ((Number(count) / respondentCount) * 100).toFixed(1) : '0';
+                        const widthPercent = (Number(count) / maxCount) * 100;
+                        const color = REPORTS_PALETTE[optIdx % REPORTS_PALETTE.length];
+                        
+                        optionsRows += `
+                            <div class="reports-distribution-row">
+                                <div class="reports-distribution-header">
+                                    <strong>${escapeHtml(optionLabel)}</strong>
+                                    <span>${count} responses (${pctOfBatch}% of batch, ${pctOfRespondents}% of respondents)</span>
+                                </div>
+                                <div class="reports-distribution-track">
+                                    <div class="reports-distribution-fill" style="width: ${widthPercent}%; background: ${color};"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    catBlocks += `
+                        <div class="reports-question-block">
+                            <div class="reports-question-label">📊 ${escapeHtml(q.questionText)}</div>
+                            <div class="reports-distribution-chart">${optionsRows}</div>
+                        </div>
+                    `;
+                }
+                // Handle text questions
+                else if (q.questionType === 'text') {
+                    catBlocks += `
+                        <div class="reports-question-block">
+                            <div class="reports-text-response-note">
+                                <i class="fas fa-comment-dots"></i>
+                                <strong>${escapeHtml(q.questionText)}</strong>
+                                <div style="margin-top: 6px; font-size: 12px;">📝 Text responses from ${q.responseCount || 0} alumni</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                // Fallback for questions without breakdown
+                else if (q.respondentCount > 0) {
+                    catBlocks += `
+                        <div class="reports-question-block">
+                            <div class="reports-question-label">❓ ${escapeHtml(q.questionText)}</div>
+                            <div style="font-size: 13px; color: #64748b;">${q.respondentCount} responses recorded</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            if (catBlocks) {
+                categoriesHtml += `
+                    <div class="reports-category-section">
+                        <div class="reports-category-title">📁 ${escapeHtml(catName)}</div>
+                        ${catBlocks}
+                    </div>
+                `;
+            }
+        }
+        
+        if (!categoriesHtml) {
+            categoriesHtml = '<div class="reports-category-section"><p style="color: #6c7a8e;">No analyzable responses for this batch yet.</p></div>';
+        }
+        
+        detailedHtml += `
+            <div class="reports-batch-card">
+                <div class="reports-batch-header">
+                    <div class="reports-batch-title">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>Batch ${escapeHtml(String(batch.batch))}</span>
+                    </div>
+                    <div class="reports-batch-rate ${rateClass}">${responseRate}% response rate</div>
+                </div>
+                <div class="reports-batch-stats">
+                    <span><i class="fas fa-users"></i> ${totalAlumni} total alumni</span>
+                    <span><i class="fas fa-check-circle"></i> ${respondentCount} responded</span>
+                    <span><i class="fas fa-poll"></i> ${questions.length} survey questions</span>
+                </div>
+                ${categoriesHtml}
+            </div>
+        `;
+    }
+    
+    detailedHtml += `</div>`;
+    container.innerHTML = barChartHtml + detailedHtml;
+}
+
+/**
+ * Render graduation year distribution chart on reports page
+ */
+function renderYearDistributionReport() {
+    const container = document.getElementById('yearDistribution');
+    if (!container) return;
+    
+    // Use global alumniData if available from StaffCommon
+    if (typeof alumniData !== 'undefined' && Array.isArray(alumniData) && alumniData.length > 0) {
+        const distribution = {};
+        alumniData.forEach(alumni => {
+            const year = alumni.graduationYear || 'Unknown';
+            distribution[year] = (distribution[year] || 0) + 1;
+        });
+        
+        const entries = Object.entries(distribution)
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true }))
+            .slice(-8);
+        
+        if (entries.length > 0) {
+            const maxCount = Math.max(...entries.map(([, c]) => c), 1);
+            const chartHeight = 160;
+            
+            let barsHtml = '';
+            entries.forEach(([year, count]) => {
+                const barHeight = (count / maxCount) * chartHeight;
+                barsHtml += `
+                    <div class="reports-bar-item">
+                        <div class="reports-bar" style="height: ${Math.max(barHeight, 4)}px; background: #1e6f5c;"></div>
+                        <div class="reports-bar-label" style="font-size: 11px;">${escapeHtml(year)}</div>
+                        <div class="reports-bar-stats" style="font-size: 10px;">${count}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = `
+                <div class="reports-bar-chart" style="height: ${chartHeight + 50}px; justify-content: space-around;">
+                    ${barsHtml}
+                </div>
+            `;
+            return;
+        }
+    }
+    
+    container.innerHTML = '<div class="reports-empty-state" style="padding: 30px;">No graduation data available</div>';
+}
+
+/**
+ * Initialize reports page graphs
+ */
+function initReportsGraphs() {
+    // Load survey selector
+    loadReportSurveySelector();
+    
+    // Render year distribution
+    renderYearDistributionReport();
+    
+    // Set up polling for alumni data changes if needed
+    if (typeof alumniData !== 'undefined') {
+        // Watch for alumni data changes (simple interval, can be optimized)
+        let lastAlumniLength = alumniData?.length || 0;
+        setInterval(() => {
+            if (typeof alumniData !== 'undefined' && (alumniData?.length || 0) !== lastAlumniLength) {
+                lastAlumniLength = alumniData?.length || 0;
+                renderYearDistributionReport();
+            }
+        }, 3000);
+    }
+}
+
+// Export functions to global scope for HTML onclick handlers
+window.onReportSurveyChange = onReportSurveyChange;
+window.initReportsGraphs = initReportsGraphs;
+window.renderYearDistributionReport = renderYearDistributionReport;
+
+// Auto-initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReportsGraphs);
+} else {
+    initReportsGraphs();
+}

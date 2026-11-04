@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer - Developer Overview</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="DeveloperCommon.css">
+</head>
+<body>
+    <div class="developer-shell">
+        <aside class="developer-sidebar">
+            <div class="developer-brand">
+                <div class="developer-brand-mark">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                    <h1>Developer</h1>
+                    <p>System Administrator</p>
+                </div>
+            </div>
+
+            <nav class="developer-nav" aria-label="Developer navigation">
+                <a href="Overview.html" class="developer-nav-item active">
+                    <i class="fas fa-gauge-high"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="UserManagement.html" class="developer-nav-item">
+                    <i class="fas fa-user-shield"></i>
+                    <span>User Management</span>
+                </a>
+                <a href="SystemSettings.html" class="developer-nav-item">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>System Settings</span>
+                </a>
+                <a href="SchoolInfo.html" class="developer-nav-item">
+                    <i class="fas fa-school"></i>
+                    <span>School Info</span>
+                </a>
+                <a href="BackupRestore.html" class="developer-nav-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backup & Restore</span>
+                </a>
+                <a href="SystemLogs.html" class="developer-nav-item">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>System Logs</span>
+                </a>
+                <a href="Announcements.html" class="developer-nav-item">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Announcements</span>
+                </a>
+                <a href="EmailSMS.html" class="developer-nav-item">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <span>Email & SMS</span>
+                </a>
+                <a href="SurveyTemplates.html" class="developer-nav-item">
+                    <i class="fas fa-file-signature"></i>
+                    <span>Survey Templates</span>
+                </a>
+                <a href="Maintenance.html" class="developer-nav-item">
+                    <i class="fas fa-power-off"></i>
+                    <span>Maintenance</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="developer-main">
+            <header class="developer-topbar">
+                <div>
+                    <p class="eyebrow">Application Maintenance</p>
+                    <h2 id="developerPageTitle">Developer Overview</h2>
+                </div>
+                <div class="developer-user">
+                    <div>
+                        <strong data-developer-name>System Administrator</strong>
+                        <span data-developer-role>developer</span>
+                    </div>
+                    <div class="developer-avatar">
+                        <i class="fas fa-user-gear"></i>
+                    </div>
+                    <button class="icon-button danger" type="button" id="developerLogout" title="Log out" aria-label="Log out">
+                        <i class="fas fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </header>
+
+            <section class="developer-panel active" id="overviewPanel" data-panel="overview">
+                <div class="metric-grid">
+                    <article class="metric-card">
+                        <div>
+                            <p>Head Admin Accounts</p>
+                            <strong id="headAdminCount">0</strong>
+                        </div>
+                        <i class="fas fa-user-tie"></i>
+                    </article>
+                    <article class="metric-card">
+                        <div>
+                            <p>Locked Accounts</p>
+                            <strong id="lockedAccountCount">0</strong>
+                        </div>
+                        <i class="fas fa-lock"></i>
+                    </article>
+                    <article class="metric-card">
+                        <div>
+                            <p>Maintenance Mode</p>
+                            <strong id="maintenanceStatus">Off</strong>
+                        </div>
+                        <i class="fas fa-toggle-off"></i>
+                    </article>
+                    <article class="metric-card">
+                        <div>
+                            <p>Last Backup</p>
+                            <strong id="lastBackupDate">None</strong>
+                        </div>
+                        <i class="fas fa-cloud-arrow-down"></i>
+                    </article>
+                </div>
+
+                <div class="dashboard-grid">
+                    <article class="section-card wide">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">System Health</p>
+                                <h3>Current Controls</h3>
+                            </div>
+                        </div>
+                        <div class="control-list">
+                            <div class="control-row">
+                                <span><i class="fas fa-user-lock"></i> Account lock policy</span>
+                                <strong id="overviewLockPolicy">5 failed attempts</strong>
+                            </div>
+                            <div class="control-row">
+                                <span><i class="fas fa-envelope"></i> Email provider</span>
+                                <strong id="overviewEmailProvider">SMTP</strong>
+                            </div>
+                            <div class="control-row">
+                                <span><i class="fas fa-mobile-screen"></i> SMS provider</span>
+                                <strong id="overviewSmsProvider">Disabled</strong>
+                            </div>
+                            <div class="control-row">
+                                <span><i class="fas fa-file-lines"></i> Active survey templates</span>
+                                <strong id="overviewTemplateCount">0</strong>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="section-card">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">Recent Events</p>
+                                <h3>System Logs</h3>
+                            </div>
+                        </div>
+                        <div class="log-feed compact" id="overviewLogs"></div>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="toast" id="developerToast" role="status" aria-live="polite"></div>
+    <script src="DeveloperCommon.js"></script>
+</body>
+</html>

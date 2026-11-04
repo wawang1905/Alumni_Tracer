@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎓 Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" data-page="alumni" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" data-page="coordinators" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" data-page="events" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item" data-page="news" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item" data-page="surveys" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item active" data-page="reports" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item" data-page="payments" onclick="location.href='Payments.html'">
+                    <i class="fas fa-receipt"></i>
+                    <span>Payments</span>
+                </div>
+                <div class="menu-item" data-page="settings" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title" id="pageTitle">Analytics & Reports</div>
+                <div class="staff-info">
+                    <span class="staff-name">Sarah Johnson</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reportsPage">
+
+                <!-- Quick Stats Row -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3 id="totalAlumni">-</h3>
+                            <p>Total Alumni</p>
+                        </div>
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3 id="totalBatches">-</h3>
+                            <p>Graduation Batches</p>
+                        </div>
+                        <div class="stat-icon"><i class="fas fa-layer-group"></i></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3 id="activeSurveys">-</h3>
+                            <p>Active Surveys</p>
+                        </div>
+                        <div class="stat-icon"><i class="fas fa-poll"></i></div>
+                    </div>
+                </div>
+
+                <!-- Survey Analytics Section -->
+                <div class="section-card">
+                    <div class="section-header" style="margin-bottom: 20px;">
+                        <h3><i class="fas fa-chart-bar"></i> Survey Response Analytics</h3>
+                        <select id="reportSurveySelector" class="form-select" style="min-width: 220px; max-width: 340px;" onchange="onReportSurveyChange()">
+                            <option value="">Select a survey...</option>
+                        </select>
+                    </div>
+                    <div id="surveyBatchStatsContainer">
+                        <div class="chart-empty-state">
+                            <i class="fas fa-chart-bar" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                            <p>Select a survey above to view batch-separated response analytics</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-header" style="margin-bottom: 20px;">
+                        <h3><i class="fas fa-chart-pie"></i> Survey Question Analytics</h3>
+                    </div>
+                    <div id="surveyQuestionMeanContainer">
+                        <div class="chart-empty-state">
+                            <i class="fas fa-chart-pie" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                            <p>Select a survey above to view categories, questions, and answer pie charts</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Year Distribution Section -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3><i class="fas fa-chart-pie"></i> Graduation Year Distribution</h3>
+                    </div>
+                    <div id="yearDistribution" class="chart-shell"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5-Step Report Wizard Modal -->
+    <div id="reportWizardModal" class="report-wizard-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="wizardModalTitle">
+        <div class="report-wizard-card">
+            <!-- Modal Header -->
+            <div class="report-wizard-header">
+                <div class="report-wizard-title-wrap">
+                    <div class="report-wizard-icon"><i class="fas fa-file-waveform"></i></div>
+                    <div>
+                        <h3 id="wizardModalTitle">Survey Report Generator</h3>
+                        <p id="wizardModalSubtitle">Step 1 of 5: Select Survey / Form</p>
+                    </div>
+                </div>
+                <button type="button" class="report-wizard-close-btn" onclick="closeReportWizardModal()" aria-label="Close modal"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <!-- Stepper Progress Bar -->
+            <div class="report-wizard-stepper" aria-label="Wizard Steps">
+                <div class="wizard-step-node is-active" data-step="1" onclick="wizardJumpToStep(1)">
+                    <span class="step-num"><i class="fas fa-check"></i><b>1</b></span>
+                    <span class="step-label">Survey</span>
+                </div>
+                <div class="wizard-step-line"></div>
+                <div class="wizard-step-node" data-step="2" onclick="wizardJumpToStep(2)">
+                    <span class="step-num"><i class="fas fa-check"></i><b>2</b></span>
+                    <span class="step-label">Data</span>
+                </div>
+                <div class="wizard-step-line"></div>
+                <div class="wizard-step-node" data-step="3" onclick="wizardJumpToStep(3)">
+                    <span class="step-num"><i class="fas fa-check"></i><b>3</b></span>
+                    <span class="step-label">Filters</span>
+                </div>
+                <div class="wizard-step-line"></div>
+                <div class="wizard-step-node" data-step="4" onclick="wizardJumpToStep(4)">
+                    <span class="step-num"><i class="fas fa-check"></i><b>4</b></span>
+                    <span class="step-label">Format</span>
+                </div>
+                <div class="wizard-step-line"></div>
+                <div class="wizard-step-node" data-step="5" onclick="wizardJumpToStep(5)">
+                    <span class="step-num"><i class="fas fa-check"></i><b>5</b></span>
+                    <span class="step-label">Review</span>
+                </div>
+            </div>
+
+            <!-- Modal Body (Scrollable step containers) -->
+            <div class="report-wizard-body">
+                
+                <!-- STEP 1: Select Survey -->
+                <div class="wizard-step-pane" id="wizardPane1" data-step="1">
+                    <div class="wizard-step-intro">
+                        <h4><i class="fas fa-clipboard-list"></i> Select Survey or Tracer Form</h4>
+                        <p>Choose the survey you want to generate a report from. Only one survey can be selected at a time.</p>
+                    </div>
+                    <div class="wizard-search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="search" id="wizardSurveySearch" placeholder="Search surveys by title or description..." oninput="filterWizardSurveys()" autocomplete="off">
+                    </div>
+                    <div id="wizardSurveyListContainer" class="wizard-survey-grid">
+                        <div class="wizard-loading-state"><i class="fas fa-spinner fa-spin"></i> Loading available surveys...</div>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Choose Data to Include -->
+                <div class="wizard-step-pane" id="wizardPane2" data-step="2" hidden>
+                    <div class="wizard-step-intro">
+                        <div class="wizard-step-intro-head">
+                            <div>
+                                <h4><i class="fas fa-list-check"></i> Choose Categories &amp; Questions</h4>
+                                <p>Select which questions should appear in the generated report. Text and image questions are unselected by default.</p>
+                            </div>
+                            <span id="wizardQuestionSelectionBadge" class="wizard-counter-badge">0 selected</span>
+                        </div>
+                    </div>
+                    <div class="wizard-toolbar-row">
+                        <div class="wizard-search-box is-compact">
+                            <i class="fas fa-search"></i>
+                            <input type="search" id="wizardQuestionSearch" placeholder="Search questions in selected survey..." oninput="filterWizardQuestions()" autocomplete="off">
+                        </div>
+                        <div class="wizard-bulk-actions">
+                            <button type="button" class="btn-wizard-action" onclick="wizardToggleAllQuestions(true)"><i class="fas fa-check-double"></i> Select All</button>
+                            <button type="button" class="btn-wizard-action is-secondary" onclick="wizardToggleAllQuestions(false)"><i class="fas fa-xmark"></i> Clear All</button>
+                        </div>
+                    </div>
+                    <div id="wizardCategoriesContainer" class="wizard-categories-list">
+                        <!-- Dynamically populated categories & questions -->
+                    </div>
+                </div>
+
+                <!-- STEP 3: Filter Responses -->
+                <div class="wizard-step-pane" id="wizardPane3" data-step="3" hidden>
+                    <div class="wizard-step-intro">
+                        <h4><i class="fas fa-filter"></i> Filter Responses (Optional)</h4>
+                        <p>Narrow down which respondent records to include. Leave blank to include all survey responses.</p>
+                    </div>
+
+                    <!-- Live Match Banner -->
+                    <div class="wizard-live-match-banner">
+                        <div class="match-icon"><i class="fas fa-users-viewfinder"></i></div>
+                        <div class="match-info">
+                            <span>Matching Survey Responses:</span>
+                            <strong id="wizardLiveMatchCount">Loading count...</strong>
+                        </div>
+                        <button type="button" class="btn-wizard-action is-secondary" onclick="wizardResetFilters()"><i class="fas fa-rotate-left"></i> Reset Filters</button>
+                    </div>
+
+                    <div class="wizard-filter-sections">
+                        <!-- System / Demographic Filters -->
+                        <div class="wizard-filter-group">
+                            <h5><i class="fas fa-graduation-cap"></i> Alumni &amp; Submission Filters</h5>
+                            <div class="wizard-filter-grid">
+                                <label class="wizard-field">
+                                    <span>Graduation Year</span>
+                                    <select id="wizardFilterYear" onchange="wizardOnFilterChange()">
+                                        <option value="">All graduation years</option>
+                                    </select>
+                                </label>
+                                <label class="wizard-field">
+                                    <span>College</span>
+                                    <select id="wizardFilterCollege" onchange="wizardOnCollegeChange()">
+                                        <option value="">All colleges</option>
+                                    </select>
+                                </label>
+                                <label class="wizard-field">
+                                    <span>Department / Program</span>
+                                    <select id="wizardFilterCourse" onchange="wizardOnFilterChange()">
+                                        <option value="">All departments &amp; programs</option>
+                                    </select>
+                                </label>
+                                <label class="wizard-field">
+                                    <span>Review Status</span>
+                                    <select id="wizardFilterReviewStatus" onchange="wizardOnFilterChange()">
+                                        <option value="all">All review statuses</option>
+                                        <option value="reviewed">Reviewed</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="needs_revision">Needs Revision</option>
+                                    </select>
+                                </label>
+                                <label class="wizard-field">
+                                    <span>Submitted From Date</span>
+                                    <input type="date" id="wizardFilterDateFrom" onchange="wizardOnFilterChange()">
+                                </label>
+                                <label class="wizard-field">
+                                    <span>Submitted To Date</span>
+                                    <input type="date" id="wizardFilterDateTo" onchange="wizardOnFilterChange()">
+                                </label>
+                                <label class="wizard-field is-span-2">
+                                    <span>Search Alumni Name or Email</span>
+                                    <input type="text" id="wizardFilterSearch" placeholder="Type name or email to filter..." oninput="wizardOnFilterChange()" autocomplete="off">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Survey Answer Filters -->
+                        <div class="wizard-filter-group" id="wizardAnswerFilterSection">
+                            <h5><i class="fas fa-sliders"></i> Survey Answer Filters <small class="text-muted">(Filter respondents according to specific answers)</small></h5>
+                            <div id="wizardAnswerFiltersContainer" class="wizard-answer-filters-grid">
+                                <!-- Populated dynamically based on survey choice questions -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Select Document Type -->
+                <div class="wizard-step-pane" id="wizardPane4" data-step="4" hidden>
+                    <div class="wizard-step-intro">
+                        <h4><i class="fas fa-file-export"></i> Select Export Document Format</h4>
+                        <p>Choose the file format for your generated report. Only one format can be selected.</p>
+                    </div>
+
+                    <div class="wizard-format-grid">
+                        <label class="wizard-format-card is-selected" id="wizardFormatCardPdf">
+                            <input type="radio" name="wizardFormat" value="pdf" checked onchange="wizardOnFormatSelect('pdf')">
+                            <div class="wizard-format-inner">
+                                <div class="format-icon is-pdf"><i class="fas fa-file-pdf"></i></div>
+                                <h4>PDF Document (.pdf)</h4>
+                                <p>Standard printable PDF with university branding, summary metadata box, and structured response tables.</p>
+                                <span class="format-tag is-recommended">Recommended for presentations &amp; printing</span>
+                            </div>
+                        </label>
+
+                        <label class="wizard-format-card" id="wizardFormatCardDocx">
+                            <input type="radio" name="wizardFormat" value="docx" onchange="wizardOnFormatSelect('docx')">
+                            <div class="wizard-format-inner">
+                                <div class="format-icon is-docx"><i class="fas fa-file-word"></i></div>
+                                <h4>Word Document (.docx)</h4>
+                                <p>Fully editable Microsoft Word document organized by survey category with styled tables.</p>
+                                <span class="format-tag">Best for reports requiring manual editing</span>
+                            </div>
+                        </label>
+
+                        <label class="wizard-format-card" id="wizardFormatCardCsv">
+                            <input type="radio" name="wizardFormat" value="csv" onchange="wizardOnFormatSelect('csv')">
+                            <div class="wizard-format-inner">
+                                <div class="format-icon is-csv"><i class="fas fa-file-csv"></i></div>
+                                <h4>CSV Spreadsheet (.csv)</h4>
+                                <p>Tabular raw response data containing selected questions as columns, ready for Excel or SPSS analysis.</p>
+                                <span class="format-tag">Best for statistical analysis &amp; Excel</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- STEP 5: Review and Generate -->
+                <div class="wizard-step-pane" id="wizardPane5" data-step="5" hidden>
+                    <div class="wizard-step-intro">
+                        <h4><i class="fas fa-clipboard-check"></i> Review Configuration &amp; Generate</h4>
+                        <p>Review the report scope, included data, and applied filters before exporting.</p>
+                    </div>
+
+                    <div class="wizard-review-card">
+                        <div class="wizard-review-section">
+                            <div class="review-label"><i class="fas fa-poll"></i> Selected Survey</div>
+                            <div class="review-value" id="wizardReviewSurveyTitle">—</div>
+                        </div>
+
+                        <div class="wizard-review-grid-2">
+                            <div class="wizard-review-section">
+                                <div class="review-label"><i class="fas fa-layer-group"></i> Data Included</div>
+                                <div class="review-value" id="wizardReviewDataSummary">—</div>
+                            </div>
+                            <div class="wizard-review-section">
+                                <div class="review-label"><i class="fas fa-file"></i> Document Format</div>
+                                <div class="review-value" id="wizardReviewFormat">—</div>
+                            </div>
+                        </div>
+
+                        <div class="wizard-review-section">
+                            <div class="review-label"><i class="fas fa-filter"></i> Active Filters</div>
+                            <div id="wizardReviewFiltersList" class="wizard-filter-pills-list">
+                                <!-- Filter tags/pills -->
+                            </div>
+                        </div>
+
+                        <div class="wizard-review-highlight">
+                            <div class="highlight-info">
+                                <span>Total Matching Responses</span>
+                                <h3 id="wizardReviewMatchCount">—</h3>
+                            </div>
+                            <div class="highlight-note" id="wizardReviewMatchNote">Ready to compile and export.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="report-wizard-footer">
+                <button type="button" class="btn-wizard-footer is-cancel" onclick="closeReportWizardModal()">Cancel</button>
+                <div class="wizard-footer-right">
+                    <button type="button" id="wizardPrevBtn" class="btn-wizard-footer is-prev" onclick="wizardPrevStep()" style="display:none;"><i class="fas fa-arrow-left"></i> Previous</button>
+                    <button type="button" id="wizardNextBtn" class="btn-wizard-footer is-next" onclick="wizardNextStep()">Next Step <i class="fas fa-arrow-right"></i></button>
+                    <button type="button" id="wizardGenerateBtn" class="btn-wizard-footer is-generate" onclick="wizardExecuteGeneration()" style="display:none;"><i class="fas fa-file-export"></i> Generate &amp; Download Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Alumni Modal -->
+    <div id="addAlumniModal" class="modal">
+        <div class="modal-content">
+            <h3>Add New Alumni</h3>
+            <input type="text" id="alumniName" placeholder="Full Name">
+            <input type="text" id="alumniYear" placeholder="Graduation Year">
+            <select id="alumniStatus">
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+            </select>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeAddAlumniModal()">Cancel</button>
+                <button class="btn-primary" onclick="addAlumni()">Add Alumni</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Event Modal -->
+    <div id="createEventModal" class="modal">
+        <div class="modal-content">
+            <h3>Create New Event</h3>
+            <input type="text" id="eventName" placeholder="Event Name">
+            <input type="date" id="eventDate">
+            <input type="text" id="eventLocation" placeholder="Location">
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeCreateEventModal()">Cancel</button>
+                <button class="btn-primary" onclick="createEvent()">Create Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="StaffCommon.js"></script>
+</body>
+</html>

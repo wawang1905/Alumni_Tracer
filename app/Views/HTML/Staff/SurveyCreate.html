@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body class="staff-survey-create-page">
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎓 Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item active" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title" id="surveyEditorPageTitle">Create New Survey</div>
+                <div class="staff-info">
+                    <span class="staff-name">Staff User</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shared wizard navigation bar (sticky with top bar) -->
+            <div class="survey-wizard-nav" id="surveyWizardNav">
+                <!-- Row 1: Back button | Step header | Action buttons -->
+                <div class="survey-wizard-nav-row1">
+                    <!-- Left: Back/Cancel button -->
+                    <div class="section-header survey-wizard-topbar" id="wizardNavTopbar">
+                        <button class="btn-secondary" type="button" onclick="location.href='Surveys.html'">Back to Surveys</button>
+                    </div>
+
+                    <!-- Center: Shared step header (updated by JS on step change) -->
+                    <div class="survey-wizard-step-header" id="wizardSharedStepHeader">
+                        <h3 class="survey-wizard-step-title" id="wizardSharedStepTitle">Survey details</h3>
+                        <p class="survey-wizard-step-sub" id="wizardSharedStepSub">Start by giving your survey a name and setting the dates.</p>
+                    </div>
+
+                    <!-- Right: Shared footer/action buttons (updated by JS on step change) -->
+                    <div class="survey-wizard-footer" id="wizardSharedFooter">
+                        <!-- Populated dynamically by JS per step -->
+                    </div>
+                </div>
+
+                <!-- Row 2: Progress bar (centered) -->
+                <div class="survey-wizard-nav-row2">
+                    <div class="survey-wizard-progress" id="surveyWizardProgress" aria-label="Survey creation progress"></div>
+                </div>
+            </div>
+
+            <div class="survey-create-panel" id="surveyWizard">
+
+                <!-- Step 1: Details -->
+                <div class="survey-wizard-step" id="wizardStep1" data-step="1">
+
+                    <div class="section-card survey-wizard-card">
+                        <div class="survey-wizard-info-box">
+                            <i class="fas fa-lightbulb" aria-hidden="true"></i>
+                            <span>A clear survey name helps respondents understand the purpose. Keep descriptions concise but informative.</span>
+                        </div>
+                    </div>
+
+                    <div class="section-card survey-wizard-card">
+                        <h4 class="survey-wizard-section-title"><i class="fas fa-file-alt"></i> Form details</h4>
+                        <div class="survey-wizard-field survey-wizard-field-full">
+                            <label class="survey-wizard-label" for="wizardFormName">Survey name <span class="required">*</span></label>
+                            <input type="text" id="wizardFormName" maxlength="200" placeholder="e.g. Employee Engagement Survey">
+                            <div class="survey-wizard-field-error" id="wizardFormNameError"></div>
+                        </div>
+                        <div class="survey-wizard-field survey-wizard-field-full">
+                            <label class="survey-wizard-label" for="wizardFormDetails">Description</label>
+                            <textarea id="wizardFormDetails" maxlength="2000" placeholder="What is this survey about? Why should people respond?"></textarea>
+                            <div class="survey-wizard-field-error" id="wizardFormDetailsError"></div>
+                        </div>
+                        <div class="survey-wizard-field-row">
+                            <div class="survey-wizard-field">
+                                <label class="survey-wizard-label" for="wizardDateOpen">When should this survey open? <span class="required">*</span></label>
+                                <input type="date" id="wizardDateOpen">
+                                <div class="survey-wizard-field-error" id="wizardDateOpenError"></div>
+                            </div>
+                            <div class="survey-wizard-field">
+                                <label class="survey-wizard-label" for="wizardDateClose">When should it close? <span class="required">*</span></label>
+                                <input type="date" id="wizardDateClose">
+                                <div class="survey-wizard-field-error" id="wizardDateCloseError"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Questions -->
+                <div class="survey-wizard-step" id="wizardStep2" data-step="2" hidden>
+                    <div class="survey-step2-layout">
+                        <!-- Left: Category Creation & Navigation Panel -->
+                        <div class="survey-step2-creator-panel">
+                            <div class="section-card survey-wizard-card">
+                                <h4 class="survey-wizard-section-title">
+                                    <i class="fas fa-folder-plus"></i> Add Category
+                                </h4>
+                                <div class="survey-wizard-info-box" style="margin-bottom: 16px;">
+                                    <i class="fas fa-magic"></i>
+                                    <span>Categories group related questions. Each category is added directly to your draft canvas on the right.</span>
+                                </div>
+                                <div class="survey-wizard-field">
+                                    <label class="survey-wizard-label" for="wizardNewCategoryName">Category name</label>
+                                    <input type="text" id="wizardNewCategoryName" maxlength="100" placeholder="e.g. Educational Background" onkeydown="if(event.key==='Enter') wizardAddCategoryFromBuilder()">
+                                </div>
+                                <button type="button" class="btn-primary" style="width: 100%; justify-content: center;" onclick="wizardAddCategoryFromBuilder()">
+                                    <i class="fas fa-plus-circle"></i> Add category to draft
+                                </button>
+                            </div>
+
+                            <!-- Left: Draft Structure Outline -->
+                            <div class="section-card survey-wizard-card">
+                                <h4 class="survey-wizard-section-title">
+                                    <i class="fas fa-list-ol"></i> Draft Outline
+                                </h4>
+                                <div id="wizardDraftCategorySummary" class="survey-wizard-draft-summary">
+                                    <!-- Populated dynamically by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Live Questionnaire Draft Section (Bigger) -->
+                        <div class="survey-step2-draft-panel">
+                            <div class="section-card survey-wizard-card survey-draft-header-card">
+                                <div class="survey-draft-header-content">
+                                    <div>
+                                        <h4 class="survey-draft-title"><i class="fas fa-clipboard-list"></i> Survey Questionnaire Draft</h4>
+                                        <p class="survey-draft-subtitle">Configure questions, answer options, rating scales, and logic within each category.</p>
+                                    </div>
+                                    <div class="survey-draft-stats-badge" id="wizardDraftStatsBadge">
+                                        <span id="wizardDraftTotalQuestions">0 Questions</span> • <span id="wizardDraftTotalCategories">0 Categories</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="wizardCategoriesContainer" class="survey-draft-categories-container"></div>
+                            
+                            <button type="button" class="survey-wizard-add-category-btn" onclick="wizardAddCategory()" style="margin-top: 8px;">
+                                <i class="fas fa-folder-plus"></i> Add another category
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Preview -->
+                <div class="survey-wizard-step" id="wizardStep3" data-step="3" hidden>
+                    <div class="section-card survey-wizard-card">
+                        <h4 class="survey-wizard-section-title"><i class="fas fa-eye"></i> Survey preview</h4>
+                        <div class="survey-wizard-stats-grid">
+                            <div class="survey-wizard-stat-card">
+                                <div class="survey-wizard-stat-label">Total questions</div>
+                                <div class="survey-wizard-stat-value" id="wizardPreviewQuestionCount">0</div>
+                            </div>
+                            <div class="survey-wizard-stat-card">
+                                <div class="survey-wizard-stat-label">Categories</div>
+                                <div class="survey-wizard-stat-value" id="wizardPreviewCategoryCount">0</div>
+                            </div>
+                        </div>
+                        <div class="survey-wizard-preview-box">
+                            <div class="survey-wizard-preview-title" id="wizardPreviewTitle">Survey Title</div>
+                            <div class="survey-wizard-preview-desc" id="wizardPreviewDesc">Survey description will appear here</div>
+                            <div class="survey-wizard-preview-dates">
+                                <span><i class="fas fa-calendar-plus"></i> Opens: <strong id="wizardPreviewDateOpen">-</strong></span>
+                                <span><i class="fas fa-calendar-times"></i> Closes: <strong id="wizardPreviewDateClose">-</strong></span>
+                            </div>
+                            <div class="survey-wizard-preview-divider"></div>
+                            <div id="wizardPreviewQuestions"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Publish -->
+                <div class="survey-wizard-step" id="wizardStep4" data-step="4" hidden>
+                    <div class="section-card survey-wizard-card">
+                        <h4 class="survey-wizard-section-title"><i class="fas fa-tasks"></i> Final checklist</h4>
+                        <div class="survey-wizard-checklist">
+                            <div class="survey-wizard-checklist-item done">
+                                <div class="survey-wizard-checklist-icon"><i class="fas fa-check"></i></div>
+                                <div>
+                                    <div class="survey-wizard-checklist-label">Survey details complete</div>
+                                    <div class="survey-wizard-checklist-detail">Name and dates are set</div>
+                                </div>
+                            </div>
+                            <div class="survey-wizard-checklist-item done">
+                                <div class="survey-wizard-checklist-icon"><i class="fas fa-check"></i></div>
+                                <div>
+                                    <div class="survey-wizard-checklist-label">Questions added</div>
+                                    <div class="survey-wizard-checklist-detail" id="wizardPublishQuestionCount">0 questions ready</div>
+                                </div>
+                            </div>
+                            <div class="survey-wizard-checklist-item done">
+                                <div class="survey-wizard-checklist-icon"><i class="fas fa-check"></i></div>
+                                <div>
+                                    <div class="survey-wizard-checklist-label">Survey previewed</div>
+                                    <div class="survey-wizard-checklist-detail">All questions verified</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card survey-wizard-card">
+                        <h4 class="survey-wizard-section-title"><i class="fas fa-rocket"></i> Choose how to publish</h4>
+                        <div class="survey-wizard-publish-options">
+                            <div class="survey-wizard-option-card selected" data-method="immediate" onclick="wizardSelectPublishMethod('immediate', this)">
+                                <div class="survey-wizard-option-icon"><i class="fas fa-paper-plane"></i></div>
+                                <div class="survey-wizard-option-title">Publish now</div>
+                                <div class="survey-wizard-option-desc">Survey goes live immediately</div>
+                            </div>
+                            <div class="survey-wizard-option-card" data-method="scheduled" onclick="wizardSelectPublishMethod('scheduled', this)">
+                                <div class="survey-wizard-option-icon"><i class="fas fa-calendar-alt"></i></div>
+                                <div class="survey-wizard-option-title">Schedule</div>
+                                <div class="survey-wizard-option-desc">Set a specific date &amp; time to publish</div>
+                            </div>
+                        </div>
+                        <div class="survey-wizard-schedule-input" id="wizardScheduleInput">
+                            <div class="survey-wizard-field-row">
+                                <div class="survey-wizard-field">
+                                    <label class="survey-wizard-label" for="wizardScheduleDate">Publish date <span class="required">*</span></label>
+                                    <input type="date" id="wizardScheduleDate">
+                                </div>
+                                <div class="survey-wizard-field">
+                                    <label class="survey-wizard-label" for="wizardScheduleTime">Publish time <span class="required">*</span></label>
+                                    <input type="time" id="wizardScheduleTime" value="09:00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success state -->
+                <div class="survey-wizard-step" id="wizardSuccess" data-step="success" hidden>
+                    <div class="survey-wizard-progress" id="surveyWizardSuccessProgress"></div>
+
+                    <div class="section-card survey-wizard-card">
+                        <div class="survey-wizard-success-state">
+                            <div class="survey-wizard-success-icon"><i class="fas fa-check-circle"></i></div>
+                            <div class="survey-wizard-success-title">Your survey is live!</div>
+                            <p class="survey-wizard-success-text">
+                                <strong id="wizardSuccessSurveyName">Untitled Survey</strong> has been successfully published and is now accepting responses.
+                            </p>
+                            <div class="survey-wizard-success-actions">
+                                <button class="btn-secondary" type="button" onclick="wizardViewResponses()">View responses</button>
+                                <button class="btn-primary" type="button" onclick="wizardCreateAnother()">Create another</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Survey Publish Modal -->
+    <div id="confirmPublishSurveyModal" class="modal" role="dialog" aria-labelledby="confirmPublishModalTitle" aria-modal="true" onclick="if(event.target === this) closeConfirmPublishModal()">
+        <div class="modal-content confirm-publish-modal-content">
+            <div class="confirm-publish-header">
+                <div class="confirm-publish-icon">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <div>
+                    <h3 id="confirmPublishModalTitle" class="confirm-publish-title">Ready to Publish Survey?</h3>
+                    <p class="confirm-publish-desc">Please review the details below to make sure everything is correct before going live.</p>
+                </div>
+                <button type="button" class="confirm-publish-close" onclick="closeConfirmPublishModal()" aria-label="Close dialog">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="confirm-publish-body">
+                <div class="confirm-publish-survey-card">
+                    <div class="confirm-publish-name" id="confirmPublishSurveyName">Survey Name</div>
+                    <div class="confirm-publish-meta-grid">
+                        <div class="confirm-meta-item">
+                            <span class="confirm-meta-label"><i class="fas fa-question-circle"></i> Questions</span>
+                            <span class="confirm-meta-val" id="confirmPublishQuestionCount">0 questions</span>
+                        </div>
+                        <div class="confirm-meta-item">
+                            <span class="confirm-meta-label"><i class="fas fa-folder"></i> Categories</span>
+                            <span class="confirm-meta-val" id="confirmPublishCategoryCount">0 categories</span>
+                        </div>
+                        <div class="confirm-meta-item">
+                            <span class="confirm-meta-label"><i class="fas fa-bullhorn"></i> Publish Mode</span>
+                            <span class="confirm-meta-val" id="confirmPublishMethodText">Immediate</span>
+                        </div>
+                        <div class="confirm-meta-item">
+                            <span class="confirm-meta-label"><i class="fas fa-calendar-alt"></i> Schedule</span>
+                            <span class="confirm-meta-val" id="confirmPublishScheduleText">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="confirm-publish-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Are you sure you want to proceed?</strong>
+                        <p>Once published, alumni respondents will be able to view and answer this survey during the active period.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-buttons confirm-publish-actions">
+                <button type="button" class="btn-secondary" onclick="closeConfirmPublishModal()">
+                    <i class="fas fa-arrow-left"></i> Keep Reviewing
+                </button>
+                <button type="button" class="btn-primary is-publish-confirm" id="modalConfirmPublishBtn" onclick="wizardExecutePublish()">
+                    <i class="fas fa-check-circle"></i> Yes, Publish Survey
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="survey-wizard-toast-container" aria-live="polite"></div>
+
+    <script src="StaffCommon.js"></script>
+</body>
+</html>

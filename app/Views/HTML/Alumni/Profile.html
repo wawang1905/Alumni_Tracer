@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer - Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="AlumniCommon.css">
+</head>
+<body>
+    <div class="alumni-shell">
+        <div class="alumni-sidebar-overlay" id="alumniSidebarOverlay"></div>
+        <aside class="alumni-sidebar" id="alumniSidebar">
+            <div class="alumni-brand">
+                <h2>Alumni Tracker</h2>
+                <p>Navigation</p>
+            </div>
+            <nav class="alumni-menu">
+                <a class="alumni-menu-item" href="Main.html"><i class="fas fa-house"></i><span>Main Page</span></a>
+                <a class="alumni-menu-item" href="Events.html"><i class="fas fa-calendar-alt"></i><span>Events</span></a>
+                <a class="alumni-menu-item" href="News.html"><i class="fas fa-bullhorn"></i><span>News</span></a>
+                <a class="alumni-menu-item" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Survey</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
+            </nav>
+            <div class="alumni-sidebar-profile" data-profile-menu>
+                <button class="alumni-profile-trigger" data-profile-trigger type="button" aria-expanded="false">
+                    <span class="alumni-avatar"><i class="fas fa-user"></i></span>
+                    <span class="alumni-profile-copy">
+                        <strong data-alumni-user-name>Alumni User</strong>
+                        <small data-alumni-user-role>alumni</small>
+                    </span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="alumni-profile-dropdown" data-profile-dropdown>
+                    <a class="alumni-dropdown-item" href="Profile.html">
+                        <i class="fas fa-user"></i>
+                        <span>Profile</span>
+                    </a>
+                    <button class="alumni-dropdown-item danger" data-logout-button type="button">
+                        <i class="fas fa-right-from-bracket"></i>
+                        <span>Log Out</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="alumni-content">
+            <header class="alumni-topbar">
+                <div class="alumni-topbar-left">
+                    <button class="alumni-menu-toggle" id="menuToggleButton" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="alumniSidebar">
+                        <i class="fas fa-bars"></i>
+                        <span class="alumni-menu-dot" id="menuToggleNotificationDot" aria-hidden="true"></span>
+                    </button>
+                    <div class="page-title-block">
+                        <h1>My Profile</h1>
+                        <!-- <p>View and manage your personal information</p> -->
+                    </div>
+                </div>
+                <div class="alumni-topbar-actions" data-profile-menu>
+                    <button class="alumni-profile-trigger alumni-profile-trigger--icon" data-profile-trigger type="button" aria-label="Open profile menu" aria-expanded="false">
+                        <span class="alumni-avatar"><i class="fas fa-user"></i></span>
+                    </button>
+                    <div class="alumni-profile-dropdown" data-profile-dropdown>
+                        <div class="alumni-dropdown-user">
+                            <strong data-alumni-user-name>Alumni User</strong>
+                            <small data-alumni-user-role>alumni</small>
+                        </div>
+                        <a class="alumni-dropdown-item" href="Profile.html">
+                            <i class="fas fa-user"></i>
+                            <span>Profile</span>
+                        </a>
+                        <button class="alumni-dropdown-item danger" data-logout-button type="button">
+                            <i class="fas fa-right-from-bracket"></i>
+                            <span>Log Out</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <section class="profile-container profile-container--minimal">
+                <!-- Top Identity Card (Minimalist Hero) -->
+                <div class="profile-hero-card">
+                    <div class="profile-hero-avatar-wrap">
+                        <div class="profile-avatar-circle" id="profileAvatarCircle" onclick="openProfilePictureLightbox()" title="View photo" role="button" tabindex="0">
+                            <i class="fas fa-user profile-avatar-placeholder" id="profileAvatarPlaceholder" aria-hidden="true"></i>
+                            <img class="profile-avatar-img" id="profileAvatarImg" src="" alt="Profile picture" style="display:none;">
+                        </div>
+                        <button class="profile-avatar-overlay" type="button" title="Change photo"
+                                onclick="document.getElementById('profilePictureInput').click()" aria-label="Change profile picture">
+                            <i class="fas fa-camera" aria-hidden="true"></i>
+                        </button>
+                        <input type="file" id="profilePictureInput" accept="image/jpeg,image/png,image/webp,image/gif"
+                               onchange="handleProfilePictureSelect(event)" aria-label="Select profile picture">
+                    </div>
+
+                    <div class="profile-hero-body">
+                        <div class="profile-hero-top">
+                            <div class="profile-hero-title-group">
+                                <input type="text" id="profileCardName" class="profile-hero-name"
+                                       readonly aria-label="Full name" placeholder="Alumni User" value="Alumni User">
+                                <div class="profile-hero-badges">
+                                    <span class="profile-pill profile-pill--id">
+                                        <i class="fas fa-id-badge"></i>
+                                        <input type="text" id="profileCardAlumniId" class="profile-pill-input"
+                                               readonly aria-label="Alumni ID" placeholder="Alumni ID">
+                                    </span>
+                                    <span class="profile-pill profile-pill--status">
+                                        <span class="status-dot"></span> Verified Alumni
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-hero-meta">
+                            <div class="profile-meta-item">
+                                <i class="fas fa-envelope"></i>
+                                <input type="email" id="profileCardEmail" class="profile-meta-input"
+                                       readonly aria-label="Email address" placeholder="No email set">
+                            </div>
+                            <div class="profile-meta-item">
+                                <i class="fas fa-phone"></i>
+                                <input type="text" id="profileCardContact" class="profile-meta-input"
+                                       readonly aria-label="Contact number" placeholder="No contact number">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Personal Information Section -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <div>
+                            <h3 class="profile-card-heading">Personal Information</h3>
+                            <p class="profile-card-subheading">Your personal and contact details</p>
+                        </div>
+                        <button class="btn-minimal-edit" id="editPersonalBtn" onclick="enablePersonalEdit()" type="button">
+                            <i class="fas fa-pen-to-square"></i> Edit
+                        </button>
+                    </div>
+
+                    <div class="profile-card-body">
+                        <!-- Identity Block -->
+                        <div class="profile-form-grid profile-form-grid--3">
+                            <div class="profile-form-field">
+                                <label for="profileAlumniId">Alumni ID</label>
+                                <input type="text" id="profileAlumniId" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileFirstName">First Name</label>
+                                <input type="text" id="profileFirstName" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileLastName">Last Name</label>
+                                <input type="text" id="profileLastName" class="minimal-input" readonly>
+                            </div>
+                        </div>
+
+                        <div class="profile-divider"></div>
+
+                        <!-- Contact Block -->
+                        <div class="profile-form-grid profile-form-grid--2">
+                            <div class="profile-form-field">
+                                <label for="profileEmail">
+                                    Email Address
+                                    <span class="minimal-badge-edit" id="emailEditableTag" style="display:none;">Editable</span>
+                                </label>
+                                <input type="email" id="profileEmail" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileContactNumber">Contact Number</label>
+                                <input type="text" id="profileContactNumber" class="minimal-input" readonly>
+                            </div>
+                        </div>
+
+                        <div class="profile-divider"></div>
+
+                        <!-- Address Block -->
+                        <div class="profile-form-grid profile-form-grid--3">
+                            <div class="profile-form-field">
+                                <label for="profileProvince">Province</label>
+                                <input type="text" id="profileProvince" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileMunicipality">Municipality / City</label>
+                                <input type="text" id="profileMunicipality" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileBarangay">Barangay</label>
+                                <input type="text" id="profileBarangay" class="minimal-input" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-actions" id="personalActions" style="display: none;">
+                        <button class="btn-minimal-cancel" onclick="cancelPersonalEdit()" type="button">
+                            Cancel
+                        </button>
+                        <button class="btn-minimal-save" onclick="savePersonalInfo()" type="button">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Academic Information Section -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <div>
+                            <h3 class="profile-card-heading">Academic Record</h3>
+                            <p class="profile-card-subheading">University credentials and program history</p>
+                        </div>
+                        <span class="profile-pill profile-pill--verified">Official</span>
+                    </div>
+
+                    <div class="profile-card-body">
+                        <div class="profile-form-grid profile-form-grid--2">
+                            <div class="profile-form-field">
+                                <label for="profileGraduationYear">Graduation Year</label>
+                                <input type="text" id="profileGraduationYear" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileCollege">College</label>
+                                <input type="text" id="profileCollege" class="minimal-input" readonly>
+                            </div>
+                            <div class="profile-form-field profile-form-field--full">
+                                <label for="profileCourse">Degree Program / Course</label>
+                                <input type="text" id="profileCourse" class="minimal-input" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="AlumniCommon.js"></script>
+    <script>
+        // Profile specific functionality
+        let isEditingPersonal = false;
+        let originalPersonalData = {};
+
+        function loadProfileData() {
+            // Load profile data from server regardless of session status
+            // The server will handle authorization
+            loadAlumniProfile();
+        }
+
+        function enablePersonalEdit() {
+            isEditingPersonal = true;
+            
+            // Store original values
+            originalPersonalData = {
+                email: document.getElementById('profileEmail').value
+            };
+
+            // Enable editable field
+            const emailInput = document.getElementById('profileEmail');
+            emailInput.readOnly = false;
+
+            // Show/hide buttons & tags
+            document.getElementById('editPersonalBtn').style.display = 'none';
+            document.getElementById('personalActions').style.display = 'flex';
+            const editableTag = document.getElementById('emailEditableTag');
+            if (editableTag) editableTag.style.display = 'inline-flex';
+
+            // Add edit styling and focus
+            emailInput.classList.add('editable');
+            emailInput.focus();
+            emailInput.select();
+        }
+
+        function cancelPersonalEdit() {
+            isEditingPersonal = false;
+
+            // Restore original values
+            const emailInput = document.getElementById('profileEmail');
+            emailInput.value = originalPersonalData.email;
+
+            // Disable field
+            emailInput.readOnly = true;
+
+            // Show/hide buttons & tags
+            document.getElementById('editPersonalBtn').style.display = 'inline-flex';
+            document.getElementById('personalActions').style.display = 'none';
+            const editableTag = document.getElementById('emailEditableTag');
+            if (editableTag) editableTag.style.display = 'none';
+
+            // Remove edit styling
+            emailInput.classList.remove('editable');
+        }
+
+        async function savePersonalInfo() {
+            const email = document.getElementById('profileEmail').value.trim();
+
+            if (!email) {
+                alert('Please enter your email address.');
+                return;
+            }
+
+            if (!validateEmail(email)) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+
+            try {
+                const response = await fetch(getUpdateProfileUrl(), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email
+                    }),
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    alert(result.message || 'Unable to update profile.');
+                    return;
+                }
+
+                alert('Profile updated successfully!');
+                
+                // Update session data
+                if (result.user) {
+                    updateSessionUser(result.user);
+                }
+
+                cancelPersonalEdit();
+                const cardEmail = document.getElementById('profileCardEmail');
+                if (cardEmail) cardEmail.value = email;
+            } catch (error) {
+                alert('Unable to update profile right now.');
+            }
+        }
+
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function displayProfileData(profileData) {
+            document.getElementById('profileAlumniId').value = profileData.alumni_id || '';
+            document.getElementById('profileFirstName').value = profileData.firstName || '';
+            document.getElementById('profileLastName').value = profileData.lastName || '';
+            document.getElementById('profileEmail').value = profileData.email || '';
+            document.getElementById('profileContactNumber').value = profileData.contactNumber || '';
+            document.getElementById('profileProvince').value = profileData.province || '';
+            document.getElementById('profileMunicipality').value = profileData.municipality || '';
+            document.getElementById('profileBarangay').value = profileData.barangay || '';
+            document.getElementById('profileGraduationYear').value = profileData.graduationYear || '';
+            document.getElementById('profileCollege').value = profileData.college || '';
+            document.getElementById('profileCourse').value = profileData.course || '';
+
+            // Profile picture card summary
+            document.getElementById('profileCardAlumniId').value = profileData.alumni_id || '';
+            document.getElementById('profileCardName').value =
+                [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
+            document.getElementById('profileCardEmail').value = profileData.email || '';
+            document.getElementById('profileCardContact').value = profileData.contactNumber || '';
+
+            if (profileData.has_profile_picture && profileData.profile_picture_url) {
+                updateAlumniAvatarElements(profileData.profile_picture_url + '?_t=' + Date.now());
+            }
+        }
+
+        // Load profile when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            loadProfileData();
+            loadAlumniAvatars();
+        });
+
+        // ── Profile Picture Upload ──────────────────────────────────────────
+
+        function handleProfilePictureSelect(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            // Client-side preview across all avatar elements before upload
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                updateAlumniAvatarElements(e.target.result);
+            };
+            reader.readAsDataURL(file);
+
+            // Auto-upload immediately after selection
+            uploadProfilePicture(file);
+        }
+
+        async function uploadProfilePicture(file) {
+            const btn = document.getElementById('uploadPhotoBtn');
+            const feedback = document.getElementById('uploadFeedback');
+            const input = document.getElementById('profilePictureInput');
+
+            // Loading state
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner" aria-hidden="true"></i><span>Uploading…</span>';
+            }
+            if (feedback) {
+                feedback.textContent = '';
+                feedback.className = 'upload-feedback';
+            }
+
+            const formData = new FormData();
+            formData.append('profile_picture', file);
+
+            try {
+                const response = await fetch(getUploadProfilePictureUrl(), {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData,
+                });
+
+                const result = await response.json().catch(() => ({}));
+
+                if (!response.ok || !result.success) {
+                    // Revert preview on failure
+                    loadAlumniAvatars();
+                    showUploadFeedback(feedback, result.message || 'Upload failed. Please try again.', 'error');
+                    return;
+                }
+
+                // Update all avatars on page with the newly served live URL
+                const liveUrl = (result.profile_picture_url || getServeProfilePictureUrl()) + '?_t=' + Date.now();
+                updateAlumniAvatarElements(liveUrl);
+
+                showUploadFeedback(feedback, 'Profile picture updated!', 'success');
+            } catch {
+                showUploadFeedback(feedback, 'Network error. Please try again.', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-upload" aria-hidden="true"></i><span>Upload Photo</span>';
+                }
+                input.value = ''; // reset so same file can be re-selected
+            }
+        }
+
+        function showUploadFeedback(el, message, type) {
+            if (!el) {
+                // No inline feedback element: only surface errors
+                if (type === 'error') alert(message);
+                return;
+            }
+            el.textContent = message;
+            el.className = 'upload-feedback ' + type + ' visible';
+            setTimeout(() => { el.classList.remove('visible'); }, 4000);
+        }
+
+        // ── Profile Picture Lightbox Viewer ──────────────────────────────────
+
+        function openProfilePictureLightbox() {
+            const img = document.getElementById('profileAvatarImg');
+            // If no photo is uploaded, trigger file upload picker
+            if (!img || img.style.display === 'none' || !img.src) {
+                document.getElementById('profilePictureInput').click();
+                return;
+            }
+
+            const modal = document.getElementById('imageLightboxModal');
+            const lightboxImg = document.getElementById('lightboxImage');
+            const caption = document.getElementById('lightboxCaption');
+            const userName = document.querySelector('[data-alumni-user-name]')?.textContent || 'Profile Picture';
+
+            lightboxImg.src = img.src;
+            if (caption) caption.textContent = userName;
+
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeProfilePictureLightbox() {
+            const modal = document.getElementById('imageLightboxModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeProfilePictureLightbox();
+        });
+    </script>
+
+    <!-- Profile Picture View Lightbox Modal -->
+    <div class="image-lightbox-modal" id="imageLightboxModal" onclick="if(event.target === this) closeProfilePictureLightbox()" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="image-lightbox-content">
+            <button class="image-lightbox-close" type="button" onclick="closeProfilePictureLightbox()" aria-label="Close photo view" title="Close (Esc)">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+            <img class="image-lightbox-img" id="lightboxImage" src="" alt="Full Profile Picture">
+            <p class="image-lightbox-caption" id="lightboxCaption">Profile Picture</p>
+        </div>
+    </div>
+</body>
+</html>

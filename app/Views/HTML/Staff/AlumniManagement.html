@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script>
+</head>
+<body class="alumni-management-page">
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎓 Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item active" data-page="alumni" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" data-page="coordinators" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" data-page="events" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item" data-page="news" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item" data-page="surveys" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item" data-page="reports" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item" data-page="payments" onclick="location.href='Payments.html'">
+                    <i class="fas fa-receipt"></i>
+                    <span>Payments</span>
+                </div>
+                <div class="menu-item" data-page="settings" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title" id="pageTitle">Alumni Management</div>
+                <div class="staff-info">
+                    <span class="staff-name">Sarah Johnson</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alumni Management Page -->
+            <div id="alumniPage">
+                <div class="section-card">
+                    <div class="section-header">
+                        <div>
+                            <h3><i class="fas fa-users"></i> Alumni Batches</h3>
+                            <p class="alumni-section-copy">Browse alumni by batch year, then open a batch to drill down into college, department, and finally the alumni list.</p>
+                        </div>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                            <button class="btn-primary" onclick="openAddBatchModal()">Open New Batch</button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Row -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="totalAlumniStat">—</h3>
+                                <p>Total Alumni</p>
+                            </div>
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="totalCollegesStat">—</h3>
+                                <p>Total Colleges</p>
+                            </div>
+                            <div class="stat-icon">
+                                <i class="fas fa-building-columns"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="totalCoursesStat">—</h3>
+                                <p>Total Departments</p>
+                            </div>
+                            <div class="stat-icon">
+                                <i class="fas fa-book"></i>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="totalBatchYearsStat">—</h3>
+                                <p>Total Batch Years</p>
+                            </div>
+                            <div class="stat-icon">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="alumniBatchGrid" class="alumni-batch-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Alumni Modal -->
+    <div id="addBatchModal" class="modal">
+        <div class="modal-content add-batch-modal-content">
+            <h3>Add New Batch</h3>
+            <input type="text" id="batchGraduationYear" placeholder="Batch Year (e.g. 2024)">
+            <div class="batch-picker-block">
+                <label class="batch-picker-label">Colleges</label>
+                <div id="batchCollegeOptions" class="batch-checkbox-grid">
+                    <div class="batch-picker-state">Loading colleges...</div>
+                </div>
+            </div>
+            <div class="batch-picker-block">
+                <label class="batch-picker-label">Departments</label>
+                <div id="batchDepartmentOptions" class="batch-checkbox-grid">
+                    <div class="batch-picker-state">Choose college(s) first.</div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeAddBatchModal()">Cancel</button>
+                <button class="btn-primary" onclick="addBatch()">Create Batch</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addAlumniModal" class="modal">
+        <div class="modal-content">
+            <h3>Add New Alumni</h3>
+            <input type="text" id="alumniGraduationYear" placeholder="Graduation Year" readonly>
+            <input type="text" id="alumniLastName" placeholder="Last Name">
+            <input type="text" id="alumniFirstName" placeholder="First Name">
+            <select id="alumniStatus">
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            <input type="text" id="alumniCollege" placeholder="College" readonly>
+            <input type="text" id="alumniCourse" placeholder="Department" readonly>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeAddAlumniModal()">Cancel</button>
+                <button class="btn-primary" onclick="addAlumni()">Add Alumni</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importAlumniModal" class="modal">
+        <div class="modal-content">
+            <h3>Import Alumni Excel</h3>
+            <p style="margin-bottom: 12px; color: #6a7b8c;">Upload the completed template for the currently selected batch.</p>
+            <input type="text" id="importBatchYear" readonly>
+            <input type="file" id="alumniImportFile" accept=".xlsx">
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeImportAlumniModal()">Cancel</button>
+                <button class="btn-primary" onclick="importAlumniExcel()">Import Alumni</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Event Modal -->
+    <div id="createEventModal" class="modal">
+        <div class="modal-content">
+            <h3>Create New Event</h3>
+            <input type="text" id="eventName" placeholder="Event Name">
+            <input type="date" id="eventDate">
+            <input type="text" id="eventLocation" placeholder="Location">
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeCreateEventModal()">Cancel</button>
+                <button class="btn-primary" onclick="createEvent()">Create Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="StaffCommon.js"></script>
+</body>
+</html>
+
+
+
+
+

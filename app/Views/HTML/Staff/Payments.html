@@ -1,0 +1,2067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer - Payment Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script>
+    <style>
+        /* Custom Page Styling for Payments */
+        .payments-page-content {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            overflow-y: auto;
+            max-height: calc(100vh - 72px);
+        }
+
+        /* KPI Stats Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+        }
+
+        .kpi-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(13, 33, 55, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(13, 33, 55, 0.1);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+        }
+
+        .kpi-card.kpi-revenue::before { background: linear-gradient(180deg, #10b981, #059669); }
+        .kpi-card.kpi-pending::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
+        .kpi-card.kpi-verified::before { background: linear-gradient(180deg, #3b82f6, #1d4ed8); }
+        .kpi-card.kpi-services::before { background: linear-gradient(180deg, #8b5cf6, #6d28d9); }
+
+        .kpi-info h4 {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .kpi-info .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+        }
+
+        .kpi-info .kpi-sub {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .kpi-card.kpi-revenue .kpi-icon { background: #ecfdf5; color: #059669; }
+        .kpi-card.kpi-pending .kpi-icon { background: #fffbeb; color: #d97706; }
+        .kpi-card.kpi-verified .kpi-icon { background: #eff6ff; color: #2563eb; }
+        .kpi-card.kpi-services .kpi-icon { background: #f5f3ff; color: #7c3aed; }
+
+        /* Main Section Card */
+        .payments-table-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(13, 33, 55, 0.06);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .payments-table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            background: #fafbfc;
+        }
+
+        .payments-title-group h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e3a5c;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .payments-title-group p {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .payments-actions-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-custom {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            text-decoration: none;
+        }
+
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #1e3a5c 0%, #0d2137 100%);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(13, 33, 55, 0.25);
+        }
+
+        .btn-primary-custom:hover {
+            background: linear-gradient(135deg, #254a75 0%, #132f4f 100%);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary-custom {
+            background: #ffffff;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-secondary-custom:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .btn-export-custom {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .btn-export-custom:hover {
+            background: #dcfce7;
+        }
+
+        .btn-excel-custom {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: #ffffff;
+            border: 1px solid #059669;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+        }
+
+        .btn-excel-custom:hover:not(:disabled) {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+        }
+
+        .btn-excel-custom:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .export-alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .export-alert.alert-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .export-alert.alert-info {
+            background: #f0f9ff;
+            color: #075985;
+            border: 1px solid #bae6fd;
+        }
+
+        /* Filter Controls */
+        .filter-toolbar {
+            padding: 16px 24px;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .filter-left-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .search-box-wrap {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+            max-width: 320px;
+        }
+
+        .search-box-wrap i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e293b;
+            background: #ffffff;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: #1e3a5c;
+            box-shadow: 0 0 0 3px rgba(30, 58, 92, 0.12);
+        }
+
+        .select-filter {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #334155;
+            background: #ffffff;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        .select-filter:focus {
+            border-color: #1e3a5c;
+        }
+
+        .status-pills {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .status-pill {
+            padding: 5px 12px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .status-pill.active {
+            background: #ffffff;
+            color: #1e3a5c;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Payments Table */
+        .table-responsive {
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        .payments-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .payments-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            padding: 14px 16px;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+        }
+
+        .payments-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            vertical-align: middle;
+        }
+
+        .payments-table tr:hover td {
+            background: #f8fafc;
+        }
+
+        /* Status & Category Badges */
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: capitalize;
+            white-space: nowrap;
+        }
+
+        .badge-status::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .badge-status.status-verified {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .badge-status.status-verified::before { background: #16a34a; }
+
+        .badge-status.status-pending {
+            background: #fef3c7;
+            color: #b45309;
+        }
+        .badge-status.status-pending::before { background: #d97706; }
+
+        .badge-status.status-rejected {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .badge-status.status-rejected::before { background: #dc2626; }
+
+        .badge-status.status-refunded {
+            background: #f3e8ff;
+            color: #7e22ce;
+        }
+        .badge-status.status-refunded::before { background: #9333ea; }
+
+        .badge-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .badge-method {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        .ref-code {
+            font-family: monospace;
+            font-weight: 600;
+            color: #1e3a5c;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .ref-code:hover {
+            color: #0284c7;
+            text-decoration: underline;
+        }
+
+        .payer-meta {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .payer-name {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .payer-sub {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .amount-display {
+            font-weight: 700;
+            color: #0f172a;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .table-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .action-btn-mini {
+            padding: 5px 9px;
+            border-radius: 6px;
+            font-size: 12px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .action-btn-mini:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .action-btn-verify {
+            background: #10b981;
+            border-color: #059669;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .action-btn-verify:hover {
+            background: #059669;
+            color: #ffffff;
+        }
+
+        .action-btn-reject {
+            background: #ef4444;
+            border-color: #dc2626;
+            color: #ffffff;
+        }
+
+        .action-btn-reject:hover {
+            background: #dc2626;
+            color: #ffffff;
+        }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 580px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header-custom {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fafbfc;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .modal-header-custom h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e3a5c;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close-btn {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .modal-close-btn:hover {
+            color: #0f172a;
+            background: #e2e8f0;
+        }
+
+        .modal-body-custom {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .form-control-custom {
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e293b;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: #ffffff;
+        }
+
+        .form-control-custom:focus {
+            border-color: #1e3a5c;
+            box-shadow: 0 0 0 3px rgba(30, 58, 92, 0.12);
+        }
+
+        .modal-footer-custom {
+            padding: 16px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            background: #fafbfc;
+            border-radius: 0 0 16px 16px;
+        }
+
+        /* Official Receipt Print Layout */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #officialReceiptModal, #officialReceiptModal * {
+                visibility: visible;
+            }
+            #officialReceiptModal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white;
+                padding: 0;
+                display: block !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .modal-box {
+                box-shadow: none;
+                max-width: 100%;
+                border: none;
+            }
+        }
+
+        .receipt-card {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 24px;
+            background: #ffffff;
+        }
+
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid #1e3a5c;
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+
+        .receipt-header h2 {
+            font-size: 16px;
+            color: #1e3a5c;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .receipt-header p {
+            font-size: 11px;
+            color: #64748b;
+            margin: 2px 0 0 0;
+        }
+
+        .receipt-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .receipt-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .receipt-field-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+
+        .receipt-field-value {
+            font-weight: 600;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body class="payments-management-page">
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎓 Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" data-page="alumni" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" data-page="coordinators" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" data-page="colleges" onclick="location.href='Colleges.html'">
+                    <i class="fas fa-building-columns"></i>
+                    <span>Colleges</span>
+                </div>
+                <div class="menu-item" data-page="departments" onclick="location.href='Departments.html'">
+                    <i class="fas fa-network-wired"></i>
+                    <span>Departments</span>
+                </div>
+                <div class="menu-item" data-page="events" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item" data-page="news" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item" data-page="surveys" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item" data-page="reports" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item active" data-page="payments" onclick="location.href='Payments.html'">
+                    <i class="fas fa-receipt"></i>
+                    <span>Payments</span>
+                </div>
+                <div class="menu-item" data-page="settings" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title" id="pageTitle">Payment & Fee Handling</div>
+                <div class="staff-info">
+                    <span class="staff-name">Head Admin Office</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Content -->
+            <div class="payments-page-content">
+                <!-- KPI Stat Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-revenue">
+                        <div class="kpi-info">
+                            <h4>Total Collections</h4>
+                            <div class="kpi-value" id="kpiTotalRevenue">₱0.00</div>
+                            <div class="kpi-sub" id="kpiVerifiedCount">0 verified transactions</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fas fa-peso-sign"></i>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card kpi-pending">
+                        <div class="kpi-info">
+                            <h4>Pending Verification</h4>
+                            <div class="kpi-value" id="kpiPendingRevenue">₱0.00</div>
+                            <div class="kpi-sub" id="kpiPendingCount">0 payments for review</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card kpi-verified">
+                        <div class="kpi-info">
+                            <h4>Verification Rate</h4>
+                            <div class="kpi-value" id="kpiVerificationRate">0%</div>
+                            <div class="kpi-sub" id="kpiTotalTransactions">0 total submitted</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fas fa-circle-check"></i>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card kpi-services">
+                        <div class="kpi-info">
+                            <h4>Alumni ID & Cards</h4>
+                            <div class="kpi-value" id="kpiAlumniIdCount">0</div>
+                            <div class="kpi-sub">Processed ID cards & fees</div>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="fas fa-id-card"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Payments Table Card -->
+                <div class="payments-table-card">
+                    <!-- Table Header -->
+                    <div class="payments-table-header">
+                        <div class="payments-title-group">
+                            <h3><i class="fas fa-file-invoice-dollar" style="color: #1e3a5c;"></i> Payment Transactions</h3>
+                            <p>Track, verify coordinator endorsements, and record alumni fees</p>
+                        </div>
+                        <div class="payments-actions-group">
+                            <button class="btn-custom btn-secondary-custom" onclick="fetchPaymentsData()" title="Refresh records">
+                                <i class="fas fa-rotate"></i> Refresh
+                            </button>
+                            <button class="btn-custom btn-export-custom" onclick="exportPaymentsCsv()" title="Export current filtered view to CSV">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </button>
+                            <button class="btn-custom btn-excel-custom" onclick="openExportExcelModal()" title="Export filtered payment records to Excel (.xlsx)">
+                                <i class="fas fa-file-excel"></i> Export to Excel
+                            </button>
+                            <button class="btn-custom btn-primary-custom" onclick="openRecordPaymentModal()">
+                                <i class="fas fa-plus"></i> Record Payment
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Toolbar -->
+                    <div class="filter-toolbar">
+                        <div class="filter-left-group">
+                            <div class="search-box-wrap">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="paymentSearchInput" class="search-input" placeholder="Search ref, name, student #..." oninput="handleSearchDebounce()">
+                            </div>
+
+                            <select id="paymentTypeFilter" class="select-filter" onchange="applyFilters()">
+                                <option value="all">All Purposes</option>
+                            </select>
+
+                            <select id="paymentMethodFilter" class="select-filter" onchange="applyFilters()">
+                                <option value="all">All Payment Methods</option>
+                                <option value="cash">Cash (Counter)</option>
+                                <option value="gcash">GCash</option>
+                                <option value="maya">Maya</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="online_portal">Online Portal</option>
+                                <option value="over_the_counter">Over-the-Counter</option>
+                            </select>
+
+                            <select id="paymentCollegeFilter" class="select-filter" onchange="applyFilters()">
+                                <option value="all">All Colleges</option>
+                            </select>
+                        </div>
+
+                        <!-- Status Filter Pills -->
+                        <div class="status-pills">
+                            <button class="status-pill active" data-status="all" onclick="setStatusPill(this, 'all')">All</button>
+                            <button class="status-pill" data-status="pending" onclick="setStatusPill(this, 'pending')">Pending</button>
+                            <button class="status-pill" data-status="verified" onclick="setStatusPill(this, 'verified')">Verified</button>
+                            <button class="status-pill" data-status="rejected" onclick="setStatusPill(this, 'rejected')">Rejected</button>
+                        </div>
+                    </div>
+
+                    <!-- Payments Data Table -->
+                    <div class="table-responsive">
+                        <table class="payments-table">
+                            <thead>
+                                <tr>
+                                    <th>Transaction Ref</th>
+                                    <th>Payer Information</th>
+                                    <th>Purpose / College</th>
+                                    <th>Method & Channel</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsTableBody">
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 36px; color: #64748b;">
+                                        <i class="fas fa-spinner fa-spin" style="font-size: 20px; margin-bottom: 8px;"></i>
+                                        <p>Loading payments data...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 1: Record Manual / Walk-in Payment -->
+    <div id="recordPaymentModal" class="modal-backdrop">
+        <div class="modal-box">
+            <div class="modal-header-custom">
+                <h3><i class="fas fa-cash-register"></i> Record Manual Payment</h3>
+                <button type="button" class="modal-close-btn" onclick="closeRecordPaymentModal()">&times;</button>
+            </div>
+            <form id="recordPaymentForm" onsubmit="handleRecordPaymentSubmit(event)">
+                <input type="hidden" id="modalAlumniId" name="alumni_id" value="">
+                <div class="modal-body-custom">
+                    <div class="form-group">
+                        <label for="modalPayerName">Payer / Alumni Name *</label>
+                        <input type="text" id="modalPayerName" class="form-control-custom" placeholder="e.g. Maria Santos" required list="alumniDatalist" onchange="autoFillAlumniDetails(this.value)">
+                        <datalist id="alumniDatalist"></datalist>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modalStudentNumber">Student ID / Number</label>
+                            <input type="text" id="modalStudentNumber" class="form-control-custom" placeholder="e.g. 2021-30045">
+                        </div>
+                        <div class="form-group">
+                            <label for="modalPayerEmail">Email Address</label>
+                            <input type="email" id="modalPayerEmail" class="form-control-custom" placeholder="e.g. alumni@example.com">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modalCollegeId">Assigned College</label>
+                            <select id="modalCollegeId" class="form-control-custom">
+                                <option value="">Select College</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="modalPaymentType">Purpose / Category *</label>
+                            <select id="modalPaymentType" class="form-control-custom" required onchange="handlePaymentTypeChange(this.value)">
+                                <option value="">Select Purpose</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modalAmount">Amount (PHP ₱) *</label>
+                            <input type="number" step="0.01" min="1" id="modalAmount" class="form-control-custom" placeholder="0.00" value="250.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="modalPaymentMethod">Payment Method *</label>
+                            <select id="modalPaymentMethod" class="form-control-custom" required>
+                                <option value="cash">Cash (Counter/Cashier)</option>
+                                <option value="gcash">GCash</option>
+                                <option value="maya">Maya</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="over_the_counter">Over the Counter</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modalTransactionRef">OR / Custom Ref # (Optional)</label>
+                            <input type="text" id="modalTransactionRef" class="form-control-custom" placeholder="Leave blank to auto-generate">
+                        </div>
+                        <div class="form-group">
+                            <label for="modalChannelRef">Channel Reference #</label>
+                            <input type="text" id="modalChannelRef" class="form-control-custom" placeholder="e.g. GCash Reference / Bank Slip #">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="modalNotes">Cashier Notes / Remarks</label>
+                        <textarea id="modalNotes" class="form-control-custom" rows="2" placeholder="Official receipt details, counter receipt note..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn-custom btn-secondary-custom" onclick="closeRecordPaymentModal()">Cancel</button>
+                    <button type="submit" id="savePaymentBtn" class="btn-custom btn-primary-custom">
+                        <i class="fas fa-check"></i> Save & Verify Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: Payment Details & Review Modal -->
+    <div id="reviewPaymentModal" class="modal-backdrop">
+        <div class="modal-box" style="max-width: 620px;">
+            <div class="modal-header-custom">
+                <h3><i class="fas fa-receipt"></i> Payment Verification Review</h3>
+                <button type="button" class="modal-close-btn" onclick="closeReviewPaymentModal()">&times;</button>
+            </div>
+            <div class="modal-body-custom">
+                <div style="background: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <div>
+                            <span class="ref-code" id="revRefCode">TXN-0000</span>
+                            <h4 id="revPayerName" style="margin-top: 6px; font-size: 16px; color: #0f172a;">—</h4>
+                            <p id="revStudentNum" style="font-size: 12px; color: #64748b;">—</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div id="revAmount" style="font-size: 20px; font-weight: 800; color: #1e3a5c;">₱0.00</div>
+                            <div id="revStatusBadge" style="margin-top: 4px;">—</div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                        <div><strong>Purpose:</strong> <span id="revPurpose">—</span></div>
+                        <div><strong>Payment Method:</strong> <span id="revMethod">—</span></div>
+                        <div><strong>College:</strong> <span id="revCollege">—</span></div>
+                        <div><strong>Channel Ref:</strong> <span id="revChannelRef">—</span></div>
+                        <div><strong>Submission Date:</strong> <span id="revDate">—</span></div>
+                        <div><strong>Submitted By:</strong> <span id="revRole">—</span></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Proof of Payment Attachment</label>
+                    <div id="revProofContainer" style="background: #f1f5f9; border-radius: 8px; padding: 14px; text-align: center; border: 1px dashed #cbd5e1; font-size: 13px; color: #64748b;">
+                        <i class="fas fa-file-invoice" style="font-size: 24px; margin-bottom: 6px; display: block; color: #94a3b8;"></i>
+                        <span id="revProofText">No digital file attached (Cash or Counter Payment)</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="revNotes">Head Admin Verification Notes</label>
+                    <textarea id="revNotes" class="form-control-custom" rows="2" placeholder="e.g. Bank credit validated, OR issued..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="closeReviewPaymentModal()">Close</button>
+                <button type="button" id="rejectPaymentBtn" class="btn-custom" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;" onclick="triggerPaymentStatusUpdate('rejected')">
+                    <i class="fas fa-times-circle"></i> Reject Payment
+                </button>
+                <button type="button" id="approvePaymentBtn" class="btn-custom btn-primary-custom" style="background: #10b981; border-color: #059669;" onclick="triggerPaymentStatusUpdate('verified')">
+                    <i class="fas fa-check-circle"></i> Approve & Verify
+                </button>
+                <button type="button" id="printReceiptFromReviewBtn" class="btn-custom btn-secondary-custom" onclick="openOfficialReceiptModalFromCurrent()">
+                    <i class="fas fa-print"></i> View Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: Official Receipt Print Modal -->
+    <div id="officialReceiptModal" class="modal-backdrop">
+        <div class="modal-box" style="max-width: 540px;">
+            <div class="modal-header-custom no-print">
+                <h3><i class="fas fa-print"></i> Official Acknowledgment Receipt</h3>
+                <button type="button" class="modal-close-btn" onclick="closeOfficialReceiptModal()">&times;</button>
+            </div>
+            <div class="modal-body-custom">
+                <div class="receipt-card">
+                    <div class="receipt-header">
+                        <h2>USTP ALUMNI ASSOCIATION</h2>
+                        <p>Alumni Relations & Placement Office • Official Acknowledgment</p>
+                        <p style="font-size: 10px; color: #94a3b8;">C.M. Recto Ave, Lapasan, Cagayan de Oro City</p>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 14px;">
+                        <div><strong>OR Ref:</strong> <span id="orRefCode" style="font-family: monospace;">—</span></div>
+                        <div><strong>Date:</strong> <span id="orDate">—</span></div>
+                    </div>
+
+                    <div class="receipt-grid">
+                        <div class="receipt-field">
+                            <span class="receipt-field-label">Received From</span>
+                            <span class="receipt-field-value" id="orPayerName">—</span>
+                        </div>
+                        <div class="receipt-field">
+                            <span class="receipt-field-label">Student ID #</span>
+                            <span class="receipt-field-value" id="orStudentNum">—</span>
+                        </div>
+                        <div class="receipt-field">
+                            <span class="receipt-field-label">Assigned College</span>
+                            <span class="receipt-field-value" id="orCollege">—</span>
+                        </div>
+                        <div class="receipt-field">
+                            <span class="receipt-field-label">Payment Method</span>
+                            <span class="receipt-field-value" id="orMethod">—</span>
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px dashed #cbd5e1; margin: 14px 0; padding-top: 14px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
+                            <span id="orPurpose">Alumni Fee</span>
+                            <strong id="orAmountFigures">₱0.00</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #64748b;" id="orDescription">—</div>
+                    </div>
+
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; margin-top: 12px;">
+                        <span style="font-weight: 700; color: #1e3a5c;">TOTAL AMOUNT PAID</span>
+                        <span id="orTotalPaid" style="font-size: 18px; font-weight: 800; color: #059669;">₱0.00</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 28px; font-size: 11px; color: #64748b;">
+                        <div>
+                            <div>Status: <strong style="color: #059669;" id="orStatusText">VERIFIED / PAID</strong></div>
+                            <div>Channel Ref: <span id="orChannelRef">—</span></div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="border-bottom: 1px solid #0f172a; width: 140px; margin-bottom: 4px;"></div>
+                            <div>Authorized Officer</div>
+                            <div style="font-size: 9px; color: #94a3b8;">USTP Head Admin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer-custom no-print">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="closeOfficialReceiptModal()">Close</button>
+                <button type="button" class="btn-custom btn-primary-custom" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print Official Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Export to Excel Filter Modal -->
+    <div id="exportExcelModal" class="modal-backdrop">
+        <div class="modal-box" style="max-width: 620px;">
+            <div class="modal-header-custom" style="background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);">
+                <div>
+                    <h3 style="color: #065f46;">
+                        <i class="fas fa-file-excel" style="color: #10b981;"></i> Export Payment Report to Excel
+                    </h3>
+                    <p style="font-size: 12px; color: #64748b; margin-top: 2px;">Select optional filters to tailor your Excel (.xlsx) financial transactions report</p>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeExportExcelModal()">&times;</button>
+            </div>
+            <form id="exportExcelForm" onsubmit="handleExportExcelSubmit(event)">
+                <div class="modal-body-custom">
+                    <div id="exportExcelAlert" class="export-alert" style="display: none;"></div>
+
+                    <!-- Date Range: From and To -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exportDateFrom"><i class="fas fa-calendar-alt" style="color: #64748b;"></i> From Date</label>
+                            <input type="date" id="exportDateFrom" class="form-control-custom">
+                        </div>
+                        <div class="form-group">
+                            <label for="exportDateTo"><i class="fas fa-calendar-alt" style="color: #64748b;"></i> To Date</label>
+                            <input type="date" id="exportDateTo" class="form-control-custom">
+                        </div>
+                    </div>
+
+                    <!-- Campus & College Filters -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exportCampus"><i class="fas fa-landmark" style="color: #64748b;"></i> Campus</label>
+                            <select id="exportCampus" class="form-control-custom" onchange="handleExportCampusChange(this.value)">
+                                <option value="all">All Campuses</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="exportCollege"><i class="fas fa-graduation-cap" style="color: #64748b;"></i> College</label>
+                            <select id="exportCollege" class="form-control-custom">
+                                <option value="all">All Colleges</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Payment Type & Payment Method -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exportPaymentType"><i class="fas fa-tags" style="color: #64748b;"></i> Payment Purpose</label>
+                            <select id="exportPaymentType" class="form-control-custom">
+                                <option value="all">All Payment Purposes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="exportPaymentMethod"><i class="fas fa-credit-card" style="color: #64748b;"></i> Payment Method</label>
+                            <select id="exportPaymentMethod" class="form-control-custom">
+                                <option value="all">All Payment Methods</option>
+                                <option value="cash">Cash (Counter)</option>
+                                <option value="gcash">GCash</option>
+                                <option value="maya">Maya</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="online_portal">Online Portal</option>
+                                <option value="over_the_counter">Over-the-Counter</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Payment Status & Submitted/Recorded-by Role -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exportPaymentStatus"><i class="fas fa-circle-check" style="color: #64748b;"></i> Payment Status</label>
+                            <select id="exportPaymentStatus" class="form-control-custom">
+                                <option value="all">All Payment Statuses</option>
+                                <option value="verified">Verified</option>
+                                <option value="pending">Pending</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="refunded">Refunded</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="exportSubmittedByRole"><i class="fas fa-user-tag" style="color: #64748b;"></i> Submitted / Recorded By</label>
+                            <select id="exportSubmittedByRole" class="form-control-custom">
+                                <option value="all">All Roles</option>
+                                <option value="head_admin">Head Admin</option>
+                                <option value="coordinator">Coordinator</option>
+                                <option value="alumni">Alumni</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #166534; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-circle-info" style="color: #16a34a;"></i>
+                        <span>If no filters are selected, all payment records that you are authorized to access will be exported.</span>
+                    </div>
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn-custom btn-secondary-custom" id="cancelExcelModalBtn" onclick="closeExportExcelModal()">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn-custom btn-secondary-custom" id="resetExcelFiltersBtn" onclick="resetExportExcelFilters()">
+                        <i class="fas fa-rotate-left"></i> Reset Filters
+                    </button>
+                    <button type="submit" class="btn-custom btn-excel-custom" id="generateExcelBtn">
+                        <i class="fas fa-file-excel"></i> Generate Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="StaffCommon.js"></script>
+    <script>
+        // State variables
+        let rawPaymentsList = [];
+        let collegesList = [];
+        let campusesList = [];
+        let alumniDirectory = [];
+        let purposesList = [];
+        let currentSelectedPayment = null;
+        let searchDebounceTimer = null;
+        let activeStatusPill = 'all';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchPaymentsData();
+        });
+
+        // ── Fetch Payments & Metadata ──
+        async function fetchPaymentsData() {
+            const tableBody = document.getElementById('paymentsTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 36px; color: #64748b;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 20px; margin-bottom: 8px;"></i>
+                            <p>Loading payments data...</p>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            try {
+                const search = encodeURIComponent(document.getElementById('paymentSearchInput')?.value || '');
+                const pType = encodeURIComponent(document.getElementById('paymentTypeFilter')?.value || 'all');
+                const pMethod = encodeURIComponent(document.getElementById('paymentMethodFilter')?.value || 'all');
+                const pCollege = encodeURIComponent(document.getElementById('paymentCollegeFilter')?.value || 'all');
+                const pStatus = encodeURIComponent(activeStatusPill);
+
+                const response = await fetch(`payments-data?search=${search}&payment_purpose_id=${pType}&payment_type=${pType}&payment_method=${pMethod}&college_id=${pCollege}&status=${pStatus}`, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load payments.');
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    rawPaymentsList = data.payments || [];
+                    purposesList = data.purposes || [];
+                    collegesList = data.colleges || [];
+                    campusesList = data.campuses || [];
+                    alumniDirectory = data.alumni || [];
+
+                    populatePurposeDropdowns(purposesList);
+                    populateCollegeDropdowns(collegesList);
+                    populateCampusDropdowns(campusesList);
+                    populateAlumniDatalist(alumniDirectory);
+                    updateKpis(data.statistics || {});
+                    renderPaymentsTable(rawPaymentsList);
+                } else {
+                    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:#dc2626;">Error: ${escapeHtml(data.message || 'Unknown error')}</td></tr>`;
+                }
+            } catch (err) {
+                console.error(err);
+                if (tableBody) {
+                    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:#dc2626;">Failed to communicate with server.</td></tr>`;
+                }
+            }
+        }
+
+        // ── KPI Updates ──
+        function updateKpis(stats) {
+            const totalRev = Number(stats.total_revenue || 0);
+            const pendingRev = Number(stats.pending_revenue || 0);
+            const verified = Number(stats.verified_count || 0);
+            const pending = Number(stats.pending_count || 0);
+            const totalTrans = Number(stats.total_transactions || 0);
+            const idCount = Number(stats.alumni_id_count || 0);
+
+            const rate = totalTrans > 0 ? Math.round((verified / totalTrans) * 100) : 0;
+
+            document.getElementById('kpiTotalRevenue').textContent = formatPhp(totalRev);
+            document.getElementById('kpiVerifiedCount').textContent = `${verified} verified transactions`;
+
+            document.getElementById('kpiPendingRevenue').textContent = formatPhp(pendingRev);
+            document.getElementById('kpiPendingCount').textContent = `${pending} pending verifications`;
+
+            document.getElementById('kpiVerificationRate').textContent = `${rate}%`;
+            document.getElementById('kpiTotalTransactions').textContent = `${totalTrans} total recorded`;
+
+            document.getElementById('kpiAlumniIdCount').textContent = idCount;
+        }
+
+        // ── Render Table ──
+        function renderPaymentsTable(payments) {
+            const tbody = document.getElementById('paymentsTableBody');
+            if (!tbody) return;
+
+            if (payments.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding: 48px; color: #94a3b8;">
+                            <i class="fas fa-receipt" style="font-size: 32px; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
+                            <p style="font-weight: 500; font-size: 14px; color: #64748b;">No payment records found.</p>
+                            <span style="font-size: 12px;">Try adjusting filters or record a new transaction.</span>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = payments.map(p => {
+                const status = (p.status || 'pending').toLowerCase();
+                const typeLabel = p.payment_purpose_name || formatPaymentType(p.payment_type);
+                const methodLabel = formatMethod(p.payment_method);
+                const collegeLabel = p.college_abbr || p.college_name || 'General';
+                const dateFormatted = formatDate(p.created_at);
+
+                return `
+                    <tr>
+                        <td>
+                            <span class="ref-code" onclick="openReviewModalById(${p.id})" title="Click to view details">${escapeHtml(p.transaction_ref)}</span>
+                        </td>
+                        <td>
+                            <div class="payer-meta">
+                                <span class="payer-name">${escapeHtml(p.payer_name)}</span>
+                                <span class="payer-sub">${escapeHtml(p.student_number || p.payer_email || 'No Student ID')}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-type">${escapeHtml(typeLabel)}</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 3px;">${escapeHtml(collegeLabel)}</div>
+                        </td>
+                        <td>
+                            <div class="badge-method">
+                                <i class="${getMethodIcon(p.payment_method)}"></i>
+                                <span>${escapeHtml(methodLabel)}</span>
+                            </div>
+                            ${p.channel_reference ? `<div style="font-size: 10px; color: #94a3b8; font-family: monospace;">Ref: ${escapeHtml(p.channel_reference)}</div>` : ''}
+                        </td>
+                        <td>
+                            <span class="amount-display">${formatPhp(p.amount)}</span>
+                        </td>
+                        <td>
+                            <span class="badge-status status-${status}">${status}</span>
+                        </td>
+                        <td style="font-size: 12px; color: #64748b; white-space: nowrap;">
+                            ${dateFormatted}
+                        </td>
+                        <td style="text-align: right;">
+                            <div class="table-actions" style="justify-content: flex-end;">
+                                ${status === 'pending' ? `
+                                    <button class="action-btn-mini action-btn-verify" onclick="quickVerifyPayment(${p.id})" title="Verify Payment">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                ` : ''}
+                                <button class="action-btn-mini" onclick="openReviewModalById(${p.id})" title="Review Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="action-btn-mini" onclick="openOfficialReceiptModalById(${p.id})" title="View Receipt">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ── Filter & Search Handlers ──
+        function handleSearchDebounce() {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                fetchPaymentsData();
+            }, 350);
+        }
+
+        function applyFilters() {
+            fetchPaymentsData();
+        }
+
+        function setStatusPill(btn, status) {
+            document.querySelectorAll('.status-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeStatusPill = status;
+            fetchPaymentsData();
+        }
+
+        // ── Dropdowns Population ──
+        function populatePurposeDropdowns(purposes) {
+            if (!purposes || purposes.length === 0) return;
+
+            // 1. Filter dropdown in toolbar
+            const filterSelect = document.getElementById('paymentTypeFilter');
+            if (filterSelect) {
+                const currentVal = filterSelect.value;
+                filterSelect.innerHTML = '<option value="all">All Purposes</option>';
+                purposes.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    filterSelect.appendChild(opt);
+                });
+                if (currentVal && Array.from(filterSelect.options).some(o => o.value === currentVal)) {
+                    filterSelect.value = currentVal;
+                }
+            }
+
+            // 2. Modal Create / Edit dropdown
+            const modalSelect = document.getElementById('modalPaymentType');
+            if (modalSelect) {
+                const currentVal = modalSelect.value;
+                modalSelect.innerHTML = '<option value="">Select Purpose</option>';
+                purposes.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.setAttribute('data-code', p.code);
+                    opt.textContent = p.name;
+                    modalSelect.appendChild(opt);
+                });
+                if (currentVal && Array.from(modalSelect.options).some(o => o.value === currentVal)) {
+                    modalSelect.value = currentVal;
+                } else if (purposes.length > 0) {
+                    const alumniIdPurp = purposes.find(p => p.code === 'alumni_id') || purposes[0];
+                    modalSelect.value = alumniIdPurp.id;
+                }
+            }
+
+            // 3. Export to Excel modal dropdown
+            const exportSelect = document.getElementById('exportPaymentType');
+            if (exportSelect) {
+                const currentVal = exportSelect.value;
+                exportSelect.innerHTML = '<option value="all">All Payment Purposes</option>';
+                purposes.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    exportSelect.appendChild(opt);
+                });
+                if (currentVal && Array.from(exportSelect.options).some(o => o.value === currentVal)) {
+                    exportSelect.value = currentVal;
+                }
+            }
+        }
+
+        function populateCollegeDropdowns(colleges) {
+            const filterSelect = document.getElementById('paymentCollegeFilter');
+            const modalSelect = document.getElementById('modalCollegeId');
+
+            if (filterSelect && filterSelect.options.length <= 1) {
+                colleges.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.College_ID;
+                    opt.textContent = c.College_Name + (c.Abbreviation ? ` (${c.Abbreviation})` : '');
+                    filterSelect.appendChild(opt);
+                });
+            }
+
+            if (modalSelect && modalSelect.options.length <= 1) {
+                colleges.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.College_ID;
+                    opt.textContent = c.College_Name + (c.Abbreviation ? ` (${c.Abbreviation})` : '');
+                    modalSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function populateAlumniDatalist(alumni) {
+            const datalist = document.getElementById('alumniDatalist');
+            if (!datalist) return;
+            datalist.innerHTML = alumni.map(a => {
+                const name = `${a.FirstName} ${a.LastName}`;
+                return `<option value="${escapeHtml(name)}">${escapeHtml(a.alumni_id || '')} - ${escapeHtml(a.Email || '')}</option>`;
+            }).join('');
+        }
+
+        function autoFillAlumniDetails(selectedName) {
+            const found = alumniDirectory.find(a => `${a.FirstName} ${a.LastName}`.toLowerCase() === selectedName.trim().toLowerCase());
+            const hiddenAlumniId = document.getElementById('modalAlumniId');
+            if (found) {
+                if (hiddenAlumniId) hiddenAlumniId.value = found.id;
+                const stuInput = document.getElementById('modalStudentNumber');
+                const emailInput = document.getElementById('modalPayerEmail');
+                const collegeInput = document.getElementById('modalCollegeId');
+
+                if (stuInput && found.alumni_id) stuInput.value = found.alumni_id;
+                if (emailInput && found.Email) emailInput.value = found.Email;
+                if (collegeInput && found.College_ID) collegeInput.value = found.College_ID;
+            } else {
+                if (hiddenAlumniId) hiddenAlumniId.value = '';
+            }
+        }
+
+        function handlePaymentTypeChange(val) {
+            const amtInput = document.getElementById('modalAmount');
+            if (!amtInput) return;
+            const purpose = purposesList.find(p => String(p.id) === String(val) || p.code === String(val));
+            const code = purpose ? purpose.code : String(val);
+            if (code === 'alumni_id') amtInput.value = '250.00';
+            else if (code === 'membership') amtInput.value = '1500.00';
+            else if (code === 'document_cert') amtInput.value = '350.00';
+        }
+
+        // ── Modal 1: Record Payment ──
+        function openRecordPaymentModal() {
+            document.getElementById('recordPaymentForm').reset();
+            const hiddenAlumniId = document.getElementById('modalAlumniId');
+            if (hiddenAlumniId) hiddenAlumniId.value = '';
+            const modalSelect = document.getElementById('modalPaymentType');
+            if (modalSelect && purposesList.length > 0) {
+                const alumniIdPurp = purposesList.find(p => p.code === 'alumni_id') || purposesList[0];
+                modalSelect.value = alumniIdPurp.id;
+                handlePaymentTypeChange(alumniIdPurp.id);
+            } else {
+                document.getElementById('modalAmount').value = '250.00';
+            }
+            document.getElementById('recordPaymentModal').classList.add('active');
+        }
+
+        function closeRecordPaymentModal() {
+            document.getElementById('recordPaymentModal').classList.remove('active');
+        }
+
+        async function handleRecordPaymentSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('savePaymentBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+            const alumniIdVal = document.getElementById('modalAlumniId')?.value;
+            let alumniFk = alumniIdVal ? parseInt(alumniIdVal, 10) : null;
+            if (!alumniFk && alumniDirectory && alumniDirectory.length > 0) {
+                const payerEmail = document.getElementById('modalPayerEmail').value.trim().toLowerCase();
+                const payerName = document.getElementById('modalPayerName').value.trim().toLowerCase();
+                const matched = alumniDirectory.find(a => 
+                    (a.Email && payerEmail && a.Email.toLowerCase() === payerEmail) ||
+                    (`${a.FirstName} ${a.LastName}`.toLowerCase() === payerName)
+                );
+                if (matched) {
+                    alumniFk = matched.id;
+                }
+            }
+
+            const selectedPurposeId = parseInt(document.getElementById('modalPaymentType').value, 10);
+            if (!selectedPurposeId || isNaN(selectedPurposeId)) {
+                alert('Please select a valid payment purpose.');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                return;
+            }
+
+            const matchedPurpose = purposesList.find(p => Number(p.id) === selectedPurposeId);
+            const purposeCode = matchedPurpose ? matchedPurpose.code : 'alumni_id';
+
+            const payload = {
+                alumni_id: alumniFk,
+                payer_name: document.getElementById('modalPayerName').value.trim(),
+                student_number: document.getElementById('modalStudentNumber').value.trim(),
+                payer_email: document.getElementById('modalPayerEmail').value.trim(),
+                college_id: document.getElementById('modalCollegeId').value,
+                payment_purpose_id: selectedPurposeId,
+                payment_type: purposeCode,
+                amount: parseFloat(document.getElementById('modalAmount').value) || 0,
+                payment_method: document.getElementById('modalPaymentMethod').value,
+                transaction_ref: document.getElementById('modalTransactionRef').value.trim(),
+                channel_reference: document.getElementById('modalChannelRef').value.trim(),
+                notes: document.getElementById('modalNotes').value.trim(),
+                status: 'verified'
+            };
+
+            try {
+                const response = await fetch('payments/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
+                });
+
+                const res = await response.json();
+                if (res.success) {
+                    closeRecordPaymentModal();
+                    fetchPaymentsData();
+                    if (res.generated_alumni_id) {
+                        alert(`Payment recorded successfully!\n\nAlumni ID Card fee verified.\nOfficial Alumni ID automatically generated: ${res.generated_alumni_id}`);
+                    }
+                } else {
+                    alert('Failed to record payment: ' + (res.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error while recording payment.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // ── Modal 2: Review & Verify ──
+        function openReviewModalById(id) {
+            const p = rawPaymentsList.find(x => Number(x.id) === Number(id));
+            if (!p) return;
+            currentSelectedPayment = p;
+
+            document.getElementById('revRefCode').textContent = p.transaction_ref;
+            document.getElementById('revPayerName').textContent = p.payer_name;
+            document.getElementById('revStudentNum').textContent = p.student_number || p.payer_email || 'No Student Number';
+            document.getElementById('revAmount').textContent = formatPhp(p.amount);
+
+            const status = (p.status || 'pending').toLowerCase();
+            document.getElementById('revStatusBadge').innerHTML = `<span class="badge-status status-${status}">${status}</span>`;
+
+            document.getElementById('revPurpose').textContent = p.payment_purpose_name || formatPaymentType(p.payment_type);
+            document.getElementById('revMethod').textContent = formatMethod(p.payment_method);
+            document.getElementById('revCollege').textContent = p.college_abbr || p.college_name || 'General Alumni';
+            document.getElementById('revChannelRef').textContent = p.channel_reference || 'N/A';
+            document.getElementById('revDate').textContent = formatDate(p.created_at);
+            document.getElementById('revRole').textContent = (p.submitted_by_role || 'alumni').toUpperCase();
+
+            document.getElementById('revNotes').value = p.notes || '';
+
+            // Proof display
+            const proofEl = document.getElementById('revProofText');
+            if (p.proof_file) {
+                proofEl.innerHTML = `<i class="fas fa-paperclip"></i> Digital Proof attached: <strong>${escapeHtml(p.proof_file)}</strong>`;
+            } else {
+                proofEl.textContent = 'No digital file attached (Cash or Counter Payment)';
+            }
+
+            // Button states
+            const approveBtn = document.getElementById('approvePaymentBtn');
+            const rejectBtn = document.getElementById('rejectPaymentBtn');
+
+            if (status === 'verified') {
+                approveBtn.style.display = 'none';
+                rejectBtn.style.display = 'inline-flex';
+            } else if (status === 'rejected') {
+                approveBtn.style.display = 'inline-flex';
+                rejectBtn.style.display = 'none';
+            } else {
+                approveBtn.style.display = 'inline-flex';
+                rejectBtn.style.display = 'inline-flex';
+            }
+
+            document.getElementById('reviewPaymentModal').classList.add('active');
+        }
+
+        function closeReviewPaymentModal() {
+            document.getElementById('reviewPaymentModal').classList.remove('active');
+        }
+
+        async function triggerPaymentStatusUpdate(newStatus) {
+            if (!currentSelectedPayment) return;
+            const notes = document.getElementById('revNotes').value.trim();
+
+            if (newStatus === 'rejected' && !confirm('Are you sure you want to mark this payment as rejected?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('payments/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        payment_id: currentSelectedPayment.id,
+                        status: newStatus,
+                        notes: notes
+                    })
+                });
+
+                const res = await response.json();
+                if (res.success) {
+                    closeReviewPaymentModal();
+                    fetchPaymentsData();
+                    if (res.generated_alumni_id) {
+                        alert(`Payment status updated to Verified!\n\nOfficial Alumni ID automatically generated: ${res.generated_alumni_id}`);
+                    }
+                } else {
+                    alert('Error: ' + (res.message || 'Status update failed'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error while updating payment status.');
+            }
+        }
+
+        async function quickVerifyPayment(id) {
+            try {
+                const response = await fetch('payments/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        payment_id: id,
+                        status: 'verified',
+                        notes: 'Quick-verified by Head Admin.'
+                    })
+                });
+
+                const res = await response.json();
+                if (res.success) {
+                    fetchPaymentsData();
+                    if (res.generated_alumni_id) {
+                        alert(`Payment verified successfully!\n\nOfficial Alumni ID automatically generated: ${res.generated_alumni_id}`);
+                    }
+                } else {
+                    alert('Error: ' + res.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Failed to verify payment.');
+            }
+        }
+
+        // ── Modal 3: Official Receipt Print ──
+        function openOfficialReceiptModalById(id) {
+            const p = rawPaymentsList.find(x => Number(x.id) === Number(id));
+            if (!p) return;
+            populateAndShowReceipt(p);
+        }
+
+        function openOfficialReceiptModalFromCurrent() {
+            if (currentSelectedPayment) {
+                populateAndShowReceipt(currentSelectedPayment);
+            }
+        }
+
+        function populateAndShowReceipt(p) {
+            document.getElementById('orRefCode').textContent = p.transaction_ref;
+            document.getElementById('orDate').textContent = formatDate(p.created_at);
+            document.getElementById('orPayerName').textContent = p.payer_name;
+            document.getElementById('orStudentNum').textContent = p.student_number || 'N/A';
+            document.getElementById('orCollege').textContent = p.college_name || (p.college_abbr || 'University Alumni');
+            document.getElementById('orMethod').textContent = formatMethod(p.payment_method).toUpperCase();
+
+            document.getElementById('orPurpose').textContent = p.payment_purpose_name || formatPaymentType(p.payment_type);
+            document.getElementById('orAmountFigures').textContent = formatPhp(p.amount);
+            document.getElementById('orDescription').textContent = p.description || 'Payment for alumni relations official fee';
+            document.getElementById('orTotalPaid').textContent = formatPhp(p.amount);
+
+            document.getElementById('orStatusText').textContent = (p.status || 'verified').toUpperCase();
+            document.getElementById('orChannelRef').textContent = p.channel_reference || p.transaction_ref;
+
+            document.getElementById('officialReceiptModal').classList.add('active');
+        }
+
+        function closeOfficialReceiptModal() {
+            document.getElementById('officialReceiptModal').classList.remove('active');
+        }
+
+        // ── Export CSV ──
+        function exportPaymentsCsv() {
+            const search = encodeURIComponent(document.getElementById('paymentSearchInput')?.value || '');
+            const pType = encodeURIComponent(document.getElementById('paymentTypeFilter')?.value || 'all');
+            const pMethod = encodeURIComponent(document.getElementById('paymentMethodFilter')?.value || 'all');
+            const pCollege = encodeURIComponent(document.getElementById('paymentCollegeFilter')?.value || 'all');
+            const pStatus = encodeURIComponent(activeStatusPill);
+
+            window.location.href = `payments/export?search=${search}&payment_purpose_id=${pType}&payment_type=${pType}&payment_method=${pMethod}&college_id=${pCollege}&status=${pStatus}`;
+        }
+
+        // ── Modal 4: Export to Excel Handlers ──
+        function openExportExcelModal() {
+            const alertEl = document.getElementById('exportExcelAlert');
+            if (alertEl) {
+                alertEl.style.display = 'none';
+                alertEl.textContent = '';
+                alertEl.className = 'export-alert';
+            }
+
+            // Sync current college filter if set on main toolbar
+            const mainColFilter = document.getElementById('paymentCollegeFilter')?.value;
+            if (mainColFilter && mainColFilter !== 'all') {
+                const expCol = document.getElementById('exportCollege');
+                if (expCol) expCol.value = mainColFilter;
+            }
+
+            // Populate campuses and colleges
+            populateCampusDropdowns(campusesList);
+            populateCollegeDropdowns(collegesList);
+
+            document.getElementById('exportExcelModal').classList.add('active');
+        }
+
+        function closeExportExcelModal() {
+            document.getElementById('exportExcelModal').classList.remove('active');
+            const alertEl = document.getElementById('exportExcelAlert');
+            if (alertEl) {
+                alertEl.style.display = 'none';
+            }
+        }
+
+        function resetExportExcelFilters() {
+            document.getElementById('exportExcelForm')?.reset();
+            const alertEl = document.getElementById('exportExcelAlert');
+            if (alertEl) {
+                alertEl.style.display = 'none';
+                alertEl.textContent = '';
+            }
+            handleExportCampusChange('all');
+        }
+
+        function populateCampusDropdowns(campuses) {
+            const exportCampusSelect = document.getElementById('exportCampus');
+            if (exportCampusSelect && campuses && campuses.length > 0 && exportCampusSelect.options.length <= 1) {
+                campuses.forEach(cmp => {
+                    const opt = document.createElement('option');
+                    opt.value = cmp.Campus_ID;
+                    opt.textContent = cmp.Campus || cmp.School_Name || `Campus ${cmp.Campus_ID}`;
+                    exportCampusSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function handleExportCampusChange(campusId) {
+            const exportCollegeSelect = document.getElementById('exportCollege');
+            if (!exportCollegeSelect) return;
+
+            exportCollegeSelect.innerHTML = '<option value="all">All Colleges</option>';
+            const filteredColleges = (campusId === 'all' || !campusId)
+                ? collegesList
+                : collegesList.filter(c => String(c.Campus_ID) === String(campusId));
+
+            filteredColleges.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.College_ID;
+                opt.textContent = c.College_Name + (c.Abbreviation ? ` (${c.Abbreviation})` : '');
+                exportCollegeSelect.appendChild(opt);
+            });
+        }
+
+        async function handleExportExcelSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('generateExcelBtn');
+            const alertEl = document.getElementById('exportExcelAlert');
+            const originalText = btn.innerHTML;
+
+            alertEl.style.display = 'none';
+            alertEl.className = 'export-alert';
+
+            const dateFrom = document.getElementById('exportDateFrom')?.value || '';
+            const dateTo = document.getElementById('exportDateTo')?.value || '';
+            const campusId = document.getElementById('exportCampus')?.value || 'all';
+            const collegeId = document.getElementById('exportCollege')?.value || 'all';
+            const paymentType = document.getElementById('exportPaymentType')?.value || 'all';
+            const paymentMethod = document.getElementById('exportPaymentMethod')?.value || 'all';
+            const status = document.getElementById('exportPaymentStatus')?.value || 'all';
+            const role = document.getElementById('exportSubmittedByRole')?.value || 'all';
+
+            // Validate date range chronology if both are set
+            if (dateFrom && dateTo && dateFrom > dateTo) {
+                alertEl.className = 'export-alert alert-error';
+                alertEl.innerHTML = '<i class="fas fa-triangle-exclamation"></i> <strong>Invalid Date Range:</strong> "From Date" cannot be later than "To Date".';
+                alertEl.style.display = 'flex';
+                return;
+            }
+
+            const queryParams = new URLSearchParams();
+            if (dateFrom) queryParams.set('date_from', dateFrom);
+            if (dateTo) queryParams.set('date_to', dateTo);
+            if (campusId !== 'all') queryParams.set('campus_id', campusId);
+            if (collegeId !== 'all') queryParams.set('college_id', collegeId);
+            if (paymentType !== 'all') {
+                queryParams.set('payment_purpose_id', paymentType);
+                queryParams.set('payment_type', paymentType);
+            }
+            if (paymentMethod !== 'all') queryParams.set('payment_method', paymentMethod);
+            if (status !== 'all') queryParams.set('status', status);
+            if (role !== 'all') queryParams.set('submitted_by_role', role);
+
+            const queryString = queryParams.toString();
+
+            // Disable button and show spinner
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Excel...';
+
+            try {
+                // Step 1: Pre-check record count via API
+                const checkUrl = 'payments/export-excel/check' + (queryString ? '?' + queryString : '');
+                const checkResponse = await fetch(checkUrl, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+
+                const checkData = await checkResponse.json();
+
+                // If no matching records found, keep modal open and display user-friendly message
+                if (!checkData.success || checkData.count === 0) {
+                    alertEl.className = 'export-alert alert-error';
+                    alertEl.innerHTML = `<i class="fas fa-circle-exclamation"></i> ${escapeHtml(checkData.message || 'No payment records were found for the selected filters.')}`;
+                    alertEl.style.display = 'flex';
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    return;
+                }
+
+                // Step 2: Records found, trigger XLSX file download
+                const downloadUrl = 'payments/export-excel' + (queryString ? '?' + queryString : '');
+
+                // Seamless download via temporary hidden iframe
+                const downloadIframe = document.createElement('iframe');
+                downloadIframe.style.display = 'none';
+                downloadIframe.src = downloadUrl;
+                document.body.appendChild(downloadIframe);
+
+                setTimeout(() => {
+                    if (downloadIframe.parentNode) {
+                        downloadIframe.parentNode.removeChild(downloadIframe);
+                    }
+                }, 10000);
+
+                // Step 3: Close modal after download begins
+                setTimeout(() => {
+                    closeExportExcelModal();
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }, 1000);
+
+            } catch (err) {
+                console.error('Error in Excel report export:', err);
+                alertEl.className = 'export-alert alert-error';
+                alertEl.innerHTML = '<i class="fas fa-circle-exclamation"></i> Network or server error occurred while preparing the report. Please try again.';
+                alertEl.style.display = 'flex';
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // ── Format Helpers ──
+        function formatPhp(amount) {
+            return '₱' + Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatPaymentType(type) {
+            const found = purposesList.find(p => p.code === type || String(p.id) === String(type));
+            if (found) return found.name;
+
+            const map = {
+                'alumni_id': 'Alumni ID Fee',
+                'event_fee': 'Event Fee',
+                'membership': 'Membership Fee',
+                'graduation_fee': 'Graduation Fee',
+                'donation': 'Donation',
+                'document_cert': 'Document or Certificate Fee',
+                'other': 'Other'
+            };
+            return map[type] || type || 'General';
+        }
+
+        function formatMethod(method) {
+            const map = {
+                'cash': 'Cash',
+                'gcash': 'GCash',
+                'maya': 'Maya',
+                'bank_transfer': 'Bank Transfer',
+                'online_portal': 'Online Portal',
+                'over_the_counter': 'Over-the-Counter'
+            };
+            return map[method] || method || 'Cash';
+        }
+
+        function getMethodIcon(method) {
+            const map = {
+                'cash': 'fas fa-money-bill-wave',
+                'gcash': 'fas fa-mobile-screen',
+                'maya': 'fas fa-wallet',
+                'bank_transfer': 'fas fa-building-columns',
+                'online_portal': 'fas fa-globe',
+                'over_the_counter': 'fas fa-store'
+            };
+            return map[method] || 'fas fa-credit-card';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>

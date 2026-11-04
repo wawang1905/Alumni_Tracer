@@ -1,0 +1,145 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body class="staff-news-page">
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item active" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title">News Management</div>
+                <div class="staff-info">
+                    <span class="staff-name">Staff User</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="news-admin-layout">
+                <section class="section-card news-updates-panel">
+                    <div class="section-header">
+                        <div>
+                            <h3><i class="fas fa-list"></i> Published Updates</h3>
+                            <p class="news-admin-subtitle">This is the same feed alumni will see on their news page.</p>
+                        </div>
+                    </div>
+                    <div class="news-feed-scroll-wrapper">
+                        <div id="staffNewsList" class="news-admin-feed"></div>
+                    </div>
+                </section>
+
+                <section class="section-card news-composer-card">
+                    <div class="section-header">
+                        <div>
+                            <h3><i class="fas fa-pen"></i> Add News Post</h3>
+                            <p class="news-admin-subtitle">Create a Facebook-style update with an optional photo.</p>
+                        </div>
+                    </div>
+
+                    <form id="staffNewsForm" class="news-form">
+                        <input id="staffNewsId" name="news_id" type="hidden">
+
+                        <label class="news-field-label" for="staffNewsTitle">News Title</label>
+                        <input id="staffNewsTitle" name="title" type="text" placeholder="Example: Alumni Reunion 2026" maxlength="255" required>
+
+                        <label class="news-field-label" for="staffNewsLink">Optional Link</label>
+                        <input id="staffNewsLink" name="link_url" type="url" placeholder="https://example.com/article-or-form">
+
+                        <label class="news-field-label" for="staffNewsImage">Attach Image</label>
+                        <input id="staffNewsImage" name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                        <div id="staffNewsImagePreview" class="news-upload-preview" hidden></div>
+                        <label class="news-checkbox-row" for="staffNewsRemoveImage">
+                            <input id="staffNewsRemoveImage" name="remove_image" type="checkbox">
+                            <span>Remove current image</span>
+                        </label>
+
+                        <label class="news-field-label" for="staffNewsContent">News Description</label>
+                        <textarea id="staffNewsContent" name="content" placeholder="Write the full update for alumni here..." required></textarea>
+
+                        <div class="news-form-actions">
+                            <button class="btn-secondary" id="staffNewsCancelEdit" type="button" hidden>Cancel Edit</button>
+                            <button class="btn-primary news-submit-btn" type="submit">
+                                <i class="fas fa-paper-plane"></i>
+                                <span id="staffNewsSubmitLabel">Post News</span>
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="StaffCommon.js"></script>
+</body>
+</html>
+
+
+
+
+

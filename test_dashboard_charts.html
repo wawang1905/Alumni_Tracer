@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Charts Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f4f7fa;
+        }
+        .dashboard-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .chart-container {
+            height: 350px;
+            border: 1px solid #e3ebf3;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .chart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6a7b8c;
+            font-size: 14px;
+        }
+        .chart-loading::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e3ebf3;
+            border-top: 2px solid #1e4a76;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .python-chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+        }
+        .chart-image {
+            max-width: 90%;
+            max-height: 280px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .chart-timestamp {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #6a7b8c;
+            text-align: center;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-python { background: #10b981; }
+        .status-javascript { background: #f59e0b; }
+        .status-error { background: #ef4444; }
+        button {
+            background: #1e4a76;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #16354d;
+        }
+        .log-container {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Charts Integration Test</h1>
+    <p>This test simulates the dashboard environment and shows which chart system is being used.</p>
+
+    <div class="dashboard-section">
+        <h2>
+            <span class="status-indicator" id="status-indicator"></span>
+            Chart System Status: <span id="chart-system-status">Checking...</span>
+        </h2>
+        <button onclick="testChartSystem()">Test Chart System</button>
+        <button onclick="forcePythonCharts()">Force Python Charts</button>
+        <button onclick="forceJavaScriptCharts()">Force JavaScript Charts</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="dashboard-section">
+        <h2>Alumni Status Chart</h2>
+        <div id="alumniStatusChart" class="chart-container">
+            <div class="chart-loading">Loading chart...</div>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <h2>Year Distribution Chart</h2>
+        <div id="yearDistribution" class="chart-container">
+            <div class="chart-loading">Loading chart...</div>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <h2>College Distribution Chart</h2>
+        <div id="collegeDistributionChart" class="chart-container">
+            <div class="chart-loading">Loading chart...</div>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <h2>Console Log</h2>
+        <div id="console-log" class="log-container">
+            Console output will appear here...
+        </div>
+    </div>
+
+    <!-- Include the actual chart integration scripts -->
+    <script src="app/Views/HTML/Staff/StaffChartsAPI.js"></script>
+    <script>
+        // Override console.log to display in our log container
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function addToLog(message, type = 'log') {
+            const logContainer = document.getElementById('console-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : type === 'warn' ? '#ffa726' : '#00ff00';
+            logContainer.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToLog(args.join(' '), 'log');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToLog(args.join(' '), 'warn');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToLog(args.join(' '), 'error');
+        };
+
+        let currentChartSystem = 'unknown';
+
+        async function testChartSystem() {
+            const resultsDiv = document.getElementById('test-results');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('chart-system-status');
+            
+            resultsDiv.innerHTML = '<div class="chart-loading">Testing chart system...</div>';
+            
+            try {
+                // Test API health
+                const isAPIHealthy = await checkAPIHealth();
+                
+                if (isAPIHealthy) {
+                    currentChartSystem = 'python';
+                    statusIndicator.className = 'status-indicator status-python';
+                    statusText.textContent = 'Python API (matplotlib charts)';
+                    resultsDiv.innerHTML = '<div style="color: #10b981;">✅ Python API is active and will generate charts</div>';
+                    
+                    // Test chart generation
+                    console.log('Testing Python chart generation...');
+                    await renderAllCharts();
+                } else {
+                    currentChartSystem = 'javascript';
+                    statusIndicator.className = 'status-indicator status-javascript';
+                    statusText.textContent = 'JavaScript (CSS-based charts)';
+                    resultsDiv.innerHTML = '<div style="color: #f59e0b;">⚠️ Python API not available, using JavaScript fallback</div>';
+                }
+            } catch (error) {
+                currentChartSystem = 'error';
+                statusIndicator.className = 'status-indicator status-error';
+                statusText.textContent = 'Error';
+                resultsDiv.innerHTML = `<div style="color: #ef4444;">❌ Error testing chart system: ${error.message}</div>`;
+            }
+        }
+
+        async function forcePythonCharts() {
+            console.log('Forcing Python chart generation...');
+            try {
+                await renderAllCharts();
+                document.getElementById('chart-system-status').textContent = 'Python API (forced)';
+                document.getElementById('status-indicator').className = 'status-indicator status-python';
+            } catch (error) {
+                console.error('Error forcing Python charts:', error);
+            }
+        }
+
+        function forceJavaScriptCharts() {
+            console.log('Forcing JavaScript chart generation (fallback mode)...');
+            document.getElementById('chart-system-status').textContent = 'JavaScript (forced fallback)';
+            document.getElementById('status-indicator').className = 'status-indicator status-javascript';
+            
+            // Show JavaScript fallback message
+            const chartIds = ['alumniStatusChart', 'yearDistribution', 'collegeDistributionChart'];
+            chartIds.forEach(id => {
+                const container = document.getElementById(id);
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; color: #6a7b8c;">
+                            <div style="font-size: 24px; margin-bottom: 10px;">📊</div>
+                            <div>JavaScript Chart (Fallback)</div>
+                            <div style="font-size: 12px; margin-top: 5px;">Original CSS-based chart would render here</div>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('Page loaded, testing chart system...');
+                testChartSystem();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

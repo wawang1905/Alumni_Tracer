@@ -1,0 +1,368 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alumni Management | Coordinator</title>
+    <meta name="description" content="View and manage alumni from your assigned department.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="CoordinatorCommon.css">
+    <script>
+        (function() {
+            document.documentElement.classList.add('coordinator-sidebar-preload');
+            if (localStorage.getItem('coordinatorSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('coordinator-sidebar-collapsed');
+            }
+        })();
+    </script>
+    <style>
+        .alumni-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+        .alumni-search-wrap{position:relative;flex:1;min-width:200px;max-width:360px}
+        .alumni-search-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8fa5bb;font-size:13px;pointer-events:none}
+        #alumniSearchInput{width:100%;padding:9px 14px 9px 36px;border:1px solid #d0dce8;border-radius:8px;font:inherit;font-size:13px;color:#22313f;background:#fff;transition:border-color .2s,box-shadow .2s;outline:none}
+        #alumniSearchInput:focus{border-color:#4a90d9;box-shadow:0 0 0 3px rgba(74,144,217,.14)}
+        .sort-select{height:38px;border:1px solid #d0dce8;border-radius:8px;padding:0 12px;font:inherit;font-size:13px;color:#22313f;background:#fff;cursor:pointer;outline:none}
+        .dept-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,rgba(26,58,92,.1),rgba(26,58,92,.06));border:1px solid rgba(26,58,92,.18);color:#1a3a5c;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap}
+        .dept-badge i{font-size:11px;opacity:.7}
+        .alumni-count-tag{display:inline-flex;align-items:center;gap:5px;background:#f0f6ff;border:1px solid #cce0ff;color:#2a6496;font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;margin-left:auto}
+        .alumni-table-card{background:#fff;border:1px solid #dce5ec;border-radius:10px;box-shadow:0 4px 20px rgba(18,38,63,.06);overflow:hidden}
+        .alumni-table-wrap{overflow-x:auto;scrollbar-width:thin;scrollbar-color:#c4d0e0 transparent}
+        .alumni-table-wrap::-webkit-scrollbar{height:5px}
+        .alumni-table-wrap::-webkit-scrollbar-thumb{background:#c4d0e0;border-radius:4px}
+        .alumni-table{width:100%;min-width:820px;border-collapse:collapse;font-size:13px}
+        .alumni-table thead{position:sticky;top:0;z-index:2}
+        .alumni-table th{background:#f7fafc;padding:11px 14px;text-align:left;font-size:11px;font-weight:800;color:#66788a;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e5edf2;white-space:nowrap;cursor:pointer;user-select:none}
+        .alumni-table th:hover{background:#eef4f9;color:#22313f}
+        .alumni-table th .sort-icon{display:inline-block;margin-left:4px;opacity:.4;font-size:10px}
+        .alumni-table th.sorted .sort-icon{opacity:1;color:#1a6b9e}
+        .alumni-table td{padding:11px 14px;border-top:1px solid #edf2f6;vertical-align:middle;color:#22313f}
+        .alumni-table tbody tr{transition:background .15s}
+        .alumni-table tbody tr:hover{background:#f5faff;cursor:pointer}
+        .alumni-name-cell{font-weight:600}
+        .alumni-id-cell{font-family:monospace;font-size:12px;color:#607080}
+        .status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+        .status-badge.active{background:#dcf5e7;color:#1a7d3e}
+        .status-badge.inactive{background:#fde8e8;color:#b91c1c}
+        .status-badge.pending{background:#fef3cd;color:#7c5c00}
+        .status-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+        .alumni-table-state td{padding:56px 24px;text-align:center;color:#8fa5bb}
+        .alumni-table-state .state-icon{font-size:36px;margin-bottom:10px;color:#d0dce8}
+        .alumni-table-state strong{display:block;font-size:15px;color:#44566a;margin-bottom:4px}
+        .alumni-table-state span{font-size:13px}
+        .empty-val{color:#b0bec5;font-style:italic}
+        .alumni-pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid #e8eff5;font-size:12px;color:#66788a;gap:12px;flex-wrap:wrap}
+        .pag-btns{display:flex;gap:4px}
+        .pag-btn{width:30px;height:30px;border:1px solid #d5e0eb;border-radius:6px;background:#fff;color:#44566a;font-size:12px;cursor:pointer;display:grid;place-items:center;transition:background .15s,border-color .15s}
+        .pag-btn:hover{background:#eef4f9;border-color:#b0c8dc}
+        .pag-btn.active{background:#1a3a5c;border-color:#1a3a5c;color:#fff;font-weight:700}
+        .pag-btn:disabled{opacity:.4;cursor:not-allowed}
+        .alumni-drawer-overlay{position:fixed;inset:0;background:rgba(10,20,35,.35);z-index:300;opacity:0;pointer-events:none;transition:opacity .25s}
+        .alumni-drawer-overlay.open{opacity:1;pointer-events:auto}
+        .alumni-drawer{position:fixed;top:0;right:-440px;width:440px;max-width:95vw;height:100vh;background:#fff;box-shadow:-6px 0 32px rgba(0,0,0,.14);z-index:301;display:flex;flex-direction:column;transition:right .3s cubic-bezier(.4,0,.2,1);overflow:hidden}
+        .alumni-drawer.open{right:0}
+        .drawer-header{padding:18px 20px 14px;border-bottom:1px solid #e8eff5;display:flex;align-items:center;gap:12px;flex-shrink:0;background:linear-gradient(135deg,#f0f7ff,#f8fbff)}
+        .drawer-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1a3a5c,#2a6496);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;letter-spacing:-.5px}
+        .drawer-header-info{flex:1;min-width:0}
+        .drawer-header-info h3{margin:0;font-size:16px;color:#12304f}
+        .drawer-header-info p{margin:3px 0 0;font-size:12px;color:#66788a}
+        .drawer-close{width:32px;height:32px;border:none;border-radius:8px;background:rgba(0,0,0,.06);color:#44566a;cursor:pointer;display:grid;place-items:center;font-size:14px;transition:background .15s}
+        .drawer-close:hover{background:rgba(0,0,0,.12)}
+        .drawer-body{flex:1;overflow-y:auto;padding:18px 20px;scrollbar-width:thin;scrollbar-color:#c4d0e0 transparent}
+        .drawer-section-title{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#8fa5bb;margin:0 0 10px}
+        .drawer-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+        .drawer-field{background:#f7fafc;border:1px solid #e5edf2;border-radius:8px;padding:10px 12px}
+        .drawer-field.full{grid-column:1/-1}
+        .drawer-field label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8fa5bb;margin-bottom:4px}
+        .drawer-field span{display:block;font-size:13px;color:#22313f;font-weight:500;word-break:break-word}
+        .drawer-field span.empty{color:#b0bec5;font-style:italic}
+    </style>
+</head>
+<body>
+<div class="coordinator-shell">
+    <aside class="coordinator-sidebar">
+        <div class="brand-block"><div class="brand-mark"><i class="fas fa-graduation-cap"></i></div><div><h1>Alumni Tracker</h1><p>College Coordinator</p></div></div>
+        <div class="sidebar-user-card">
+            <div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div>
+            <div class="sidebar-user-info">
+                <span class="sidebar-user-name" id="sidebarUserName">Coordinator</span>
+                <span class="sidebar-user-role" id="sidebarUserDept">Loading...</span>
+            </div>
+        </div>
+        <nav class="coordinator-nav" aria-label="Coordinator sections">
+            <span class="nav-section-label">Main</span>
+            <a class="nav-item" href="Dashboard.html" title="Overview"><i class="fas fa-table-columns"></i><span>Overview</span></a>
+            <a class="nav-item active" href="Alumni.html" title="Alumni"><i class="fas fa-users"></i><span>Alumni</span></a>
+            <span class="nav-section-label">Data</span>
+            <div class="nav-group"><a class="nav-item" href="SurveyResponses.html" title="Surveys"><i class="fas fa-clipboard-check"></i><span>Surveys</span><i class="fas fa-chevron-down nav-caret"></i></a><a class="nav-subitem" href="SurveyResponses.html">Responses</a></div>
+            <a class="nav-item" href="Reports.html" title="Reports"><i class="fas fa-chart-line"></i><span>Reports</span></a>
+            <a class="nav-item" href="AlumniID.html" title="Alumni ID"><i class="fas fa-id-card"></i><span>Alumni ID</span></a>
+            <span class="nav-section-label">Manage</span>
+            <a class="nav-item" href="Events.html" title="Events"><i class="fas fa-calendar-days"></i><span>Events</span></a>
+            <a class="nav-item" href="Payments.html" title="Payments"><i class="fas fa-receipt"></i><span>Payments</span></a>
+            <a class="nav-item" href="Communication.html" title="Communication"><i class="fas fa-envelope-open-text"></i><span>Communication</span></a>
+        </nav>
+        <div class="coordinator-sidebar-footer">
+            <button id="coordinatorLogoutBtn" class="coordinator-logout-btn" type="button" title="Log Out">
+                <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                <span class="logout-label">Log Out</span>
+            </button>
+        </div>
+    </aside>
+
+    <main class="coordinator-main">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Department Alumni</p>
+                <h2 id="topbarTitle">Alumni Management</h2>
+            </div>
+            <div class="profile-chip">
+                <span id="topbarUserName">Coordinator</span>
+                <div class="avatar"><i class="fas fa-user"></i></div>
+            </div>
+        </header>
+
+        <div class="alumni-toolbar">
+            <div class="alumni-search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" id="alumniSearchInput" placeholder="Search by name, email or ID..." autocomplete="off">
+            </div>
+            <select id="alumniSortSelect" class="sort-select" aria-label="Sort alumni">
+                <option value="last_name_asc">Sort: Last Name A-Z</option>
+                <option value="first_name_asc">First Name A-Z</option>
+                <option value="year_desc">Year (Newest)</option>
+                <option value="year_asc">Year (Oldest)</option>
+                <option value="status_asc">Status</option>
+            </select>
+            <span class="dept-badge"><i class="fas fa-building-columns"></i> <span id="deptBadgeText">Loading...</span></span>
+            <span class="alumni-count-tag"><i class="fas fa-users"></i> <span id="alumniCountNum">-</span></span>
+        </div>
+
+        <div class="alumni-table-card">
+            <div class="alumni-table-wrap">
+                <table class="alumni-table" id="alumniTable">
+                    <thead>
+                        <tr>
+                            <th data-sort="last_name_asc" id="thName">Name <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                            <th>Alumni ID</th>
+                            <th data-sort="year_desc" id="thYear">Year <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                            <th data-sort="status_asc" id="thStatus">Status <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alumniTableBody">
+                        <tr class="alumni-table-state">
+                            <td colspan="7">
+                                <div class="state-icon"><i class="fas fa-circle-notch fa-spin"></i></div>
+                                <strong>Loading alumni...</strong>
+                                <span>Fetching records for your department.</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="alumni-pagination" id="alumniPagination" style="display:none;">
+                <span id="pagInfo">Showing 0 of 0</span>
+                <div class="pag-btns" id="pagBtns"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="alumni-drawer-overlay" id="drawerOverlay"></div>
+<aside class="alumni-drawer" id="alumniDrawer" role="dialog" aria-modal="true" aria-label="Alumni details">
+    <div class="drawer-header">
+        <div class="drawer-avatar" id="drawerAvatar">-</div>
+        <div class="drawer-header-info">
+            <h3 id="drawerName">-</h3>
+            <p id="drawerCourse">-</p>
+        </div>
+        <button class="drawer-close" id="drawerCloseBtn" aria-label="Close details"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="drawer-body">
+        <p class="drawer-section-title">Identity</p>
+        <div class="drawer-field-grid">
+            <div class="drawer-field"><label>Alumni ID</label><span id="dAlumniId">-</span></div>
+            <div class="drawer-field"><label>Status</label><span id="dStatus">-</span></div>
+            <div class="drawer-field"><label>Graduation Year</label><span id="dYear">-</span></div>
+            <div class="drawer-field"><label>Course / Department</label><span id="dCourse">-</span></div>
+            <div class="drawer-field full"><label>College</label><span id="dCollege">-</span></div>
+        </div>
+        <p class="drawer-section-title">Contact</p>
+        <div class="drawer-field-grid">
+            <div class="drawer-field full"><label>Email</label><span id="dEmail">-</span></div>
+            <div class="drawer-field full"><label>Contact Number</label><span id="dContact">-</span></div>
+        </div>
+        <p class="drawer-section-title">Address</p>
+        <div class="drawer-field-grid">
+            <div class="drawer-field"><label>Barangay</label><span id="dBarangay">-</span></div>
+            <div class="drawer-field"><label>Municipality</label><span id="dMunicipality">-</span></div>
+            <div class="drawer-field full"><label>Province</label><span id="dProvince">-</span></div>
+        </div>
+    </div>
+</aside>
+
+<script src="CoordinatorCommon.js"></script>
+<script>
+(function(){
+    'use strict';
+    var allAlumni=[],filtered=[],currentPage=1,PAGE_SIZE=20,currentSort='last_name_asc',searchTimer=null;
+    var tbody=document.getElementById('alumniTableBody');
+    var searchInput=document.getElementById('alumniSearchInput');
+    var sortSelect=document.getElementById('alumniSortSelect');
+    var deptText=document.getElementById('deptBadgeText');
+    var countNum=document.getElementById('alumniCountNum');
+    var pagInfo=document.getElementById('pagInfo');
+    var pagBtns=document.getElementById('pagBtns');
+    var pagination=document.getElementById('alumniPagination');
+    var overlay=document.getElementById('drawerOverlay');
+    var drawer=document.getElementById('alumniDrawer');
+    var drawerClose=document.getElementById('drawerCloseBtn');
+
+    async function loadSession(){
+        try{
+            var res=await fetch('../coordinator/session',{credentials:'same-origin'});
+            if(!res.ok)return;
+            var data=await res.json();
+            if(data.success){
+                var name=data.name||'Coordinator';
+                var dept=data.department||'';
+                document.getElementById('sidebarUserName').textContent=name;
+                document.getElementById('sidebarUserDept').textContent=dept||'Coordinator';
+                document.getElementById('topbarUserName').textContent=name;
+                if(dept) document.getElementById('topbarTitle').textContent=dept+' Alumni';
+            }
+        }catch(e){}
+    }
+
+    async function loadAlumni(sort,search){
+        sort=sort||'last_name_asc';search=search||'';
+        tbody.innerHTML='<tr class="alumni-table-state"><td colspan="7"><div class="state-icon"><i class="fas fa-circle-notch fa-spin"></i></div><strong>Loading...</strong><span>Please wait.</span></td></tr>';
+        pagination.style.display='none';
+        try{
+            var params=new URLSearchParams({sort:sort});
+            if(search) params.set('search',search);
+            var res=await fetch('../coordinator/alumni?'+params,{credentials:'same-origin'});
+            if(!res.ok) throw new Error('HTTP '+res.status);
+            var data=await res.json();
+            if(!data.success) throw new Error(data.message||'Error');
+            allAlumni=data.alumni||[];
+            filtered=allAlumni;
+            currentPage=1;
+            deptText.textContent=data.department||'All Departments';
+            countNum.textContent=data.total;
+            renderPage();
+        }catch(e){
+            tbody.innerHTML='<tr class="alumni-table-state"><td colspan="7"><div class="state-icon"><i class="fas fa-circle-exclamation"></i></div><strong>Failed to load alumni</strong><span>'+esc(e.message)+'</span></td></tr>';
+            countNum.textContent='-';
+        }
+    }
+
+    function renderPage(){
+        var total=filtered.length;
+        var pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+        if(currentPage>pages) currentPage=pages;
+        var start=(currentPage-1)*PAGE_SIZE;
+        var end=Math.min(start+PAGE_SIZE,total);
+        var slice=filtered.slice(start,end);
+        if(slice.length===0){
+            tbody.innerHTML='<tr class="alumni-table-state"><td colspan="7"><div class="state-icon"><i class="fas fa-user-slash"></i></div><strong>No alumni found</strong><span>No records match your filter.</span></td></tr>';
+            pagination.style.display='none';
+            return;
+        }
+        tbody.innerHTML=slice.map(function(a){
+            var sc=(a.status||'').toLowerCase()==='active'?'active':(a.status||'').toLowerCase()==='inactive'?'inactive':'pending';
+            var sl=a.status?cap(a.status):'Pending';
+            var loc=[a.barangay,a.municipality,a.province].filter(Boolean).join(', ')||'';
+            return '<tr data-id="'+a.id+'" tabindex="0" role="button">'+
+                '<td class="alumni-name-cell">'+esc(a.full_name)+'</td>'+
+                '<td class="alumni-id-cell">'+(a.alumni_id?esc(a.alumni_id):'<span class="empty-val">Not assigned</span>')+'</td>'+
+                '<td>'+(a.graduation_year?esc(a.graduation_year):'-')+'</td>'+
+                '<td><span class="status-badge '+sc+'">'+sl+'</span></td>'+
+                '<td>'+(a.contact?esc(a.contact):'<span class="empty-val">-</span>')+'</td>'+
+                '<td>'+(a.email?esc(a.email):'<span class="empty-val">-</span>')+'</td>'+
+                '<td style="font-size:12px;color:#607080;">'+(loc?esc(loc):'<span class="empty-val">-</span>')+'</td>'+
+                '</tr>';
+        }).join('');
+        tbody.querySelectorAll('tr[data-id]').forEach(function(row){
+            var id=parseInt(row.dataset.id,10);
+            var a=filtered.find(function(x){return x.id===id;});
+            if(a){
+                row.addEventListener('click',function(){openDrawer(a);});
+                row.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openDrawer(a);}});
+            }
+        });
+        pagInfo.textContent='Showing '+(start+1)+'-'+end+' of '+total;
+        renderPag(pages);
+        pagination.style.display='flex';
+    }
+
+    function renderPag(pages){
+        pagBtns.innerHTML='';
+        function btn(label,page,active,disabled){
+            var b=document.createElement('button');
+            b.className='pag-btn'+(active?' active':'');
+            b.innerHTML=label;b.disabled=!!disabled;
+            b.addEventListener('click',function(){currentPage=page;renderPage();});
+            pagBtns.appendChild(b);
+        }
+        btn('<i class="fas fa-angle-left"></i>',currentPage-1,false,currentPage===1);
+        var lo=Math.max(1,currentPage-2),hi=Math.min(pages,currentPage+2);
+        if(lo>1){btn('1',1,false,false);if(lo>2){var e=document.createElement('button');e.className='pag-btn';e.textContent='...';e.disabled=true;pagBtns.appendChild(e);}}
+        for(var i=lo;i<=hi;i++) btn(i,i,i===currentPage,false);
+        if(hi<pages){if(hi<pages-1){var e2=document.createElement('button');e2.className='pag-btn';e2.textContent='...';e2.disabled=true;pagBtns.appendChild(e2);}btn(pages,pages,false,false);}
+        btn('<i class="fas fa-angle-right"></i>',currentPage+1,false,currentPage===pages);
+    }
+
+    function openDrawer(a){
+        var ini=((a.first_name||'')[0]||(a.last_name||'')[0]||'?').toUpperCase();
+        ini+=((a.last_name||'')[0]||'').toUpperCase();
+        document.getElementById('drawerAvatar').textContent=ini;
+        document.getElementById('drawerName').textContent=a.full_name||'-';
+        document.getElementById('drawerCourse').textContent=a.course||a.college||'-';
+        setF('dAlumniId',a.alumni_id);setF('dStatus',a.status?cap(a.status):null);
+        setF('dYear',a.graduation_year);setF('dCourse',a.course);setF('dCollege',a.college);
+        setF('dEmail',a.email);setF('dContact',a.contact);
+        setF('dBarangay',a.barangay);setF('dMunicipality',a.municipality);setF('dProvince',a.province);
+        overlay.classList.add('open');drawer.classList.add('open');drawerClose.focus();
+    }
+    function closeDrawer(){overlay.classList.remove('open');drawer.classList.remove('open');}
+    function setF(id,v){var el=document.getElementById(id);if(!el)return;if(v&&String(v).trim()){el.textContent=v;el.classList.remove('empty');}else{el.textContent='Not provided';el.classList.add('empty');}}
+
+    drawerClose.addEventListener('click',closeDrawer);
+    overlay.addEventListener('click',closeDrawer);
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
+
+    searchInput.addEventListener('input',function(){
+        clearTimeout(searchTimer);
+        searchTimer=setTimeout(function(){
+            var q=searchInput.value.trim().toLowerCase();
+            filtered=q?allAlumni.filter(function(a){return a.full_name.toLowerCase().includes(q)||(a.email||'').toLowerCase().includes(q)||(a.alumni_id||'').toLowerCase().includes(q);}):allAlumni;
+            currentPage=1;renderPage();countNum.textContent=filtered.length;
+        },280);
+    });
+
+    sortSelect.addEventListener('change',function(){
+        currentSort=sortSelect.value;
+        loadAlumni(currentSort,searchInput.value.trim());
+    });
+
+    document.querySelectorAll('.alumni-table th[data-sort]').forEach(function(th){
+        th.addEventListener('click',function(){
+            currentSort=th.dataset.sort;sortSelect.value=currentSort;
+            document.querySelectorAll('.alumni-table th').forEach(function(t){t.classList.remove('sorted');});
+            th.classList.add('sorted');
+            loadAlumni(currentSort,searchInput.value.trim());
+        });
+    });
+
+    function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    function cap(s){return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();}
+
+    loadSession();
+    loadAlumni(currentSort);
+})();
+</script>
+</body>
+</html>

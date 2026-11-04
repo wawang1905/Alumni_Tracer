@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alumni Tracker - Survey Response Details</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body class="staff-survey-response-detail-page has-staff-breadcrumbs">
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎓 Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item active" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="staff-sticky-navigation">
+            <div class="top-bar">
+                <div>
+                    <div class="page-title">Survey Response Details</div>
+                    <p class="page-subtitle">Review the respondent’s complete submission.</p>
+                </div>
+                <div class="staff-info">
+                    <span class="staff-name">Sarah Johnson</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="staff-breadcrumb-bar">
+                <span class="breadcrumb-location-label"><i class="fas fa-location-dot" aria-hidden="true"></i> You are here</span>
+                <nav class="staff-breadcrumbs" aria-label="Breadcrumb">
+                    <ol>
+                        <li><a href="Surveys.html"><i class="fas fa-file-alt" aria-hidden="true"></i> Surveys</a></li>
+                        <li><a id="detailResponsesBreadcrumb" href="Surveys.html">Response Records</a></li>
+                        <li aria-current="page">Response Details</li>
+                    </ol>
+                </nav>
+            </div>
+            </div>
+
+            <div class="section-card response-detail-summary">
+                <div class="section-header">
+                    <h3><i class="fas fa-user-graduate"></i> Alumni Information</h3>
+                    <button id="detailBackButton" class="response-detail-back" type="button" onclick="history.back()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to responses</button>
+                </div>
+                <div class="response-detail-profile">
+                    <span id="detailAlumniAvatar" class="response-detail-avatar" aria-hidden="true">AR</span>
+                    <div>
+                        <span class="response-detail-eyebrow">Respondent</span>
+                        <h2 id="detailAlumniName">-</h2>
+                    </div>
+                </div>
+                <div class="response-detail-meta">
+                    <div><i class="fas fa-clipboard-list" aria-hidden="true"></i><span><small>Survey</small><strong id="detailSurveyTitle">-</strong></span></div>
+                    <div><i class="far fa-calendar-check" aria-hidden="true"></i><span><small>Submitted</small><strong id="detailSubmittedAt">-</strong></span></div>
+                    <div><i class="far fa-message" aria-hidden="true"></i><span><small>Completion</small><strong id="detailAnswerCount">—</strong></span></div>
+                    <div><i class="fas fa-stamp" aria-hidden="true"></i><span><small>Review Status</small><span id="detailReviewStatus">—</span></span></div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-header">
+                    <div>
+                        <h3><i class="fas fa-list-ol"></i> Detailed Answers</h3>
+                        <p class="response-section-description">Answers are displayed in the same order as the survey.</p>
+                    </div>
+                </div>
+                <div id="detailAnswersContainer" class="response-detail-answers">
+                    <div class="response-detail-loading"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Loading complete response…</div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function getSurveyResponseApiUrl(responseId) {
+            return new URL(`../surveys/responses/${encodeURIComponent(responseId)}`, window.location.href).toString();
+        }
+
+        function getResponseIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const id = Number(params.get('responseId'));
+            return Number.isFinite(id) ? id : null;
+        }
+
+        async function renderResponseDetails() {
+            const responseId = getResponseIdFromUrl();
+            const answersContainer = document.getElementById('detailAnswersContainer');
+
+            if (!responseId) {
+                answersContainer.innerHTML = '<p style="color:#7f8c8d;">Response details not found.</p>';
+                return;
+            }
+
+            let payload;
+            try {
+                const response = await fetch(getSurveyResponseApiUrl(responseId), {
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error('Response not found.');
+                }
+            } catch (error) {
+                answersContainer.innerHTML = '<p style="color:#7f8c8d;">Response record does not exist.</p>';
+                return;
+            }
+
+            const responseRecord = payload.response;
+            const survey = payload.survey;
+
+            document.getElementById('detailAlumniName').textContent = responseRecord.alumniName || '-';
+            document.getElementById('detailSubmittedAt').textContent = responseRecord.submittedAt || '-';
+            document.getElementById('detailSurveyTitle').textContent = survey ? survey.title : '-';
+            const alumniName = String(responseRecord.alumniName || 'Alumni respondent');
+            document.getElementById('detailAlumniAvatar').textContent = alumniName
+                .split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || 'AR';
+            document.getElementById('detailAnswerCount').textContent = `${responseRecord.answers?.length || 0} ${(responseRecord.answers?.length || 0) === 1 ? 'answer' : 'answers'}`;
+
+            const reviewStatus = String(responseRecord.reviewStatus || 'pending').toLowerCase();
+            const statusEl = document.getElementById('detailReviewStatus');
+            if (statusEl) {
+                if (reviewStatus === 'reviewed') {
+                    statusEl.innerHTML = '<span class="response-status-badge is-reviewed"><i class="fas fa-circle-check" aria-hidden="true"></i> Reviewed</span>';
+                } else if (reviewStatus === 'needs_revision') {
+                    statusEl.innerHTML = '<span class="response-status-badge is-needs-revision"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Needs Revision</span>';
+                } else {
+                    statusEl.innerHTML = '<span class="response-status-badge is-pending"><i class="fas fa-clock" aria-hidden="true"></i> Pending</span>';
+                }
+            }
+
+            if (survey?.id) {
+                document.getElementById('detailResponsesBreadcrumb').href = `SurveyResponses.html?surveyId=${encodeURIComponent(survey.id)}`;
+                document.getElementById('detailBackButton').onclick = () => {
+                    window.location.href = `SurveyResponses.html?surveyId=${encodeURIComponent(survey.id)}`;
+                };
+            }
+
+            if (!responseRecord.answers || responseRecord.answers.length === 0) {
+                answersContainer.innerHTML = '<p style="color:#7f8c8d;">No answers saved for this response.</p>';
+                return;
+            }
+
+            const surveyCategories = Array.isArray(survey?.categories) ? survey.categories : [];
+            const groupedAnswers = [];
+            const categoryIndexes = new Map();
+
+            surveyCategories.forEach((category) => {
+                const categoryName = String(category.name || '').trim();
+                if (!categoryName) return;
+                const categoryKey = categoryName.toLocaleLowerCase();
+                if (categoryIndexes.has(categoryKey)) return;
+                categoryIndexes.set(categoryKey, groupedAnswers.length);
+                groupedAnswers.push({
+                    name: categoryName,
+                    description: String(category.description || '').trim(),
+                    answers: [],
+                });
+            });
+
+            responseRecord.answers.forEach((answer, answerIndex) => {
+                const categoryName = String(answer.categoryName || '').trim() || 'General';
+                const categoryKey = categoryName.toLocaleLowerCase();
+                let groupIndex = categoryIndexes.get(categoryKey);
+
+                if (groupIndex === undefined) {
+                    groupIndex = groupedAnswers.length;
+                    categoryIndexes.set(categoryKey, groupIndex);
+                    groupedAnswers.push({
+                        name: categoryName,
+                        description: '',
+                        answers: [],
+                    });
+                }
+
+                groupedAnswers[groupIndex].answers.push({ answer, answerIndex });
+            });
+
+            answersContainer.innerHTML = groupedAnswers.map((category, categoryIndex) => `
+                <section class="response-category-group">
+                    <div class="response-category-heading">
+                        <span class="response-category-number">${categoryIndex + 1}</span>
+                        <div class="response-category-copy">
+                            <span class="response-detail-eyebrow">Category</span>
+                            <h3>${escapeHtml(category.name)}</h3>
+                            ${category.description ? `<p>${escapeHtml(category.description)}</p>` : ''}
+                        </div>
+                        <span class="response-category-count">${category.answers.length} ${category.answers.length === 1 ? 'answer' : 'answers'}</span>
+                    </div>
+                    <div class="response-category-answers">
+                        ${category.answers.length ? category.answers.map(({ answer, answerIndex }) => `
+                            <article class="response-answer-card">
+                                <div class="response-answer-question">
+                                    <span>Question ${answerIndex + 1}</span>
+                                    <h4>${escapeHtml(answer.questionText)}</h4>
+                                </div>
+                                ${answer.imageUrl
+                                    ? `<div class="response-answer-value response-answer-image">
+                                        <span class="response-answer-label"><i class="far fa-image" aria-hidden="true"></i> Uploaded image</span>
+                                        <a href="${escapeHtml(answer.imageUrl)}" target="_blank" rel="noopener noreferrer" title="Open full-size image">
+                                            <img src="${escapeHtml(answer.imageUrl)}" alt="Uploaded answer for question ${answerIndex + 1}">
+                                        </a>
+                                    </div>`
+                                    : `<div class="response-answer-value">
+                                        <span class="response-answer-label">Answer</span>
+                                        <p>${escapeHtml(answer.value || 'No answer provided')}</p>
+                                    </div>`}
+                            </article>
+                        `).join('') : '<div class="response-category-empty"><i class="far fa-circle-question" aria-hidden="true"></i> No saved answers in this category.</div>'}
+                    </div>
+                </section>
+            `).join('');
+        }
+
+        renderResponseDetails();
+    </script>
+</body>
+</html>
+
+
+
+
+

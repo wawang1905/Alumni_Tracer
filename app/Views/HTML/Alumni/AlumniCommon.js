@@ -1,0 +1,1683 @@
+let currentAlumniUser = null;
+
+function alumniUrl(path) {
+    return new URL(path, window.location.href).toString();
+}
+
+function getRootUrl() {
+    return alumniUrl('../');
+}
+
+function getSessionUrl() {
+    return alumniUrl('../auth/session');
+}
+
+function getLogoutUrl() {
+    return alumniUrl('../auth/logout');
+}
+
+function getEventsUrl() {
+    return alumniUrl('../events/list');
+}
+
+function getNewsUrl() {
+    return alumniUrl('../alumni/news');
+}
+
+function getStatisticsUrl() {
+    return alumniUrl('../events/statistics');
+}
+
+function getSurveyListUrl() {
+    return alumniUrl('../surveys/list');
+}
+
+function getSurveySubmitUrl(surveyId) {
+    return alumniUrl(`../surveys/${encodeURIComponent(surveyId)}/responses`);
+}
+
+function getSurveyRespondUrl(surveyId) {
+    return alumniUrl(`SurveyRespond.html?id=${encodeURIComponent(surveyId)}`);
+}
+
+function getProfileUrl() {
+    return alumniUrl('../alumni/profile');
+}
+
+function getUpdateProfileUrl() {
+    return alumniUrl('../alumni/update');
+}
+
+function getUploadProfilePictureUrl() {
+    return alumniUrl('../alumni/profile-picture');
+}
+
+function getServeProfilePictureUrl(alumniId) {
+    if (alumniId) {
+        return alumniUrl(`../alumni/profile-picture?alumni_id=${encodeURIComponent(alumniId)}`);
+    }
+    return alumniUrl('../alumni/profile-picture');
+}
+
+function getStaffDashboardUrl() {
+    return alumniUrl('../staff/Dashboard.html');
+}
+
+function getDeveloperDashboardUrl() {
+    return alumniUrl('../developer/Dashboard.html');
+}
+
+function redirectToLogin() {
+    window.location.replace(getRootUrl());
+}
+
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        ...options,
+    });
+
+    if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
+    }
+
+    return response.json();
+}
+
+async function requireAlumni() {
+    try {
+        const session = await fetchJson(getSessionUrl());
+        if (!session.loggedIn || !session.user) {
+            redirectToLogin();
+            return null;
+        }
+
+        const role = String(session.user.role || '').toLowerCase();
+        if (role === 'developer' || role === 'system_admin') {
+            window.location.replace(getDeveloperDashboardUrl());
+            return null;
+        }
+        if (role === 'head_admin') {
+            window.location.replace(getStaffDashboardUrl());
+            return null;
+        }
+
+        currentAlumniUser = session.user;
+        return session.user;
+    } catch (error) {
+        redirectToLogin();
+        return null;
+    }
+}
+
+async function loadAlumniProfile() {
+    try {
+        const response = await fetchJson(getProfileUrl());
+        if (!response.success) {
+            console.error('Failed to load profile:', response.message);
+            return;
+        }
+        
+        displayProfileData(response.profile);
+    } catch (error) {
+        console.error('Error loading profile:', error);
+    }
+}
+
+function updateSessionUser(updatedUser) {
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        // Update the session user data
+        Object.assign(currentUser, updatedUser);
+        
+        // Update UI elements
+        const userNameEl = document.getElementById('alumniUserName');
+        if (userNameEl) {
+            userNameEl.textContent = `${updatedUser.firstName} ${updatedUser.lastName}`.trim() || 'Alumni User';
+        }
+    }
+}
+
+function getCurrentUser() {
+    // Try to get session from cookies first
+    const cookies = document.cookie.split(';');
+    let sessionCookie = null;
+    
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'ci_session') {
+            sessionCookie = value;
+            break;
+        }
+    }
+    
+    if (sessionCookie) {
+        try {
+            // Decode session data from cookie
+            const sessionData = atob(sessionCookie);
+            const sessionObj = JSON.parse(sessionData);
+            return sessionObj.auth_user || null;
+        } catch (e) {
+            console.error('Error parsing session cookie:', e);
+            return null;
+        }
+    }
+    
+    return null;
+}
+
+function displayProfileData(profileData) {
+    document.getElementById('profileAlumniId').value = profileData.alumni_id || '';
+    document.getElementById('profileFirstName').value = profileData.firstName || '';
+    document.getElementById('profileLastName').value = profileData.lastName || '';
+    document.getElementById('profileEmail').value = profileData.email || '';
+    document.getElementById('profileContactNumber').value = profileData.contactNumber || '';
+    document.getElementById('profileProvince').value = profileData.province || '';
+    document.getElementById('profileMunicipality').value = profileData.municipality || '';
+    document.getElementById('profileBarangay').value = profileData.barangay || '';
+    document.getElementById('profileGraduationYear').value = profileData.graduationYear || '';
+    document.getElementById('profileCollege').value = profileData.college || '';
+    document.getElementById('profileCourse').value = profileData.course || '';
+}
+
+async function logoutAlumni() {
+    try {
+        await fetch(getLogoutUrl(), {
+            method: 'POST',
+            credentials: 'same-origin',
+        });
+    } finally {
+        redirectToLogin();
+    }
+}
+
+function updateAlumniAvatarElements(imageUrl) {
+    const avatarSpans = document.querySelectorAll('.alumni-avatar');
+    avatarSpans.forEach((span) => {
+        if (imageUrl) {
+            let img = span.querySelector('img.alumni-avatar-img');
+            if (!img) {
+                span.innerHTML = '';
+                img = document.createElement('img');
+                img.className = 'alumni-avatar-img';
+                img.alt = 'Avatar';
+                span.appendChild(img);
+            }
+            img.src = imageUrl;
+            img.onerror = () => {
+                span.innerHTML = '<i class="fas fa-user"></i>';
+            };
+        } else {
+            span.innerHTML = '<i class="fas fa-user"></i>';
+        }
+    });
+
+    // Also sync the Profile page's main avatar card if present
+    const profileImg = document.getElementById('profileAvatarImg');
+    const profilePlaceholder = document.getElementById('profileAvatarPlaceholder');
+    const profileCircle = document.getElementById('profileAvatarCircle');
+    if (profileImg && profilePlaceholder) {
+        if (imageUrl) {
+            profileImg.src = imageUrl;
+            profileImg.style.display = 'block';
+            profilePlaceholder.style.display = 'none';
+            if (profileCircle) {
+                profileCircle.classList.add('has-image');
+                profileCircle.title = 'Click to view full photo';
+            }
+            profileImg.onerror = () => {
+                profileImg.style.display = 'none';
+                profilePlaceholder.style.display = 'block';
+                if (profileCircle) {
+                    profileCircle.classList.remove('has-image');
+                    profileCircle.title = 'Upload photo';
+                }
+            };
+        } else {
+            profileImg.style.display = 'none';
+            profilePlaceholder.style.display = 'block';
+            if (profileCircle) {
+                profileCircle.classList.remove('has-image');
+                profileCircle.title = 'Upload photo';
+            }
+        }
+    }
+}
+
+async function loadAlumniAvatars() {
+    const url = getServeProfilePictureUrl();
+    try {
+        const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+        if (res.ok && (res.headers.get('Content-Type') || '').startsWith('image/')) {
+            const cacheBustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+            updateAlumniAvatarElements(cacheBustUrl);
+        } else {
+            updateAlumniAvatarElements(null);
+        }
+    } catch {
+        updateAlumniAvatarElements(null);
+    }
+}
+
+function injectAlumniUser(user) {
+    const welcomeName = document.getElementById('welcomeName');
+    const displayName = user?.name || 'Alumni User';
+    const displayRole = (user?.role || 'alumni').replace('_', ' ');
+
+    document.querySelectorAll('[data-alumni-user-name]').forEach((element) => {
+        element.textContent = displayName;
+    });
+
+    document.querySelectorAll('[data-alumni-user-role]').forEach((element) => {
+        element.textContent = displayRole;
+    });
+
+    if (welcomeName) welcomeName.textContent = user?.first_name || user?.name || 'Alumni';
+
+    document.querySelectorAll('[data-logout-button]').forEach((button) => {
+        if (button.dataset.bound === 'true') return;
+        button.addEventListener('click', logoutAlumni);
+        button.dataset.bound = 'true';
+    });
+
+    loadAlumniAvatars();
+    setupSidebarMenu();
+    setupProfileDropdown();
+}
+
+function closeSidebarMenu() {
+    const shell = document.querySelector('.alumni-shell');
+    const menuToggle = document.getElementById('menuToggleButton');
+    if (!shell || !menuToggle) return;
+
+    shell.classList.remove('menu-open');
+    menuToggle.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('alumni-nav-open');
+}
+
+function setupSidebarMenu() {
+    const shell = document.querySelector('.alumni-shell');
+    const menuToggle = document.getElementById('menuToggleButton');
+    const sidebar = document.getElementById('alumniSidebar');
+    const overlay = document.getElementById('alumniSidebarOverlay');
+
+    if (!shell || !menuToggle || !sidebar || !overlay) return;
+    if (menuToggle.dataset.bound === 'true') return;
+
+    const syncState = (isOpen) => {
+        shell.classList.toggle('menu-open', isOpen);
+        menuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        document.body.classList.toggle('alumni-nav-open', isOpen);
+    };
+
+    menuToggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        syncState(!shell.classList.contains('menu-open'));
+    });
+
+    overlay.addEventListener('click', () => {
+        syncState(false);
+    });
+
+    sidebar.querySelectorAll('.alumni-menu-item').forEach((link) => {
+        link.addEventListener('click', () => {
+            syncState(false);
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            syncState(false);
+        }
+    });
+
+    menuToggle.dataset.bound = 'true';
+}
+
+function setupProfileDropdown() {
+    const menus = document.querySelectorAll('[data-profile-menu]');
+    if (menus.length === 0) return;
+
+    const closeMenus = () => {
+        menus.forEach((menu) => {
+            const trigger = menu.querySelector('[data-profile-trigger]');
+            const dropdown = menu.querySelector('[data-profile-dropdown]');
+            if (!trigger || !dropdown) return;
+
+            dropdown.classList.remove('open');
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+    };
+
+    menus.forEach((menu) => {
+        const trigger = menu.querySelector('[data-profile-trigger]');
+        const dropdown = menu.querySelector('[data-profile-dropdown]');
+        if (!trigger || !dropdown || trigger.dataset.bound === 'true') return;
+
+        trigger.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeSidebarMenu();
+
+            const willOpen = !dropdown.classList.contains('open');
+            closeMenus();
+            dropdown.classList.toggle('open', willOpen);
+            trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+
+        dropdown.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
+        trigger.dataset.bound = 'true';
+    });
+
+    if (document.body.dataset.profileMenusBound !== 'true') {
+        document.addEventListener('click', closeMenus);
+        document.body.dataset.profileMenusBound = 'true';
+    }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+        return escapeHtml(isoString);
+    }
+
+    return date.toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
+function formatRelativeLabel(isoString) {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+        return 'Schedule to be announced';
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const compare = new Date(date);
+    compare.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((compare.getTime() - today.getTime()) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays > 1) return `In ${diffDays} days`;
+    if (diffDays === -1) return 'Yesterday';
+    return `${Math.abs(diffDays)} days ago`;
+}
+
+function formatTimeAgo(isoString) {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+        return 'Just now';
+    }
+
+    const diffMs = Date.now() - date.getTime();
+    const minute = 60000;
+    const hour = 3600000;
+    const day = 86400000;
+
+    if (diffMs < minute) return 'Just now';
+    if (diffMs < hour) return `${Math.max(1, Math.floor(diffMs / minute))}m`;
+    if (diffMs < day) return `${Math.max(1, Math.floor(diffMs / hour))}h`;
+    if (diffMs < day * 7) return `${Math.max(1, Math.floor(diffMs / day))}d`;
+    return formatDateTime(isoString);
+}
+
+async function loadEventsData() {
+    const result = await fetchJson(getEventsUrl());
+    return Array.isArray(result.data) ? result.data : [];
+}
+
+async function loadEventStatistics() {
+    const result = await fetchJson(getStatisticsUrl());
+    return result.data || { total: 0, upcoming: 0, past: 0 };
+}
+
+async function loadNewsData() {
+    const result = await fetchJson(getNewsUrl());
+    return Array.isArray(result.news) ? result.news : [];
+}
+
+async function loadSurveyState() {
+    const result = await fetchJson(getSurveyListUrl());
+    return Array.isArray(result.data) ? result.data : [];
+}
+
+/* ==========================================================================
+   Survey Notification Feature
+   Tracks open surveys and keeps notification active on menu button until
+   the survey is answered or closed.
+   ========================================================================== */
+
+function getPendingUnansweredSurveys(surveys) {
+    if (!Array.isArray(surveys) || surveys.length === 0) return [];
+    return surveys.filter((survey) => {
+        // Exclude if already responded to by this alumni
+        if (Boolean(survey.alreadyResponded)) return false;
+        // Exclude if explicitly closed or not accepting responses
+        if (survey.isAcceptingResponses === false) return false;
+        if (String(survey.status || '').toLowerCase() === 'closed') return false;
+        return true;
+    });
+}
+
+function updateSurveyMenuNotification(hasPending, count = 0) {
+    const menuToggle = document.getElementById('menuToggleButton');
+    const surveyMenuItems = document.querySelectorAll('.alumni-menu-item[href*="Surveys.html"], [data-nav-survey]');
+
+    const label = count > 0 ? `Survey awaiting your response (${count})` : 'Survey awaiting your response';
+
+    // 1. Mobile topbar hamburger menu button
+    if (menuToggle) {
+        let dot = menuToggle.querySelector('.alumni-menu-dot');
+        if (!dot) {
+            dot = document.createElement('span');
+            dot.className = 'alumni-menu-dot';
+            dot.id = 'menuToggleNotificationDot';
+            dot.setAttribute('aria-hidden', 'true');
+            menuToggle.appendChild(dot);
+        }
+        if (hasPending) {
+            dot.classList.add('is-active');
+            dot.setAttribute('title', label);
+            dot.setAttribute('aria-label', label);
+        } else {
+            dot.classList.remove('is-active');
+            dot.removeAttribute('title');
+            dot.removeAttribute('aria-label');
+        }
+    }
+
+    // 2. Sidebar / Top navbar Survey menu item
+    surveyMenuItems.forEach((item) => {
+        let dot = item.querySelector('.alumni-menu-dot');
+        if (!dot) {
+            dot = document.createElement('span');
+            dot.className = 'alumni-menu-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            item.appendChild(dot);
+        }
+        if (hasPending) {
+            dot.classList.add('is-active');
+            dot.setAttribute('title', label);
+            dot.setAttribute('aria-label', label);
+        } else {
+            dot.classList.remove('is-active');
+            dot.removeAttribute('title');
+            dot.removeAttribute('aria-label');
+        }
+    });
+}
+
+let isPollingSurveys = false;
+
+async function pollSurveyNotifications() {
+    if (!currentAlumniUser || isPollingSurveys) return;
+    isPollingSurveys = true;
+
+    try {
+        const surveys = await loadSurveyState();
+        const prevIds = Array.isArray(currentSurveys) ? currentSurveys.map((s) => Number(s.id)) : [];
+        const currentIds = surveys.map((s) => Number(s.id));
+        currentSurveys = surveys;
+
+        const pending = getPendingUnansweredSurveys(surveys);
+        updateSurveyMenuNotification(pending.length > 0, pending.length);
+
+        const isSurveysPage = Boolean(document.getElementById('alumniSurveysGrid'));
+        if (isSurveysPage) {
+            const hasChanged = currentIds.some((id) => !prevIds.includes(id)) || currentIds.length !== prevIds.length;
+            if (hasChanged && prevIds.length > 0) {
+                renderSurveyCards('alumniSurveysGrid', surveys);
+            }
+        } else {
+            const mainSurveyPreview = document.getElementById('mainSurveyPreview');
+            const hasChanged = currentIds.some((id) => !prevIds.includes(id)) || currentIds.length !== prevIds.length;
+            if (mainSurveyPreview && hasChanged) {
+                renderSurveyCards('mainSurveyPreview', surveys, 2);
+            }
+        }
+    } catch {
+        // Ignore background polling errors
+    } finally {
+        isPollingSurveys = false;
+    }
+}
+
+function createEmptyState(icon, title, description) {
+    return `
+        <div class="empty-state">
+            <i class="fas ${icon}"></i>
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(description)}</p>
+        </div>
+    `;
+}
+
+function renderEventCards(targetId, events, limit = null) {
+    const container = document.getElementById(targetId);
+    if (!container) return;
+
+    const list = limit ? events.slice(0, limit) : events;
+    if (list.length === 0) {
+        container.innerHTML = createEmptyState('fa-calendar-xmark', 'No events yet', 'Staff has not posted any events at the moment.');
+        return;
+    }
+
+    container.innerHTML = list.map((event) => {
+        const iso = event.datetime || (event.date && event.time ? `${event.date}T${event.time}` : event.date);
+        const date = new Date(iso);
+        const month = Number.isNaN(date.getTime())
+            ? 'TBD'
+            : date.toLocaleDateString('en-PH', { month: 'short' });
+        const day = Number.isNaN(date.getTime())
+            ? '--'
+            : date.toLocaleDateString('en-PH', { day: '2-digit' });
+
+        return `
+            <article class="event-card">
+                <div class="event-head">
+                    <div class="event-date-box">
+                        <span>${escapeHtml(month)}</span>
+                        <strong>${escapeHtml(day)}</strong>
+                    </div>
+                    <span class="event-pill">${escapeHtml(event.status || 'Upcoming')}</span>
+                </div>
+                <div>
+                    <h4>${escapeHtml(event.name || 'Untitled Event')}</h4>
+                    <p class="section-note">${escapeHtml(formatRelativeLabel(iso))}</p>
+                </div>
+                <div class="event-meta">
+                    <div><i class="fas fa-calendar-day"></i><span>${escapeHtml(formatDateTime(iso))}</span></div>
+                    <div><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(event.location || 'Location to follow')}</span></div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function renderNewsCards(targetId, newsItems, limit = null) {
+    const container = document.getElementById(targetId);
+    if (!container) return;
+
+    const list = limit ? newsItems.slice(0, limit) : newsItems;
+    if (list.length === 0) {
+        container.innerHTML = createEmptyState('fa-bullhorn', 'No updates yet', 'Announcements and staff updates will appear here once they are posted.');
+        return;
+    }
+
+    container.innerHTML = list.map((item) => `
+        <article class="facebook-post">
+            <div class="facebook-post-header">
+                <div class="facebook-post-avatar">
+                    <i class="fas fa-newspaper"></i>
+                </div>
+                <div class="facebook-post-author">
+                    <strong>${escapeHtml(item.author || 'Staff Office')}</strong>
+                    <div class="facebook-post-meta">
+                        <span>${escapeHtml((item.author_role || 'staff').replaceAll('_', ' '))}</span>
+                        <span class="facebook-post-dot"></span>
+                        <span>${escapeHtml(formatTimeAgo(item.created_at || ''))}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="facebook-post-body">
+                <h2 class="facebook-post-title">${escapeHtml(item.title || 'Update')}</h2>
+                <p class="facebook-post-copy">${escapeHtml(item.content || item.description || item.title || 'New campus update available.')}</p>
+            </div>
+            ${item.image_url ? `
+                <div class="facebook-post-image-wrap">
+                    <img class="facebook-post-image" src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title || 'News image')}">
+                </div>
+            ` : ''}
+            <div class="facebook-post-actions">
+                <span><i class="fas fa-clock"></i> ${escapeHtml(formatDateTime(item.created_at || ''))}</span>
+                <span><i class="fas fa-tag"></i> ${escapeHtml(item.category || 'campus news')}</span>
+                ${item.link_url ? `<a class="facebook-post-link" href="${escapeHtml(item.link_url)}" target="_blank" rel="noopener noreferrer"><i class="fas fa-link"></i><span>Open Link</span></a>` : ''}
+            </div>
+        </article>
+    `).join('');
+}
+
+/**
+ * Survey picker cards: title only, Respond opens SurveyRespond.html (max 3 columns — see CSS).
+ */
+function renderSurveyCards(targetId, surveys, limit = null) {
+    const container = document.getElementById(targetId);
+    if (!container) return;
+
+    const list = limit ? surveys.slice(0, limit) : surveys;
+    if (list.length === 0) {
+        container.innerHTML = createEmptyState('fa-clipboard-question', 'No surveys available', 'When staff publishes surveys, you will see them here.');
+        return;
+    }
+
+    container.innerHTML = list.map((survey) => {
+        const responded = Boolean(survey.alreadyResponded);
+        const closed = !Boolean(survey.isAcceptingResponses);
+        const allowMulti = Boolean(survey.allowMultipleResponses);
+        const responseCount = Number(survey.responseCount || 0);
+        const respondHref = getSurveyRespondUrl(survey.id);
+        const categories = getSurveyCategoryGroups(survey);
+        const qNote = categories.reduce((total, category) => total + category.questions.length, 0);
+
+        const cardMods = [responded ? 'survey-pick-card--done' : '', closed ? 'survey-pick-card--closed' : ''].filter(Boolean).join(' ');
+
+        let footerHtml;
+        if (responded) {
+            footerHtml = `<span class="survey-pick-card-status"><i class="fas fa-circle-check"></i> Submitted</span>`;
+        } else if (closed) {
+            footerHtml = `
+                <div class="survey-pick-card-footer-stack">
+                    <span class="survey-pick-card-closed-label"><i class="fas fa-lock"></i> Unavailable</span>
+                    <a class="button-secondary survey-view-btn" href="${escapeHtml(respondHref)}"><i class="fas fa-eye"></i><span>View survey</span></a>
+                </div>`;
+        } else {
+            footerHtml = `<a class="button-primary survey-respond-btn" href="${escapeHtml(respondHref)}"><i class="fas fa-reply"></i><span>Respond</span></a>`;
+        }
+
+        const needsAnswer = !responded && !closed;
+        const statusBadge = needsAnswer
+            ? `<span class="survey-card-new-badge"><i class="fas fa-bell"></i> Open</span>`
+            : '';
+
+        const metaText = `${qNote} question${qNote === 1 ? '' : 's'} · ${getSurveyAvailabilityNote(survey)}${responseCount > 0 ? ` · ${responseCount} past submission${responseCount === 1 ? '' : 's'}` : ''}${allowMulti ? ' · Multiple responses allowed' : ''}`;
+        const cardHtml = `
+        <article class="survey-pick-card ${cardMods}">
+            <div class="survey-pick-card-inner">
+                <h4 class="survey-pick-card-title">${escapeHtml(survey.title || 'Survey')}${statusBadge}</h4>
+                <p class="survey-pick-card-meta">${escapeHtml(metaText)}</p>
+                <div class="survey-pick-card-footer">
+                    ${footerHtml}
+                </div>
+            </div>
+        </article>`;
+        return cardHtml;
+    }).join('');
+}
+
+let surveyRespondSession = {
+    surveyId: null,
+    currentCatIndex: 0,
+    history: [0],
+    answers: {},
+};
+
+function getSurveyCategoryGroups(survey) {
+    if (Array.isArray(survey?.categories) && survey.categories.length > 0) {
+        return survey.categories.map((category) => ({
+            id: Number(category.id || 0) || category.id || null,
+            name: category.name || category.category_name || '',
+            description: category.description || '',
+            questions: Array.isArray(category.questions) ? category.questions.map((question) => ({
+                id: Number(question.id || 0) || question.id || null,
+                text: question.text || '',
+                type: question.type || 'multiple_choice',
+                required: question.required === true || question.required === 1 || question.required === '1' || question.required === 'true',
+                choices: Array.isArray(question.choices) ? [...question.choices] : [],
+                options: Array.isArray(question.options) ? [...question.options] : [],
+                logic: question.logic || null,
+                ratingMin: question.ratingMin,
+                ratingMax: question.ratingMax,
+                ratingMinLabel: question.ratingMinLabel,
+                ratingMaxLabel: question.ratingMaxLabel,
+            })) : [],
+        }));
+    }
+
+    const fallbackQuestions = Array.isArray(survey?.questions) ? survey.questions : [];
+    if (fallbackQuestions.length === 0) {
+        return [];
+    }
+
+    return [{
+        id: null,
+        name: 'General',
+        description: '',
+        questions: fallbackQuestions.map((question) => ({
+            id: Number(question.id || 0) || question.id || null,
+            text: question.text || '',
+            type: question.type || 'multiple_choice',
+            required: question.required === true || question.required === 1 || question.required === '1' || question.required === 'true',
+            choices: Array.isArray(question.choices) ? [...question.choices] : [],
+            options: Array.isArray(question.options) ? [...question.options] : [],
+            logic: question.logic || null,
+            ratingMin: question.ratingMin,
+            ratingMax: question.ratingMax,
+            ratingMinLabel: question.ratingMinLabel,
+            ratingMaxLabel: question.ratingMaxLabel,
+        })),
+    }];
+}
+
+function formatSurveyDatetimeLabel(value) {
+    if (!value) return 'Not set';
+
+    const parsed = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) {
+        return String(value);
+    }
+
+    return parsed.toLocaleString([], {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+function getSurveyAvailabilityNote(survey) {
+    const openAt = survey?.openDateTime;
+    const closeAt = survey?.closeDateTime;
+    const accepting = Boolean(survey?.isAcceptingResponses);
+    const now = Date.now();
+    const openTime = openAt ? new Date(String(openAt).replace(' ', 'T')).getTime() : null;
+
+    if (accepting) {
+        if (openAt && closeAt) {
+            return `Open from ${formatSurveyDatetimeLabel(openAt)} until ${formatSurveyDatetimeLabel(closeAt)}`;
+        }
+        if (closeAt) {
+            return `Open until ${formatSurveyDatetimeLabel(closeAt)}`;
+        }
+        if (openAt) {
+            return `Opened ${formatSurveyDatetimeLabel(openAt)}`;
+        }
+        return 'Open now';
+    }
+
+    if (openAt && !Number.isNaN(openTime) && openTime !== null && now < openTime) {
+        return `Opens ${formatSurveyDatetimeLabel(openAt)}`;
+    }
+    if (closeAt) {
+        return `Closed ${formatSurveyDatetimeLabel(closeAt)}`;
+    }
+    return 'Not accepting responses';
+}
+
+function renderSurveyDetailForm(mountId, survey) {
+    const mount = document.getElementById(mountId);
+    if (!mount || !survey) return;
+
+    const responded = Boolean(survey.alreadyResponded);
+    const closed = !Boolean(survey.isAcceptingResponses);
+    const allowMulti = Boolean(survey.allowMultipleResponses);
+    const responseCount = Number(survey.responseCount || 0);
+
+    const formLocked = closed || responded;
+    const sid = survey.id;
+    const categories = getSurveyCategoryGroups(survey);
+    const totalCategories = categories.length;
+    const totalQuestions = categories.reduce((total, category) => total + category.questions.length, 0);
+
+    // Initialize session if new survey
+    if (surveyRespondSession.surveyId !== sid) {
+        surveyRespondSession = {
+            surveyId: sid,
+            currentCatIndex: 0,
+            history: [0],
+            answers: {},
+        };
+    }
+
+    if (surveyRespondSession.currentCatIndex >= totalCategories) {
+        surveyRespondSession.currentCatIndex = 0;
+        surveyRespondSession.history = [0];
+    }
+
+    const currentCatIndex = surveyRespondSession.currentCatIndex;
+    const currentCategory = categories[currentCatIndex] || { name: 'General', questions: [] };
+    const categoriesLeft = totalCategories - currentCatIndex - 1;
+    const progressPercent = totalCategories > 0 ? Math.round(((currentCatIndex + 1) / totalCategories) * 100) : 100;
+
+    const descHtml = survey.description
+        ? `<p class="section-note survey-detail-desc">${escapeHtml(survey.description)}</p>`
+        : '';
+
+    const closedBanner = closed
+        ? `<p class="survey-closed-banner"><i class="fas fa-lock"></i> This survey is not accepting responses right now. Questions are shown for reference only.</p>`
+        : '';
+
+    let respondedBannerHtml = '';
+    if (responded && !closed) {
+        respondedBannerHtml = `<p class="survey-responded-banner"><i class="fas fa-circle-check"></i> You already submitted this survey (${responseCount} total submission${responseCount === 1 ? '' : 's'} on file).</p>`;
+    }
+
+    const isFirstStep = surveyRespondSession.history.length <= 1;
+    const isLastStep = currentCatIndex === totalCategories - 1;
+    const showSubmit = !closed && !responded;
+
+    // Calculate question offset
+    let questionOffset = 0;
+    for (let i = 0; i < currentCatIndex; i++) {
+        questionOffset += (categories[i]?.questions?.length || 0);
+    }
+
+    mount.innerHTML = `
+        <div class="survey-detail-inner${formLocked ? ' survey-detail-inner--locked' : ''}">
+            ${closedBanner}
+            ${respondedBannerHtml}
+            ${descHtml}
+
+            <!-- Category Stepper Progress Bar -->
+            <div class="survey-respond-progress-card">
+                <div class="survey-respond-progress-top">
+                    <div class="survey-respond-step-badge">
+                        <i class="fas fa-layer-group"></i> Section ${currentCatIndex + 1} of ${totalCategories}
+                    </div>
+                    <div class="survey-respond-remaining-badge">
+                        ${categoriesLeft > 0 
+                            ? `<i class="fas fa-hourglass-half"></i> ${categoriesLeft} section${categoriesLeft === 1 ? '' : 's'} left` 
+                            : `<i class="fas fa-flag-checkered"></i> Final section`}
+                    </div>
+                </div>
+                <div class="survey-respond-progress-track">
+                    <div class="survey-respond-progress-fill" style="width: ${progressPercent}%;"></div>
+                </div>
+            </div>
+
+            <!-- Active Category Card -->
+            <div class="survey-respond-category-card">
+                <div class="survey-respond-category-header">
+                    <div class="survey-respond-category-title-row">
+                        <span class="survey-respond-cat-num">${currentCatIndex + 1}</span>
+                        <h2 class="survey-respond-category-title">${escapeHtml(currentCategory.name || 'General')}</h2>
+                    </div>
+                    ${currentCategory.description ? `<p class="survey-respond-category-description">${escapeHtml(currentCategory.description)}</p>` : ''}
+                </div>
+
+                <div class="survey-question-list">
+                    ${(currentCategory.questions || []).length === 0 
+                        ? `<div style="text-align:center;padding:30px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:24px;margin-bottom:8px;display:block;"></i>No questions in this section.</div>`
+                        : currentCategory.questions.map((question, index) => {
+                            const isReq = question.required === true || question.required === 1 || question.required === '1' || question.required === 'true';
+                            return `
+                            <div class="survey-question-item">
+                                <div class="survey-question-text">
+                                    <span class="survey-question-num">${questionOffset + index + 1}.</span> 
+                                    ${escapeHtml(question.text || '')}
+                                    ${isReq 
+                                        ? '<span class="survey-question-req-star" style="color:#ef4444;font-weight:700;margin-left:4px;" title="Required">*</span>' 
+                                        : ' <span class="survey-question-optional-tag" style="font-size:12px;color:#94a3b8;font-weight:normal;margin-left:4px;">(Optional)</span>'}
+                                </div>
+                                ${renderSurveyAnswerInput(sid, question, formLocked)}
+                            </div>
+                            `;
+                        }).join('')}
+                </div>
+            </div>
+
+            <!-- Stepper Action Navigation -->
+            <div class="survey-actions survey-respond-nav-actions">
+                ${!isFirstStep
+                    ? `<button class="button-secondary" type="button" onclick="surveyRespondGoBack(${sid})">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>`
+                    : `<div></div>`}
+
+                ${showSubmit
+                    ? (isLastStep
+                        ? `<button class="button-primary survey-btn-submit" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
+                            <i class="fas fa-paper-plane"></i> Submit answers
+                        </button>`
+                        : `<button class="button-primary" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
+                            Continue <i class="fas fa-arrow-right"></i>
+                        </button>`)
+                    : (!isLastStep
+                        ? `<button class="button-secondary" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
+                            Next section <i class="fas fa-arrow-right"></i>
+                        </button>`
+                        : `<p class="section-note survey-actions-note">${closed ? 'This survey is closed.' : 'You have already submitted.'}</p>`)}
+            </div>
+        </div>
+    `;
+
+    // Restore any previously answered inputs
+    restoreCategoryAnswers(sid, currentCategory);
+
+    const pageTitle = document.getElementById('surveyRespondPageTitle');
+    const pageSub = document.getElementById('surveyRespondPageSubtitle');
+    if (pageTitle) pageTitle.textContent = survey.title || 'Survey';
+    if (pageSub) {
+        if (responded) {
+            pageSub.textContent = 'Your submission for this survey is on file.';
+        } else if (closed) {
+            pageSub.textContent = `${getSurveyAvailabilityNote(survey)}. Questions below are read-only.`;
+        } else {
+            pageSub.textContent = totalQuestions
+                ? `${getSurveyAvailabilityNote(survey)}. Section ${currentCatIndex + 1} of ${totalCategories}.`
+                : 'No questions are available for this survey yet.';
+        }
+    }
+}
+
+function restoreCategoryAnswers(surveyId, category) {
+    if (!category || !Array.isArray(category.questions)) return;
+    category.questions.forEach((question) => {
+        const qId = question.id;
+        const saved = surveyRespondSession.answers[qId];
+        if (!saved) return;
+
+        const input = document.querySelector(`[data-survey-id="${surveyId}"][data-question-id="${qId}"]`);
+        if (!input) return;
+
+        if (question.type === 'multiple_choice') {
+            if (saved.choice_id !== undefined && saved.choice_id !== null) {
+                input.value = String(saved.choice_id);
+            }
+        } else if (question.type !== 'image') {
+            if (saved.answer_text !== undefined) {
+                input.value = saved.answer_text;
+            }
+        }
+    });
+}
+
+function saveCurrentCategoryAnswers(surveyId, category) {
+    if (!category || !Array.isArray(category.questions)) return true;
+
+    category.questions.forEach((question) => {
+        const qId = question.id;
+        const input = document.querySelector(`[data-survey-id="${surveyId}"][data-question-id="${qId}"]`);
+        if (!input) return;
+
+        input.classList.remove('error');
+
+        if (question.type === 'image') {
+            const file = input.files ? input.files[0] : null;
+            if (file) {
+                surveyRespondSession.answers[qId] = {
+                    question_id: qId,
+                    file: file,
+                    answer_text: '',
+                };
+            }
+            return;
+        }
+
+        const rawValue = String(input.value || '').trim();
+        if (rawValue) {
+            if (question.type === 'multiple_choice') {
+                surveyRespondSession.answers[qId] = {
+                    question_id: qId,
+                    choice_id: Number(rawValue),
+                };
+            } else {
+                surveyRespondSession.answers[qId] = {
+                    question_id: qId,
+                    answer_text: rawValue,
+                };
+            }
+        } else {
+            delete surveyRespondSession.answers[qId];
+        }
+    });
+
+    return true;
+}
+
+function pruneDivergentAnswers(categories) {
+    const activeCatIndices = new Set(surveyRespondSession.history);
+    const activeQuestionIds = new Set();
+    categories.forEach((cat, idx) => {
+        if (activeCatIndices.has(idx)) {
+            (cat.questions || []).forEach(q => {
+                activeQuestionIds.add(Number(q.id));
+                activeQuestionIds.add(String(q.id));
+            });
+        }
+    });
+
+    Object.keys(surveyRespondSession.answers).forEach(qId => {
+        if (!activeQuestionIds.has(Number(qId)) && !activeQuestionIds.has(String(qId))) {
+            delete surveyRespondSession.answers[qId];
+        }
+    });
+}
+
+function validateCategoryAnswers(surveyId, category) {
+    if (!category || !Array.isArray(category.questions) || category.questions.length === 0) {
+        return { valid: true };
+    }
+
+    let valid = true;
+    let firstUnansweredItem = null;
+    let firstUnansweredInput = null;
+
+    // Reset previous error classes
+    document.querySelectorAll('.survey-question-item--error').forEach((el) => el.classList.remove('survey-question-item--error'));
+    document.querySelectorAll('.survey-answer-input.input-error').forEach((el) => el.classList.remove('input-error'));
+
+    category.questions.forEach((question) => {
+        const isRequired = question.required === true || question.required === 1 || question.required === '1' || question.required === 'true';
+        if (!isRequired) {
+            // Optional question: allow it to be blank or null!
+            return;
+        }
+
+        const qId = Number(question.id || 0) || question.id;
+        const input = document.querySelector(`[data-survey-id="${surveyId}"][data-question-id="${qId}"]`);
+        if (!input) return;
+
+        let hasAnswer = false;
+
+        if (question.type === 'image') {
+            const hasFile = (input.files && input.files.length > 0) || Boolean(surveyRespondSession.answers[qId]?.file);
+            hasAnswer = Boolean(hasFile);
+        } else if (question.type === 'multiple_choice' || question.type === 'rating') {
+            const val = String(input.value || '').trim();
+            hasAnswer = val !== '';
+        } else {
+            // Text answer
+            const val = String(input.value || '').trim();
+            hasAnswer = val.length > 0;
+        }
+
+        if (!hasAnswer) {
+            valid = false;
+
+            input.classList.add('input-error');
+            const questionItem = input.closest('.survey-question-item');
+            if (questionItem) {
+                questionItem.classList.add('survey-question-item--error');
+            }
+
+            if (!firstUnansweredItem && questionItem) {
+                firstUnansweredItem = questionItem;
+            }
+            if (!firstUnansweredInput) {
+                firstUnansweredInput = input;
+            }
+
+            const clearHandler = () => {
+                input.classList.remove('input-error');
+                if (questionItem) {
+                    questionItem.classList.remove('survey-question-item--error');
+                }
+                input.removeEventListener('input', clearHandler);
+                input.removeEventListener('change', clearHandler);
+            };
+            input.addEventListener('input', clearHandler);
+            input.addEventListener('change', clearHandler);
+        }
+    });
+
+    if (!valid) {
+        const targetToScroll = firstUnansweredItem || firstUnansweredInput;
+        if (targetToScroll) {
+            targetToScroll.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (firstUnansweredInput) {
+            try {
+                firstUnansweredInput.focus({ preventScroll: true });
+            } catch (e) {
+                firstUnansweredInput.focus();
+            }
+        }
+    }
+
+    return { valid };
+}
+
+function surveyRespondNextOrSubmit(surveyId) {
+    const survey = currentSurveys.find((item) => Number(item.id) === Number(surveyId));
+    if (!survey) return;
+
+    const categories = getSurveyCategoryGroups(survey);
+    const totalCategories = categories.length;
+    const currentCatIndex = surveyRespondSession.currentCatIndex;
+    const currentCategory = categories[currentCatIndex];
+
+    const formLocked = Boolean(survey.alreadyResponded) || !Boolean(survey.isAcceptingResponses);
+    if (!formLocked) {
+        const validation = validateCategoryAnswers(surveyId, currentCategory);
+        if (!validation.valid) {
+            return;
+        }
+        saveCurrentCategoryAnswers(surveyId, currentCategory);
+    }
+
+    // Check branching logic from multiple choice questions in current category
+    let nextTargetCatIndex = null;
+    let shouldSubmitImmediately = false;
+
+    if (currentCategory && Array.isArray(currentCategory.questions)) {
+        for (const question of currentCategory.questions) {
+            if (question.type === 'multiple_choice' && question.logic?.enabled && Array.isArray(question.logic.rules)) {
+                const answer = surveyRespondSession.answers[question.id];
+                if (answer && answer.choice_id) {
+                    const choiceIdx = (question.choices || []).findIndex(c => Number(c.id) === Number(answer.choice_id));
+                    const rule = question.logic.rules.find(r => Number(r.optionIndex) === Number(choiceIdx));
+                    if (rule) {
+                        if (rule.action === 'submit') {
+                            shouldSubmitImmediately = true;
+                            break;
+                        } else if (rule.action === 'go_to_section') {
+                            let targetIdx = -1;
+                            if (rule.targetCatId) {
+                                targetIdx = categories.findIndex(c => 
+                                    String(c.id) === String(rule.targetCatId) || 
+                                    (c.id && Number(c.id) === Number(rule.targetCatId))
+                                );
+                            }
+                            if (targetIdx === -1 && rule.targetCatIndex !== null && rule.targetCatIndex !== undefined) {
+                                if (rule.targetCatIndex >= 0 && rule.targetCatIndex < categories.length) {
+                                    targetIdx = Number(rule.targetCatIndex);
+                                }
+                            }
+                            if (targetIdx !== -1) {
+                                nextTargetCatIndex = targetIdx;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (shouldSubmitImmediately) {
+        if (!formLocked) {
+            pruneDivergentAnswers(categories);
+            promptSubmitSurveyConfirmation(surveyId);
+        }
+        return;
+    }
+
+    if (nextTargetCatIndex !== null) {
+        surveyRespondSession.currentCatIndex = nextTargetCatIndex;
+        surveyRespondSession.history.push(nextTargetCatIndex);
+        pruneDivergentAnswers(categories);
+        renderSurveyDetailForm('alumniSurveyDetailMount', survey);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+
+    if (currentCatIndex < totalCategories - 1) {
+        const nextIdx = currentCatIndex + 1;
+        surveyRespondSession.currentCatIndex = nextIdx;
+        surveyRespondSession.history.push(nextIdx);
+        pruneDivergentAnswers(categories);
+        renderSurveyDetailForm('alumniSurveyDetailMount', survey);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+
+    // Final step: submit
+    if (!formLocked) {
+        pruneDivergentAnswers(categories);
+        promptSubmitSurveyConfirmation(surveyId);
+    }
+}
+
+function surveyRespondGoBack(surveyId) {
+    const survey = currentSurveys.find((item) => Number(item.id) === Number(surveyId));
+    if (!survey) return;
+
+    if (surveyRespondSession.history.length > 1) {
+        const categories = getSurveyCategoryGroups(survey);
+        const currentCategory = categories[surveyRespondSession.currentCatIndex];
+        saveCurrentCategoryAnswers(surveyId, currentCategory);
+        surveyRespondSession.history.pop();
+        surveyRespondSession.currentCatIndex = surveyRespondSession.history[surveyRespondSession.history.length - 1];
+        pruneDivergentAnswers(categories);
+        renderSurveyDetailForm('alumniSurveyDetailMount', survey);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function renderSurveyAnswerInput(surveyId, question, disabled = false) {
+    const questionId = Number(question.id || 0) || question.id;
+    const type = String(question.type || 'text');
+    const inputName = `survey_${surveyId}_question_${questionId}`;
+    const disabledAttr = disabled ? ' disabled' : '';
+
+    if (type === 'multiple_choice') {
+        const choices = Array.isArray(question.choices) && question.choices.length > 0
+            ? question.choices 
+            : (Array.isArray(question.options) ? question.options.map((opt, idx) => ({ id: idx + 1, text: opt })) : []);
+        return `
+            <select data-survey-id="${surveyId}" data-question-id="${questionId}" data-question-type="${escapeHtml(type)}" class="survey-answer-input"${disabledAttr}>
+                <option value="">Select an answer</option>
+                ${choices.map((choice) => `
+                    <option value="${choice.id}">${escapeHtml(choice.text || '')}</option>
+                `).join('')}
+            </select>
+        `;
+    }
+
+    if (type === 'rating') {
+        const rMin = question.ratingMin ?? 1;
+        const rMax = question.ratingMax ?? 5;
+        const rMinLabel = question.ratingMinLabel || '';
+        const rMaxLabel = question.ratingMaxLabel || '';
+        let optionsHtml = '<option value="">Select a rating</option>';
+        for (let rv = rMin; rv <= rMax; rv++) {
+            let label = String(rv);
+            if (rv === rMin && rMinLabel) label += ` - ${rMinLabel}`;
+            else if (rv === rMax && rMaxLabel) label += ` - ${rMaxLabel}`;
+            optionsHtml += `<option value="${rv}">${label}</option>`;
+        }
+        return `
+            <select data-survey-id="${surveyId}" data-question-id="${questionId}" data-question-type="${escapeHtml(type)}" class="survey-answer-input"${disabledAttr}>
+                ${optionsHtml}
+            </select>
+        `;
+    }
+
+    if (type === 'image') {
+        return `
+            <input name="${inputName}" data-survey-id="${surveyId}" data-question-id="${questionId}" data-question-type="${escapeHtml(type)}" class="survey-answer-input" type="file" accept="image/jpeg,image/png"${disabledAttr}>
+        `;
+    }
+
+    return `
+        <textarea name="${inputName}" data-survey-id="${surveyId}" data-question-id="${questionId}" data-question-type="${escapeHtml(type)}" class="survey-answer-input survey-answer-text" placeholder="Type your answer here..."${disabledAttr}></textarea>
+    `;
+}
+
+let pendingAlumniSurveySubmitId = null;
+
+function promptSubmitSurveyConfirmation(surveyId) {
+    const survey = currentSurveys.find((item) => Number(item.id) === Number(surveyId));
+    if (!survey) return;
+
+    const categories = getSurveyCategoryGroups(survey);
+    const currentCategory = categories[surveyRespondSession.currentCatIndex];
+    if (!survey.alreadyResponded && survey.isAcceptingResponses) {
+        const validation = validateCategoryAnswers(surveyId, currentCategory);
+        if (!validation.valid) {
+            return;
+        }
+    }
+    saveCurrentCategoryAnswers(surveyId, currentCategory);
+    pruneDivergentAnswers(categories);
+
+    pendingAlumniSurveySubmitId = surveyId;
+
+    // Count how many answered questions
+    let answeredCount = 0;
+    let totalQuestions = 0;
+    const visitedCatIndices = new Set(surveyRespondSession.history);
+    categories.forEach((cat, idx) => {
+        if (visitedCatIndices.has(idx)) {
+            (cat.questions || []).forEach((q) => {
+                totalQuestions++;
+                const ans = surveyRespondSession.answers[q.id];
+                if (ans && (ans.file || (ans.choice_id !== undefined && ans.choice_id !== null) || (ans.answer_text && String(ans.answer_text).trim() !== ''))) {
+                    answeredCount++;
+                }
+            });
+        }
+    });
+
+    const modal = document.getElementById('confirmSubmitSurveyModal');
+    if (modal) {
+        const titleEl = document.getElementById('confirmSubmitSurveyTitle');
+        const countEl = document.getElementById('confirmSubmitAnswersCount');
+        if (titleEl) titleEl.textContent = survey.title || 'Untitled Survey';
+        if (countEl) countEl.textContent = `${answeredCount} of ${totalQuestions} question${totalQuestions === 1 ? '' : 's'} answered`;
+        modal.style.display = 'flex';
+        return;
+    }
+
+    // Fallback confirmation dialog
+    const confirmed = window.confirm(
+        `Are you sure you really want to submit your answers for "${survey.title || 'this survey'}"?\n\nOnce submitted, your answers will be officially recorded and cannot be changed.`
+    );
+    if (confirmed) {
+        submitAlumniSurvey(surveyId);
+    }
+}
+
+function closeConfirmSubmitModal() {
+    const modal = document.getElementById('confirmSubmitSurveyModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    pendingAlumniSurveySubmitId = null;
+}
+
+async function executeSubmitAlumniSurvey() {
+    if (!pendingAlumniSurveySubmitId) return;
+    const sid = pendingAlumniSurveySubmitId;
+
+    const submitBtn = document.getElementById('confirmSubmitSurveyButton');
+    const cancelBtn = document.getElementById('confirmSubmitCancelButton');
+    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
+    }
+    if (cancelBtn) {
+        cancelBtn.disabled = true;
+    }
+
+    try {
+        await submitAlumniSurvey(sid);
+    } finally {
+        closeConfirmSubmitModal();
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+        }
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('confirmSubmitSurveyModal');
+        if (modal && modal.style.display !== 'none') {
+            closeConfirmSubmitModal();
+        }
+    }
+});
+
+async function submitAlumniSurvey(surveyId) {
+    const survey = currentSurveys.find((item) => Number(item.id) === Number(surveyId));
+    if (!survey) {
+        alert('Unable to find the selected survey.');
+        return;
+    }
+
+    if (survey.alreadyResponded && !survey.allowMultipleResponses) {
+        alert('You already submitted this survey. Multiple responses are not allowed.');
+        return;
+    }
+
+    if (!survey.isAcceptingResponses) {
+        alert('This survey is not accepting responses right now.');
+        return;
+    }
+
+    const categories = getSurveyCategoryGroups(survey);
+    const currentCategory = categories[surveyRespondSession.currentCatIndex];
+    if (!survey.alreadyResponded && survey.isAcceptingResponses) {
+        const validation = validateCategoryAnswers(surveyId, currentCategory);
+        if (!validation.valid) {
+            return;
+        }
+    }
+    saveCurrentCategoryAnswers(surveyId, currentCategory);
+    pruneDivergentAnswers(categories);
+
+    // Collect active visited questions
+    const visitedCatIndices = new Set(surveyRespondSession.history);
+    const visitedQuestions = new Set();
+    categories.forEach((cat, idx) => {
+        if (visitedCatIndices.has(idx)) {
+            (cat.questions || []).forEach(q => {
+                visitedQuestions.add(Number(q.id));
+                visitedQuestions.add(String(q.id));
+            });
+        }
+    });
+
+    const answers = [];
+    const formData = new FormData();
+
+    // Iterate through ALL questions in the entire survey so skipped questions are explicitly included with null values
+    categories.forEach((cat) => {
+        (cat.questions || []).forEach((question) => {
+            const qId = Number(question.id || 0) || question.id;
+            const isVisited = visitedQuestions.has(Number(qId)) || visitedQuestions.has(String(qId));
+            const ans = isVisited ? surveyRespondSession.answers[qId] : null;
+
+            if (ans && ans.file) {
+                formData.append(`answer_image_${qId}`, ans.file);
+                answers.push({
+                    question_id: qId,
+                    choice_id: null,
+                    answer_text: '',
+                });
+            } else if (ans && ans.choice_id !== undefined && ans.choice_id !== null) {
+                answers.push({
+                    question_id: qId,
+                    choice_id: ans.choice_id,
+                    answer_text: null,
+                });
+            } else if (ans && ans.answer_text !== undefined && ans.answer_text !== '') {
+                answers.push({
+                    question_id: qId,
+                    choice_id: null,
+                    answer_text: ans.answer_text,
+                });
+            } else {
+                // Stored as null for skipped questions
+                answers.push({
+                    question_id: qId,
+                    choice_id: null,
+                    answer_text: null,
+                });
+            }
+        });
+    });
+
+    const hasAnyValidAnswer = answers.some(a => a.choice_id !== null || (a.answer_text !== null && a.answer_text !== '') || formData.has(`answer_image_${a.question_id}`));
+    if (!hasAnyValidAnswer) {
+        alert('Please answer at least one question before submitting.');
+        return;
+    }
+
+    formData.append('answers', JSON.stringify(answers));
+
+    try {
+        const response = await fetch(getSurveySubmitUrl(surveyId), {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData,
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            alert(result.message || 'Unable to submit your answers right now.');
+            return;
+        }
+
+        alert('Your survey response has been submitted. Thank you!');
+
+        survey.alreadyResponded = true;
+        survey.responseCount = Number(survey.responseCount || 0) + 1;
+        const remainingPending = getPendingUnansweredSurveys(currentSurveys);
+        updateSurveyMenuNotification(remainingPending.length > 0, remainingPending.length);
+
+        const updatedSurvey = survey;
+
+        const detailMount = document.getElementById('alumniSurveyDetailMount');
+        if (detailMount) {
+            renderSurveyDetailForm('alumniSurveyDetailMount', updatedSurvey);
+            setTimeout(async () => {
+                try {
+                    currentSurveys = await loadSurveyState();
+                } catch (err) {
+                    console.error('Failed to reload survey state:', err);
+                }
+                window.location.href = 'Surveys.html';
+            }, 1500);
+            return;
+        }
+
+        renderSurveyCards('alumniSurveysGrid', currentSurveys);
+        const mainSurveyPreview = document.getElementById('mainSurveyPreview');
+        if (mainSurveyPreview) {
+            renderSurveyCards('mainSurveyPreview', currentSurveys, 2);
+        }
+    } catch (error) {
+        alert('Unable to submit your answers right now.');
+    }
+}
+
+let currentSurveys = [];
+
+function updateMainStats(stats, events, news, surveys) {
+    const totalEvents = document.getElementById('statTotalEvents');
+    const statUpcoming = document.getElementById('statUpcomingEvents');
+    const statNews = document.getElementById('statNewsCount');
+    const statSurveys = document.getElementById('statSurveyCount');
+
+    if (totalEvents) totalEvents.textContent = String(stats.total ?? events.length ?? 0);
+    if (statUpcoming) statUpcoming.textContent = String(stats.upcoming ?? 0);
+    if (statNews) statNews.textContent = String(news.length);
+    if (statSurveys) statSurveys.textContent = String(surveys.length);
+}
+
+function updateHeroHighlight(events, news) {
+    const nextEventTitle = document.getElementById('nextEventTitle');
+    const nextEventMeta = document.getElementById('nextEventMeta');
+    const latestUpdateTitle = document.getElementById('latestUpdateTitle');
+    const latestUpdateMeta = document.getElementById('latestUpdateMeta');
+
+    const firstEvent = events[0];
+    if (firstEvent && nextEventTitle && nextEventMeta) {
+        const iso = firstEvent.datetime || (firstEvent.date && firstEvent.time ? `${firstEvent.date}T${firstEvent.time}` : firstEvent.date);
+        nextEventTitle.textContent = firstEvent.name || 'Upcoming event';
+        nextEventMeta.textContent = `${formatRelativeLabel(iso)} • ${firstEvent.location || 'Location to follow'}`;
+    }
+
+    const firstNews = news[0];
+    if (firstNews && latestUpdateTitle && latestUpdateMeta) {
+        latestUpdateTitle.textContent = firstNews.title || 'Latest staff update';
+        latestUpdateMeta.textContent = `${firstNews.category || 'general'} • ${formatDateTime(firstNews.created_at || '')}`;
+    }
+}
+
+async function bootstrapAlumniUi() {
+    const user = await requireAlumni();
+    if (!user) return;
+
+    currentAlumniUser = user;
+    injectAlumniUser(user);
+
+    const [events, stats, news, surveys] = await Promise.all([
+        loadEventsData().catch(() => []),
+        loadEventStatistics().catch(() => ({ total: 0, upcoming: 0, past: 0 })),
+        loadNewsData().catch(() => []),
+        loadSurveyState().catch(() => []),
+    ]);
+
+    currentSurveys = surveys;
+
+    // Check for open unanswered surveys: notification persists until answered or closed
+    const pendingSurveys = getPendingUnansweredSurveys(surveys);
+    updateSurveyMenuNotification(pendingSurveys.length > 0, pendingSurveys.length);
+
+    updateMainStats(stats, events, news, surveys);
+    updateHeroHighlight(events, news);
+    renderEventCards('mainEventsPreview', events.filter((event) => {
+        const iso = event.datetime || (event.date && event.time ? `${event.date}T${event.time}` : event.date);
+        const date = new Date(iso);
+        return !Number.isNaN(date.getTime()) && date.getTime() >= Date.now();
+    }), 3);
+    renderNewsCards('mainNewsPreview', news, 3);
+    renderSurveyCards('mainSurveyPreview', surveys, 2);
+
+    renderEventCards('alumniEventsGrid', events);
+    renderNewsCards('alumniNewsGrid', news);
+    renderSurveyCards('alumniSurveysGrid', surveys);
+}
+
+async function bootstrapSurveyRespondPage() {
+    const user = await requireAlumni();
+    if (!user) return;
+
+    currentAlumniUser = user;
+    injectAlumniUser(user);
+
+    const params = new URLSearchParams(window.location.search);
+    const rawId = params.get('id');
+    const surveyId = rawId !== null && rawId !== '' ? Number(rawId) : NaN;
+
+    const mount = document.getElementById('alumniSurveyDetailMount');
+    const pageTitle = document.getElementById('surveyRespondPageTitle');
+    const pageSub = document.getElementById('surveyRespondPageSubtitle');
+
+    let surveys = [];
+    try {
+        surveys = await loadSurveyState();
+    } catch (error) {
+        surveys = [];
+    }
+    currentSurveys = surveys;
+
+    const pendingSurveys = getPendingUnansweredSurveys(surveys);
+    updateSurveyMenuNotification(pendingSurveys.length > 0, pendingSurveys.length);
+
+    if (!Number.isFinite(surveyId) || surveyId <= 0) {
+        if (mount) {
+            mount.innerHTML = createEmptyState('fa-circle-exclamation', 'Invalid link', 'Open a survey from the Surveys page using Respond.');
+        }
+        if (pageTitle) pageTitle.textContent = 'Survey';
+        if (pageSub) pageSub.textContent = 'Missing or invalid survey id.';
+        return;
+    }
+
+    const survey = surveys.find((item) => Number(item.id) === surveyId);
+    if (!survey) {
+        if (mount) {
+            mount.innerHTML = createEmptyState('fa-clipboard-question', 'Survey not found', 'It may have been removed. Return to the survey list and choose another.');
+        }
+        if (pageTitle) pageTitle.textContent = 'Survey not found';
+        if (pageSub) pageSub.textContent = 'This survey is no longer available.';
+        return;
+    }
+
+    renderSurveyDetailForm('alumniSurveyDetailMount', survey);
+}
+
+/* Fit [data-fit-viewport] panels to the remaining screen height (max-height only) */
+function fitPanelsToViewport() {
+    document.querySelectorAll('[data-fit-viewport]').forEach((panel) => {
+        panel.style.maxHeight = '';
+        if (getComputedStyle(panel).overflowY === 'visible') return;
+
+        const container = panel.closest('.alumni-content');
+        const bottomPad = container ? parseFloat(getComputedStyle(container).paddingBottom) || 0 : 0;
+        const top = panel.getBoundingClientRect().top + window.scrollY;
+        const available = window.innerHeight - top - bottomPad;
+
+        panel.style.maxHeight = `${Math.max(240, Math.floor(available))}px`;
+    });
+}
+
+window.addEventListener('resize', fitPanelsToViewport);
+window.addEventListener('load', fitPanelsToViewport);
+
+document.addEventListener('DOMContentLoaded', () => {
+    fitPanelsToViewport();
+    if (document.getElementById('alumniSurveyDetailMount')) {
+        void bootstrapSurveyRespondPage();
+        return;
+    }
+    void bootstrapAlumniUi();
+});
+
+// Periodic real-time background check every 2 seconds and on tab refocus/visibility change
+setInterval(pollSurveyNotifications, 2000);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        void pollSurveyNotifications();
+    }
+});

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey Responses | Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="CoordinatorCommon.css">
+    <!-- Coordinator sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('coordinator-sidebar-preload');
+            if (localStorage.getItem('coordinatorSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('coordinator-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body class="survey-responses-page">
+    <div class="coordinator-shell">
+        <aside class="coordinator-sidebar">
+            <div class="brand-block">
+                <div class="brand-mark"><i class="fas fa-graduation-cap"></i></div>
+                <div><h1>Alumni Tracker</h1><p>College Coordinator</p></div>
+            </div>
+            <div class="sidebar-user-card">
+                <div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div>
+                <div class="sidebar-user-info">
+                    <span class="sidebar-user-name">Program Coordinator</span>
+                    <span class="sidebar-user-role">Coordinator</span>
+                </div>
+            </div>
+            <nav class="coordinator-nav" aria-label="Coordinator navigation">
+                <span class="nav-section-label">Main</span>
+                <a class="nav-item" href="Dashboard.html" title="Overview"><i class="fas fa-table-columns"></i><span>Overview</span></a>
+                <a class="nav-item" href="Alumni.html" title="Alumni"><i class="fas fa-users"></i><span>Alumni</span></a>
+                <span class="nav-section-label">Data</span>
+                <div class="nav-group">
+                    <a class="nav-item active" href="SurveyResponses.html" title="Surveys"><i class="fas fa-clipboard-check"></i><span>Surveys</span><i class="fas fa-chevron-down nav-caret"></i></a>
+                    <a class="nav-subitem active" href="SurveyResponses.html">Responses</a>
+                </div>
+                <a class="nav-item" href="Reports.html" title="Reports"><i class="fas fa-chart-line"></i><span>Reports</span></a>
+                <a class="nav-item" href="AlumniID.html" title="Alumni ID"><i class="fas fa-id-card"></i><span>Alumni ID</span></a>
+                <span class="nav-section-label">Manage</span>
+                <a class="nav-item" href="Events.html" title="Events"><i class="fas fa-calendar-days"></i><span>Events</span></a>
+                <a class="nav-item" href="Payments.html" title="Payments"><i class="fas fa-receipt"></i><span>Payments</span></a>
+                <a class="nav-item" href="Communication.html" title="Communication"><i class="fas fa-envelope-open-text"></i><span>Communication</span></a>
+            </nav>
+            <div class="coordinator-sidebar-footer">
+                <button id="coordinatorLogoutBtn" class="coordinator-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span class="logout-label">Log Out</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="coordinator-main survey-main">
+            <header class="survey-topbar">
+                <button class="icon-btn" type="button"><i class="fas fa-bars"></i></button>
+                <div class="topbar-spacer"></div>
+                <button class="bell-btn" type="button"><i class="far fa-bell"></i><span>3</span></button>
+                <div class="profile-chip">Program Coordinator <i class="fas fa-chevron-down"></i></div>
+            </header>
+
+            <section class="survey-page-head">
+                <div class="survey-title">
+                    <i class="fas fa-clipboard-list"></i>
+                    <div><h2>Survey Responses</h2><p>View and manage survey responses</p></div>
+                </div>
+                <button class="outline-btn" id="exportResponsesButton" type="button"><i class="fas fa-download"></i> Export Responses</button>
+            </section>
+
+            <section class="filter-card">
+                <label>Select Survey<select id="coordinatorSurveySelect" disabled><option>Loading surveys…</option></select></label>
+                <label>Status<select id="coordinatorStatusFilter"><option value="all">All Responses</option><option value="completed">Completed</option><option value="progress">In Progress</option></select></label>
+                <label>Date Range<div class="date-range-inputs"><input id="coordinatorDateFrom" type="date" aria-label="Start date"><span>to</span><input id="coordinatorDateTo" type="date" aria-label="End date"></div></label>
+                <button class="blue-btn" id="applyResponseFilters" type="button"><i class="fas fa-filter"></i> Filter</button>
+                <button class="outline-btn" id="resetResponseFilters" type="button"><i class="fas fa-rotate-right"></i> Reset</button>
+            </section>
+
+
+            <section class="responses-card">
+                <div class="responses-card-head">
+                    <h3>Responses List</h3>
+                    <label class="search-box"><input id="coordinatorResponseSearch" type="search" placeholder="Search by name, email..." autocomplete="off"><i class="fas fa-search"></i></label>
+                </div>
+                <div class="responses-table-wrap">
+                    <table class="responses-table">
+                        <thead><tr><th>#</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Graduation Year</th><th>Status</th><th>Submitted At</th><th>Completion Rate</th><th>Action</th><th></th></tr></thead>
+                        <tbody id="responsesTableBody"><tr><td colspan="10" class="coordinator-table-state">Loading survey responses…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="table-footer"><span id="coordinatorResponseCount">Loading responses…</span><div class="pagination" id="coordinatorResponsePagination"></div></div>
+            </section>
+        </main>
+    </div>
+    <script src="CoordinatorCommon.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="AlumniCommon.css">
+</head>
+<body>
+    <div class="alumni-shell">
+        <div class="alumni-sidebar-overlay" id="alumniSidebarOverlay"></div>
+        <aside class="alumni-sidebar" id="alumniSidebar">
+            <div class="alumni-brand">
+                <h2>Alumni Tracker</h2>
+                <p>Navigation</p>
+            </div>
+            <nav class="alumni-menu">
+                <a class="alumni-menu-item" href="Main.html"><i class="fas fa-house"></i><span>Main Page</span></a>
+                <a class="alumni-menu-item" href="Events.html"><i class="fas fa-calendar-alt"></i><span>Events</span></a>
+                <a class="alumni-menu-item" href="News.html"><i class="fas fa-bullhorn"></i><span>News</span></a>
+                <a class="alumni-menu-item" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Survey</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
+            </nav>
+            <div class="alumni-sidebar-profile" data-profile-menu>
+                <button class="alumni-profile-trigger" data-profile-trigger type="button" aria-expanded="false">
+                    <span class="alumni-avatar"><i class="fas fa-user"></i></span>
+                    <span class="alumni-profile-copy">
+                        <strong data-alumni-user-name>Alumni User</strong>
+                        <small data-alumni-user-role>alumni</small>
+                    </span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="alumni-profile-dropdown" data-profile-dropdown>
+                    <a class="alumni-dropdown-item" href="Profile.html">
+                        <i class="fas fa-user"></i>
+                        <span>Profile</span>
+                    </a>
+                    <button class="alumni-dropdown-item danger" data-logout-button type="button">
+                        <i class="fas fa-right-from-bracket"></i>
+                        <span>Log Out</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="alumni-content">
+            <header class="alumni-topbar">
+                <div class="alumni-topbar-left">
+                    <button class="alumni-menu-toggle" id="menuToggleButton" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="alumniSidebar">
+                        <i class="fas fa-bars"></i>
+                        <span class="alumni-menu-dot" id="menuToggleNotificationDot" aria-hidden="true"></span>
+                    </button>
+                    <div class="page-title-block">
+                        <h1>Alumni Home</h1>
+                        <!--<p>Your hub for events, updates, and ways to stay involved.</p>-->
+                    </div>
+                </div>
+                <div class="alumni-topbar-actions" data-profile-menu>
+                    <button class="alumni-profile-trigger alumni-profile-trigger--icon" data-profile-trigger type="button" aria-label="Open profile menu" aria-expanded="false">
+                        <span class="alumni-avatar"><i class="fas fa-user"></i></span>
+                    </button>
+                    <div class="alumni-profile-dropdown" data-profile-dropdown>
+                        <div class="alumni-dropdown-user">
+                            <strong data-alumni-user-name>Alumni User</strong>
+                            <small data-alumni-user-role>alumni</small>
+                        </div>
+                        <a class="alumni-dropdown-item" href="Profile.html">
+                            <i class="fas fa-user"></i>
+                            <span>Profile</span>
+                        </a>
+                        <button class="alumni-dropdown-item danger" data-logout-button type="button">
+                            <i class="fas fa-right-from-bracket"></i>
+                            <span>Log Out</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <section class="hero-card">
+                <div>
+                    <h2>Welcome back, <span id="welcomeName">Alumni</span>.</h2>
+                    <p>This main page is designed to give alumni a quick pulse on the community. It highlights upcoming gatherings, recent staff updates, and active surveys so you can decide where to engage first.</p>
+                    <div class="hero-badges">
+                        <span class="hero-badge"><i class="fas fa-calendar-check"></i> Stay updated on upcoming events</span>
+                        <span class="hero-badge"><i class="fas fa-newspaper"></i> Catch staff announcements quickly</span>
+                        <span class="hero-badge"><i class="fas fa-comments"></i> Share feedback through surveys</span>
+                    </div>
+                </div>
+                <div class="hero-side">
+                    <div class="highlight-card">
+                        <p class="section-note">Next event spotlight</p>
+                        <h3 id="nextEventTitle">Upcoming event will appear here</h3>
+                        <strong id="nextEventMeta">Check the events page for details.</strong>
+                    </div>
+                    <div class="highlight-card">
+                        <p class="section-note">Latest staff update</p>
+                        <h3 id="latestUpdateTitle">Recent announcements will appear here</h3>
+                        <strong id="latestUpdateMeta">Watch the news page for fresh updates.</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="stats-grid content-card-1">
+                <article class="stat-card stat-card-highlight-1">
+                    <div class="label">Total events posted</div>
+                    <div class="value value-main" id="statTotalEvents">0</div>
+                </article>
+                <article class="stat-card stat-card-highlight-1">
+                    <div class="label">Upcoming events</div>
+                    <div class="value value-main" id="statUpcomingEvents">0</div>
+                </article>
+                <article class="stat-card stat-card-highlight-1">
+                    <div class="label">Recent updates</div>
+                    <div class="value value-main" id="statNewsCount">0</div>
+                </article>
+                <article class="stat-card stat-card-highlight-1">
+                    <div class="label">Active surveys</div>
+                    <div class="value value-main" id="statSurveyCount">0</div>
+                </article>
+            </section>
+
+            <section class="content-card" style="margin-bottom: 18px;">
+                <div class="section-header">
+                    <div>
+                        <h3>Main Page Ideas Included</h3>
+                        <p>This landing page combines discovery, participation, and timely reminders.</p>
+                    </div>
+                </div>
+                <div class="quick-links">
+                    <a class="quick-link" href="Events.html">
+                        <i class="fas fa-calendar-days"></i>
+                        <h4>Event Spotlight</h4>
+                        <p>See the next alumni activities and plan attendance from one place.</p>
+                    </a>
+                    <a class="quick-link" href="News.html">
+                        <i class="fas fa-bullhorn"></i>
+                        <h4>Staff Bulletin</h4>
+                        <p>Track campus announcements, outreach updates, and important reminders.</p>
+                    </a>
+                    <a class="quick-link" href="Surveys.html">
+                        <i class="fas fa-square-poll-vertical"></i>
+                        <h4>Feedback Center</h4>
+                        <p>Respond to surveys so the staff can improve alumni programs and services.</p>
+                    </a>
+                    <div class="quick-link">
+                        <i class="fas fa-lightbulb"></i>
+                        <h4>Community Tips</h4>
+                        <p>Use this space for future additions like job boards, mentoring, or alumni directory features.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="split-grid">
+                <div class="content-card">
+                    <div class="section-header">
+                        <div>
+                            <h3>Upcoming Events</h3>
+                            <p>Your next opportunities to reconnect with the alumni network.</p>
+                        </div>
+                        <a class="button-link" href="Events.html">View all <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <div id="mainEventsPreview" class="events-grid"></div>
+                </div>
+                <div class="content-card">
+                    <div class="section-header">
+                        <div>
+                            <h3>Latest Surveys</h3>
+                            <p>Quick ways to share your voice with the staff.</p>
+                        </div>
+                        <a class="button-link" href="Surveys.html">Open surveys <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <div id="mainSurveyPreview" class="surveys-grid surveys-grid--cards"></div>
+                </div>
+            </section>
+
+            <section class="content-card" style="margin-top: 18px;">
+                <div class="section-header">
+                    <div>
+                        <h3>Recent News</h3>
+                        <p>Fresh notices and updates from the staff office.</p>
+                    </div>
+                    <a class="button-link" href="News.html">Go to news <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div id="mainNewsPreview" class="news-grid"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="AlumniCommon.js"></script>
+</body>
+</html>

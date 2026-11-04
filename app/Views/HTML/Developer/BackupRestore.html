@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer - Backup & Restore</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="DeveloperCommon.css">
+</head>
+<body>
+    <div class="developer-shell">
+        <aside class="developer-sidebar">
+            <div class="developer-brand">
+                <div class="developer-brand-mark">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                    <h1>Developer</h1>
+                    <p>System Administrator</p>
+                </div>
+            </div>
+
+            <nav class="developer-nav" aria-label="Developer navigation">
+                <a href="Overview.html" class="developer-nav-item">
+                    <i class="fas fa-gauge-high"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="UserManagement.html" class="developer-nav-item">
+                    <i class="fas fa-user-shield"></i>
+                    <span>User Management</span>
+                </a>
+                <a href="SystemSettings.html" class="developer-nav-item">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>System Settings</span>
+                </a>
+                <a href="SchoolInfo.html" class="developer-nav-item">
+                    <i class="fas fa-school"></i>
+                    <span>School Info</span>
+                </a>
+                <a href="BackupRestore.html" class="developer-nav-item active">
+                    <i class="fas fa-database"></i>
+                    <span>Backup & Restore</span>
+                </a>
+                <a href="SystemLogs.html" class="developer-nav-item">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>System Logs</span>
+                </a>
+                <a href="Announcements.html" class="developer-nav-item">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Announcements</span>
+                </a>
+                <a href="EmailSMS.html" class="developer-nav-item">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <span>Email & SMS</span>
+                </a>
+                <a href="SurveyTemplates.html" class="developer-nav-item">
+                    <i class="fas fa-file-signature"></i>
+                    <span>Survey Templates</span>
+                </a>
+                <a href="Maintenance.html" class="developer-nav-item">
+                    <i class="fas fa-power-off"></i>
+                    <span>Maintenance</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="developer-main">
+            <header class="developer-topbar">
+                <div>
+                    <p class="eyebrow">Application Maintenance</p>
+                    <h2 id="developerPageTitle">Backup & Restore</h2>
+                </div>
+                <div class="developer-user">
+                    <div>
+                        <strong data-developer-name>System Administrator</strong>
+                        <span data-developer-role>developer</span>
+                    </div>
+                    <div class="developer-avatar">
+                        <i class="fas fa-user-gear"></i>
+                    </div>
+                    <button class="icon-button danger" type="button" id="developerLogout" title="Log out" aria-label="Log out">
+                        <i class="fas fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </header>
+
+            <section class="developer-panel active" id="databasePanel" data-panel="database">
+                <div class="dashboard-grid">
+                    <article class="section-card">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">Database</p>
+                                <h3>Backup</h3>
+                            </div>
+                        </div>
+                        <div class="database-action">
+                            <i class="fas fa-download"></i>
+                            <p>Create a new database backup record for administrator handoff.</p>
+                            <button class="btn-primary" type="button" id="createBackup">
+                                <i class="fas fa-database"></i>
+                                Create Backup
+                            </button>
+                        </div>
+                    </article>
+                    <article class="section-card">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">Database</p>
+                                <h3>Restore</h3>
+                            </div>
+                        </div>
+                        <div class="database-action caution">
+                            <i class="fas fa-upload"></i>
+                            <p>Select a backup entry and prepare it for restore review.</p>
+                            <select class="form-control" id="restorePointSelect"></select>
+                            <button class="btn-secondary" type="button" id="queueRestore">
+                                <i class="fas fa-clock-rotate-left"></i>
+                                Queue Restore
+                            </button>
+                        </div>
+                    </article>
+                </div>
+                <article class="section-card">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">Backup History</p>
+                            <h3>Database Snapshots</h3>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="developer-table">
+                            <thead>
+                                <tr>
+                                    <th>Backup Name</th>
+                                    <th>Date</th>
+                                    <th>Size</th>
+                                    <th>Status</th>
+                                    <th>Created By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="backupTableBody"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <div class="toast" id="developerToast" role="status" aria-live="polite"></div>
+    <script src="DeveloperCommon.js"></script>
+</body>
+</html>

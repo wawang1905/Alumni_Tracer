@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer - School Information</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="DeveloperCommon.css">
+</head>
+<body>
+    <div class="developer-shell">
+        <aside class="developer-sidebar">
+            <div class="developer-brand">
+                <div class="developer-brand-mark">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                    <h1>Developer</h1>
+                    <p>System Administrator</p>
+                </div>
+            </div>
+
+            <nav class="developer-nav" aria-label="Developer navigation">
+                <a href="Overview.html" class="developer-nav-item">
+                    <i class="fas fa-gauge-high"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="UserManagement.html" class="developer-nav-item">
+                    <i class="fas fa-user-shield"></i>
+                    <span>User Management</span>
+                </a>
+                <a href="SystemSettings.html" class="developer-nav-item">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>System Settings</span>
+                </a>
+                <a href="SchoolInfo.html" class="developer-nav-item active">
+                    <i class="fas fa-school"></i>
+                    <span>School Info</span>
+                </a>
+                <a href="BackupRestore.html" class="developer-nav-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backup & Restore</span>
+                </a>
+                <a href="SystemLogs.html" class="developer-nav-item">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>System Logs</span>
+                </a>
+                <a href="Announcements.html" class="developer-nav-item">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Announcements</span>
+                </a>
+                <a href="EmailSMS.html" class="developer-nav-item">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <span>Email & SMS</span>
+                </a>
+                <a href="SurveyTemplates.html" class="developer-nav-item">
+                    <i class="fas fa-file-signature"></i>
+                    <span>Survey Templates</span>
+                </a>
+                <a href="Maintenance.html" class="developer-nav-item">
+                    <i class="fas fa-power-off"></i>
+                    <span>Maintenance</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="developer-main">
+            <header class="developer-topbar">
+                <div>
+                    <p class="eyebrow">Application Maintenance</p>
+                    <h2 id="developerPageTitle">School Information</h2>
+                </div>
+                <div class="developer-user">
+                    <div>
+                        <strong data-developer-name>System Administrator</strong>
+                        <span data-developer-role>developer</span>
+                    </div>
+                    <div class="developer-avatar">
+                        <i class="fas fa-user-gear"></i>
+                    </div>
+                    <button class="icon-button danger" type="button" id="developerLogout" title="Log out" aria-label="Log out">
+                        <i class="fas fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </header>
+
+            <section class="developer-panel active" id="schoolPanel" data-panel="school">
+                <article class="section-card">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">School Information</p>
+                            <h3>Institution Profile</h3>
+                        </div>
+                        <button class="btn-primary" type="button" id="saveSchoolInfo">
+                            <i class="fas fa-floppy-disk"></i>
+                            Save
+                        </button>
+                    </div>
+                    <div class="form-grid three">
+                        <label class="form-field">
+                            <span>School Name</span>
+                            <input class="form-control" id="schoolName" type="text">
+                        </label>
+                        <label class="form-field">
+                            <span>Campus</span>
+                            <input class="form-control" id="schoolCampus" type="text">
+                        </label>
+                        <label class="form-field">
+                            <span>Registrar Email</span>
+                            <input class="form-control" id="registrarEmail" type="email">
+                        </label>
+                        <label class="form-field wide-field">
+                            <span>Address</span>
+                            <input class="form-control" id="schoolAddress" type="text">
+                        </label>
+                        <label class="form-field">
+                            <span>Telephone</span>
+                            <input class="form-control" id="schoolPhone" type="text">
+                        </label>
+                    </div>
+                </article>
+
+                <article class="section-card">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">Campus Management</p>
+                            <h3>Campus Records</h3>
+                        </div>
+                        <button class="btn-primary" type="button" id="openCampusModal">
+                            <i class="fas fa-plus"></i>
+                            Add Campus
+                        </button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="developer-table">
+                            <thead>
+                                <tr>
+                                    <th>School Name</th>
+                                    <th>Abbreviation</th>
+                                    <th>Campus</th>
+                                    <th>Address</th>
+                                    <th>Alumni Head Email</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="campusTableBody">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--muted);">Loading campuses...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <div class="modal" id="campusModal" aria-hidden="true">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="campusModalTitle">Add Campus</h3>
+                        <button class="icon-button" type="button" id="closeCampusModal" aria-label="Close modal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="form-grid">
+                        <label class="form-field">
+                            <span>School Name *</span>
+                            <input class="form-control" id="campusSchoolName" type="text">
+                        </label>
+                        <label class="form-field">
+                            <span>Abbreviation *</span>
+                            <input class="form-control" id="campusAbbreviation" type="text">
+                        </label>
+                        <label class="form-field">
+                            <span>Campus *</span>
+                            <input class="form-control" id="campusName" type="text">
+                        </label>
+                        <label class="form-field">
+                            <span>Alumni Head</span>
+                            <select class="form-control" id="campusAlumniHeadEmail"></select>
+                        </label>
+                        <label class="form-field">
+                            <span>Province</span>
+                            <select class="form-control" id="campusProvince"></select>
+                        </label>
+                        <label class="form-field">
+                            <span>Municipality / City</span>
+                            <select class="form-control" id="campusMunicipality"></select>
+                        </label>
+                        <label class="form-field">
+                            <span>Barangay</span>
+                            <select class="form-control" id="campusBarangay"></select>
+                        </label>
+                        <input type="hidden" id="campusAddress" value="">
+                    </div>
+                    <input type="hidden" id="campusExistingId" value="0">
+                    <div class="modal-actions">
+                        <button class="btn-secondary" type="button" id="cancelCampusModal">Cancel</button>
+                        <button class="btn-primary" type="button" id="saveCampus">
+                            <i class="fas fa-floppy-disk"></i>
+                            Save Campus
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast" id="developerToast" role="status" aria-live="polite"></div>
+    <script src="DeveloperCommon.js"></script>
+</body>
+</html>

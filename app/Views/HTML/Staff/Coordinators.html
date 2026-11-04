@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer - Coordinators</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="StaffCommon.css">
+    <style>
+        /* College collapsible group styles */
+        .college-group-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .college-collapse-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, #eaf1f8 0%, #f4f7fb 100%);
+            transition: background 0.2s;
+        }
+        .college-group-header:hover .college-collapse-header {
+            background: linear-gradient(135deg, #dce8f3 0%, #eaf0f7 100%);
+        }
+        .college-collapsed .college-collapse-header {
+            background: linear-gradient(135deg, #f0f3f7 0%, #f8f9fb 100%);
+        }
+        .college-collapse-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .college-chevron {
+            font-size: 12px;
+            color: #1e4a76;
+            transition: transform 0.25s ease;
+        }
+        .college-chevron.collapsed {
+            transform: rotate(-90deg);
+        }
+        .college-icon {
+            font-size: 15px;
+            color: #1e4a76;
+            opacity: 0.7;
+        }
+        .college-name-text {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1e4a76;
+        }
+        .college-collapse-badges {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .college-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        .college-badge-coord {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        /* Expand/Collapse All button styles */
+        .college-toggle-all-btn {
+            padding: 6px 12px;
+            background: #f0f4f8;
+            color: #1e4a76;
+            border: 1px solid #d0dbe6;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .college-toggle-all-btn:hover {
+            background: #dce8f3;
+            border-color: #1e4a76;
+        }
+
+        /* Combobox (Text field + Dropdown) styles */
+        .combobox-container {
+            position: relative;
+            width: 100%;
+        }
+        .combobox-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .combobox-input-wrapper input {
+            width: 100%;
+            padding: 10px 36px 10px 12px !important;
+            border: 1px solid #d0dbe6 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            font-family: inherit;
+            color: #2c3e50;
+            background: #ffffff;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            margin-bottom: 0 !important;
+        }
+        .combobox-input-wrapper input:focus {
+            border-color: #1e4a76 !important;
+            box-shadow: 0 0 0 3px rgba(30, 74, 118, 0.12) !important;
+        }
+        .combobox-toggle-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            border-radius: 4px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .combobox-toggle-btn:hover {
+            color: #1e4a76;
+            background: #f0f4f8;
+        }
+        .combobox-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid #d0dbe6;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 1100;
+            display: none;
+        }
+        .combobox-menu.open {
+            display: block;
+        }
+        .combobox-item {
+            padding: 9px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.15s ease;
+            text-align: left;
+        }
+        .combobox-item:last-child {
+            border-bottom: none;
+        }
+        .combobox-item:hover, .combobox-item.selected {
+            background: #eef4fb;
+        }
+        .combobox-item-email {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1e4a76;
+            word-break: break-all;
+        }
+        .combobox-item-details {
+            font-size: 11.5px;
+            color: #64748b;
+            margin-top: 2px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .combobox-item-tag {
+            font-size: 10px;
+            background: #e2e8f0;
+            color: #334155;
+            padding: 1px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .combobox-item-tag.role-coord {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .combobox-empty {
+            padding: 14px 12px;
+            font-size: 13px;
+            color: #94a3b8;
+            text-align: center;
+        }
+        .combobox-hint {
+            display: block;
+            margin-top: 4px;
+            color: #64748b;
+            font-size: 11px;
+        }
+    </style>
+    <!-- Sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('sidebar-preload');
+            if (localStorage.getItem('staffSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('staff-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎓 Alumni Tracker</h2>
+                <p>Staff Dashboard</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" data-page="alumni" onclick="location.href='AlumniManagement.html'">
+                    <i class="fas fa-users"></i>
+                    <span>Alumni Management</span>
+                </div>
+                <div class="menu-item" data-page="coordinators" onclick="location.href='Coordinators.html'">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Coordinators</span>
+                </div>
+                <div class="menu-item" data-page="events" onclick="location.href='Events.html'">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Events</span>
+                </div>
+                <div class="menu-item" data-page="news" onclick="location.href='News.html'">
+                    <i class="fas fa-newspaper"></i>
+                    <span>News</span>
+                </div>
+                <div class="menu-item" data-page="surveys" onclick="location.href='Surveys.html'">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Surveys</span>
+                </div>
+                <div class="menu-item" data-page="reports" onclick="location.href='Reports.html'">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </div>
+                <div class="menu-item" data-page="settings" onclick="location.href='Settings.html'">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            
+            </div>
+            <div class="sidebar-footer">
+                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Log Out</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title" id="pageTitle">Coordinator Accounts</div>
+                <div class="staff-info">
+                    <span class="staff-name">Sarah Johnson</span>
+                    <div class="staff-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coordinators Page -->
+            <div id="coordinatorsPage">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3><i class="fas fa-user-tie"></i> Coordinator Accounts</h3>
+                        <div class="section-actions" style="display: flex; gap: 10px; align-items: center;">
+                            <button class="college-toggle-all-btn" onclick="toggleAllColleges(true)" title="Expand All Colleges">
+                                <i class="fas fa-expand-alt"></i> Expand All
+                            </button>
+                            <button class="college-toggle-all-btn" onclick="toggleAllColleges(false)" title="Collapse All Colleges">
+                                <i class="fas fa-compress-alt"></i> Collapse All
+                            </button>
+                            <button class="btn-primary" onclick="openAddCoordinatorModal()">
+                                <i class="fas fa-plus"></i> Add Coordinator
+                            </button>
+                            <button class="btn-primary" id="assignCoordinatorBtn" onclick="openAssignCoordinatorModal()" style="display: inline-flex; align-items: center; gap: 6px; background: #19538c;">
+                                <i class="fas fa-user-tag"></i> Assign Coordinator
+                            </button>
+                            <label class="search-field">
+                                <i class="fas fa-search"></i>
+                                <input type="search" id="coordinatorSearch" placeholder="Search name, email, department, college...">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Campus</th>
+                                    <th>Department</th>
+                                    <th>College</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                </tr>
+                            </thead>
+                            <tbody id="coordinatorsTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center">Loading coordinators...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Coordinator Modal -->
+    <div id="addCoordinatorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Add New Coordinator</h3>
+                <button class="modal-close" onclick="closeAddCoordinatorModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addCoordinatorForm">
+                    <div class="form-group">
+                        <label for="coordinatorFirstName">First Name *</label>
+                        <input type="text" id="coordinatorFirstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="coordinatorLastName">Last Name *</label>
+                        <input type="text" id="coordinatorLastName" name="lastName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="coordinatorEmail">Email *</label>
+                        <input type="email" id="coordinatorEmail" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="coordinatorPassword">Password *</label>
+                        <input type="password" id="coordinatorPassword" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="coordinatorCollege">College *</label>
+                        <select id="coordinatorCollege" name="college" required onchange="loadDepartmentsForCoordinator()">
+                            <option value="">Select a college...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="coordinatorDepartment">Department *</label>
+                        <select id="coordinatorDepartment" name="department" required>
+                            <option value="">Select a department...</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeAddCoordinatorModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="submitCoordinatorForm()">Add Coordinator</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Coordinator Modal -->
+    <div id="assignCoordinatorModal" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-tag"></i> Assign Coordinator</h3>
+                <button class="modal-close" onclick="closeAssignCoordinatorModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="assignCoordinatorForm" onsubmit="event.preventDefault(); submitAssignCoordinatorForm();">
+                    <!-- 1. Email Combobox (Text field + Dropdown) -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="assignCoordinatorEmail" style="display: block; margin-bottom: 6px; font-weight: 600; color: #1e4a76; font-size: 13px;">
+                            <i class="fas fa-envelope" style="margin-right: 4px; opacity: 0.8;"></i> Email *
+                        </label>
+                        <div class="combobox-container" id="assignEmailCombobox">
+                            <div class="combobox-input-wrapper">
+                                <input type="text" id="assignCoordinatorEmail" name="email" placeholder="Search by email..." autocomplete="off" oninput="onAssignEmailTyping(this.value)" onfocus="openAssignEmailMenu()" />
+                                <button type="button" class="combobox-toggle-btn" onclick="toggleAssignEmailMenu(event)" title="Toggle accounts list" tabindex="-1">
+                                    <i class="fas fa-chevron-down" id="assignEmailChevron"></i>
+                                </button>
+                            </div>
+                            <div class="combobox-menu" id="assignEmailDropdownList">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                        <small id="assignEmailHint" class="combobox-hint">
+                            Search by email only. Shows coordinator accounts matching email.
+                        </small>
+                    </div>
+
+                    <!-- 2. Full Name Combobox (Text field + Dropdown) -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="assignCoordinatorFullName" style="display: block; margin-bottom: 6px; font-weight: 600; color: #1e4a76; font-size: 13px;">
+                            <i class="fas fa-id-card" style="margin-right: 4px; opacity: 0.8;"></i> Full Name (First Name + Last Name)
+                        </label>
+                        <div class="combobox-container" id="assignNameCombobox">
+                            <div class="combobox-input-wrapper">
+                                <input type="text" id="assignCoordinatorFullName" name="fullName" placeholder="Search by first or last name..." autocomplete="off" oninput="onAssignNameTyping(this.value)" onfocus="openAssignNameMenu()" />
+                                <button type="button" class="combobox-toggle-btn" onclick="toggleAssignNameMenu(event)" title="Toggle accounts list" tabindex="-1">
+                                    <i class="fas fa-chevron-down" id="assignNameChevron"></i>
+                                </button>
+                            </div>
+                            <div class="combobox-menu" id="assignNameDropdownList">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                        <small id="assignNameHint" class="combobox-hint">
+                            Search by first or last name only. Shows coordinator accounts matching name.
+                        </small>
+                    </div>
+
+                    <!-- Checkbox: Not assigned -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1e4a76; cursor: pointer; user-select: none;">
+                            <input type="checkbox" id="assignNotAssignedOnly" onchange="onAssignNotAssignedToggle()" style="width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: #19538c;">
+                            <span>Not assigned</span>
+                        </label>
+                    </div>
+
+                    <!-- 3. College Dropdown -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="assignCoordinatorCollege" style="display: block; margin-bottom: 6px; font-weight: 600; color: #1e4a76; font-size: 13px;">
+                            <i class="fas fa-university" style="margin-right: 4px; opacity: 0.8;"></i> College
+                        </label>
+                        <select id="assignCoordinatorCollege" name="college" onchange="onAssignCollegeChanged()" style="width: 100%; padding: 10px; border: 1px solid #d0dbe6; border-radius: 6px; font-size: 14px; background: #fff;">
+                            <option value="">Select a college (optional)...</option>
+                        </select>
+                    </div>
+
+                    <!-- 4. Department Dropdown -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="assignCoordinatorDepartment" style="display: block; margin-bottom: 6px; font-weight: 600; color: #1e4a76; font-size: 13px;">
+                            <i class="fas fa-graduation-cap" style="margin-right: 4px; opacity: 0.8;"></i> Department
+                        </label>
+                        <select id="assignCoordinatorDepartment" name="department" onchange="onAssignDepartmentChanged()" style="width: 100%; padding: 10px; border: 1px solid #d0dbe6; border-radius: 6px; font-size: 14px; background: #fff;">
+                            <option value="">Select a department (optional)...</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeAssignCoordinatorModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="submitAssignCoordinatorForm()">Assign Coordinator</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="StaffCommon.js"></script>
+    <script>
+        // Load coordinators on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCoordinators();
+            
+            // Set active menu item
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.page === 'coordinators') {
+                    item.classList.add('active');
+                }
+            });
+        });
+
+        function loadCoordinators() {
+            console.log('[DEBUG] Attempting to fetch from: /Alumni_Tracer/public/staff/coordinators');
+            console.log('[DEBUG] Current page URL:', window.location.href);
+            fetch('/Alumni_Tracer/public/staff/coordinators')
+                .then(response => {
+                    console.log('[DEBUG] Response status:', response.status);
+                    console.log('[DEBUG] Response ok:', response.ok);
+                    console.log('[DEBUG] Response URL:', response.url);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('[DEBUG] Response data:', data);
+                    if (data.success) {
+                        renderCoordinators(data.coordinators);
+                    } else {
+                        document.getElementById('coordinatorsTableBody').innerHTML = 
+                            '<tr><td colspan="6" class="text-center">Error loading coordinators</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error('[DEBUG] Error loading coordinators:', error);
+                    console.error('[DEBUG] Error details:', error.message, error.stack);
+                    document.getElementById('coordinatorsTableBody').innerHTML = 
+                        '<tr><td colspan="7" class="text-center">Error loading coordinators</td></tr>';
+                });
+        }
+
+        let localCoordinatorsData = [];
+
+        function renderCoordinators(coordinators) {
+            localCoordinatorsData = coordinators || [];
+            const tbody = document.getElementById('coordinatorsTableBody');
+            if (!tbody) return;
+            
+            if (coordinators.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No coordinator accounts found</td></tr>';
+                return;
+            }
+
+            // Group coordinators by college
+            const collegeGroups = {};
+            coordinators.forEach((coord, index) => {
+                const collegeName = coord.college || 'Unassigned College';
+                if (!collegeGroups[collegeName]) {
+                    collegeGroups[collegeName] = [];
+                }
+                collegeGroups[collegeName].push({ ...coord, _originalIndex: index });
+            });
+
+            // Sort college names alphabetically (Unassigned College last)
+            const sortedColleges = Object.keys(collegeGroups).sort((a, b) => {
+                if (a === 'Unassigned College') return 1;
+                if (b === 'Unassigned College') return -1;
+                return a.localeCompare(b);
+            });
+
+            let html = '';
+            sortedColleges.forEach((collegeName, collegeIdx) => {
+                const collegeCoords = collegeGroups[collegeName];
+                const count = collegeCoords.length;
+                const safeCollegeId = 'coord-college-' + collegeIdx;
+
+                // College group header row
+                html += `
+                    <tr class="college-group-header" id="${safeCollegeId}" data-college="${escapeHtml(collegeName)}" onclick="toggleCollegeGroup('${safeCollegeId}')">
+                        <td colspan="7" style="padding: 0; border-bottom: 1px solid #dce4ed;">
+                            <div class="college-collapse-header">
+                                <div class="college-collapse-left">
+                                    <i class="fas fa-chevron-down college-chevron" id="${safeCollegeId}-chevron"></i>
+                                    <i class="fas fa-university college-icon"></i>
+                                    <span class="college-name-text">${escapeHtml(collegeName)}</span>
+                                </div>
+                                <div class="college-collapse-badges">
+                                    <span class="college-badge college-badge-coord">${count} coordinator${count !== 1 ? 's' : ''}</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+
+                // Coordinator rows under this college
+                collegeCoords.forEach((coord) => {
+                    const index = coord._originalIndex;
+                    html += `
+                        <tr class="coord-row-item college-child-row ${safeCollegeId}-child" id="coord-row-${index}" data-college="${escapeHtml(collegeName)}">
+                            <td style="padding-left: 28px; font-weight: 500;">${escapeHtml(coord.firstName)} ${escapeHtml(coord.lastName)}</td>
+                            <td>${escapeHtml(coord.email)}</td>
+                            <td>${escapeHtml(coord.campus || '-')}</td>
+                            <td>${escapeHtml(coord.department || '-')}</td>
+                            <td>${escapeHtml(coord.college || '-')}</td>
+                            <td><span class="status-badge active">${escapeHtml(coord.status || 'Active')}</span></td>
+                            <td>${formatDate(coord.createdAt)}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function toggleCollegeGroup(collegeId) {
+            const headerRow = document.getElementById(collegeId);
+            const chevron = document.getElementById(collegeId + '-chevron');
+            const childRows = document.querySelectorAll('.' + collegeId + '-child');
+            if (!headerRow || !chevron) return;
+
+            const isCollapsed = chevron.classList.contains('collapsed');
+
+            if (isCollapsed) {
+                chevron.classList.remove('collapsed');
+                childRows.forEach(row => {
+                    row.style.display = '';
+                });
+                headerRow.classList.remove('college-collapsed');
+            } else {
+                chevron.classList.add('collapsed');
+                childRows.forEach(row => {
+                    row.style.display = 'none';
+                });
+                headerRow.classList.add('college-collapsed');
+            }
+        }
+
+        function toggleAllColleges(expand) {
+            const headers = document.querySelectorAll('.college-group-header');
+            headers.forEach(header => {
+                const collegeId = header.id;
+                const chevron = document.getElementById(collegeId + '-chevron');
+                if (!chevron) return;
+
+                const isCollapsed = chevron.classList.contains('collapsed');
+
+                if (expand && isCollapsed) {
+                    toggleCollegeGroup(collegeId);
+                } else if (!expand && !isCollapsed) {
+                    toggleCollegeGroup(collegeId);
+                }
+            });
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        // Search functionality
+        document.getElementById('coordinatorSearch').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+
+            if (query === '') {
+                renderCoordinators(localCoordinatorsData);
+                return;
+            }
+
+            const collegeHeaders = document.querySelectorAll('.college-group-header');
+            collegeHeaders.forEach(header => {
+                const collegeName = (header.dataset.college || '').toLowerCase();
+                const collegeId = header.id;
+                const childRows = document.querySelectorAll('.' + collegeId + '-child');
+                let anyChildMatch = false;
+
+                childRows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(query) || collegeName.includes(query)) {
+                        row.style.display = '';
+                        anyChildMatch = true;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (anyChildMatch || collegeName.includes(query)) {
+                    header.style.display = '';
+                    const chevron = document.getElementById(collegeId + '-chevron');
+                    if (chevron) chevron.classList.remove('collapsed');
+                    header.classList.remove('college-collapsed');
+                } else {
+                    header.style.display = 'none';
+                }
+            });
+        });
+
+        // Modal functions
+        function openAddCoordinatorModal() {
+            document.getElementById('addCoordinatorModal').style.display = 'flex';
+            loadCollegesForCoordinator();
+        }
+
+        function closeAddCoordinatorModal() {
+            document.getElementById('addCoordinatorModal').style.display = 'none';
+            document.getElementById('addCoordinatorForm').reset();
+        }
+
+        async function loadCollegesForCoordinator() {
+            const select = document.getElementById('coordinatorCollege');
+            if (!select) return;
+
+            try {
+                const response = await fetch('/Alumni_Tracer/public/staff/colleges-data');
+                const result = await response.json();
+
+                if (result.success && result.colleges) {
+                    select.innerHTML = '<option value="">Select a college...</option>';
+                    result.colleges.forEach(college => {
+                        const option = document.createElement('option');
+                        option.value = college.college;
+                        option.textContent = college.college;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading colleges:', error);
+            }
+        }
+
+        async function loadDepartmentsForCoordinator() {
+            const collegeSelect = document.getElementById('coordinatorCollege');
+            const departmentSelect = document.getElementById('coordinatorDepartment');
+            const selectedCollege = collegeSelect.value;
+
+            if (!selectedCollege) {
+                departmentSelect.innerHTML = '<option value="">Select a department...</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/Alumni_Tracer/public/staff/departments-data');
+                const result = await response.json();
+
+                if (result.success && result.departments) {
+                    departmentSelect.innerHTML = '<option value="">Select a department...</option>';
+                    result.departments.forEach(dept => {
+                        if (dept.college === selectedCollege) {
+                            const option = document.createElement('option');
+                            option.value = dept.department;
+                            option.textContent = dept.department;
+                            departmentSelect.appendChild(option);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading departments:', error);
+            }
+        }
+
+        function submitCoordinatorForm() {
+            const form = document.getElementById('addCoordinatorForm');
+            const formData = new FormData(form);
+            
+            const coordinatorData = {
+                firstName: formData.get('firstName'),
+                lastName: formData.get('lastName'),
+                email: formData.get('email'),
+                password: formData.get('password'),
+                department: formData.get('department'),
+                college: formData.get('college')
+            };
+
+            // Basic validation
+            if (!coordinatorData.firstName || !coordinatorData.lastName || !coordinatorData.email || !coordinatorData.password) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            fetch('/Alumni_Tracer/public/staff/coordinators/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(coordinatorData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeAddCoordinatorModal();
+                    loadCoordinators();
+                    alert('Coordinator added successfully!');
+                } else {
+                    alert('Error adding coordinator: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error adding coordinator. Please try again.');
+            });
+        }
+
+        // ==========================================
+        // ASSIGN COORDINATOR FUNCTIONALITY
+        // ==========================================
+        let allAssignableAccounts = [];
+        let allAssignColleges = [];
+        let allAssignDepartments = [];
+
+        async function openAssignCoordinatorModal() {
+            const modal = document.getElementById('assignCoordinatorModal');
+            if (modal) modal.style.display = 'flex';
+
+            // Reset form elements
+            document.getElementById('assignCoordinatorForm').reset();
+            document.getElementById('assignCoordinatorEmail').value = '';
+            document.getElementById('assignCoordinatorFullName').value = '';
+            document.getElementById('assignCoordinatorCollege').innerHTML = '<option value="">Select a college (optional)...</option>';
+            document.getElementById('assignCoordinatorDepartment').innerHTML = '<option value="">Select a department (optional)...</option>';
+            const notAssignedCheckbox = document.getElementById('assignNotAssignedOnly');
+            if (notAssignedCheckbox) notAssignedCheckbox.checked = false;
+            closeAssignEmailMenu();
+            closeAssignNameMenu();
+
+            // Load data in parallel
+            await Promise.all([
+                loadAssignColleges(),
+                loadAssignDepartments(),
+                loadAssignableAccounts()
+            ]);
+
+            // Initially render all accounts (since no college or department is selected)
+            updateEmailDropdownList('');
+            updateNameDropdownList('');
+        }
+
+        function closeAssignCoordinatorModal() {
+            const modal = document.getElementById('assignCoordinatorModal');
+            if (modal) modal.style.display = 'none';
+            document.getElementById('assignCoordinatorForm').reset();
+            const notAssignedCheckbox = document.getElementById('assignNotAssignedOnly');
+            if (notAssignedCheckbox) notAssignedCheckbox.checked = false;
+            closeAssignEmailMenu();
+            closeAssignNameMenu();
+        }
+
+        async function loadAssignColleges() {
+            try {
+                const response = await fetch('/Alumni_Tracer/public/staff/colleges-data');
+                const result = await response.json();
+                const select = document.getElementById('assignCoordinatorCollege');
+                select.innerHTML = '<option value="">Select a college (optional)...</option>';
+                if (result.success && result.colleges) {
+                    allAssignColleges = result.colleges;
+                    result.colleges.forEach(col => {
+                        const opt = document.createElement('option');
+                        opt.value = col.college;
+                        opt.textContent = col.college;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading colleges for assign:', err);
+            }
+        }
+
+        async function loadAssignDepartments() {
+            try {
+                const response = await fetch('/Alumni_Tracer/public/staff/departments-data');
+                const result = await response.json();
+                if (result.success && result.departments) {
+                    allAssignDepartments = result.departments;
+                    populateAssignDepartments('');
+                }
+            } catch (err) {
+                console.error('Error loading departments for assign:', err);
+            }
+        }
+
+        function populateAssignDepartments(selectedCollege) {
+            const select = document.getElementById('assignCoordinatorDepartment');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">Select a department (optional)...</option>';
+
+            const depts = selectedCollege
+                ? allAssignDepartments.filter(d => normalizeStr(d.college) === normalizeStr(selectedCollege))
+                : allAssignDepartments;
+
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.department;
+                opt.textContent = d.department;
+                if (selectedCollege === '' && d.college) {
+                    opt.textContent += ` (${d.college})`;
+                }
+                select.appendChild(opt);
+            });
+
+            if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        async function loadAssignableAccounts() {
+            try {
+                const response = await fetch('/Alumni_Tracer/public/staff/assignable-accounts');
+                const result = await response.json();
+                if (result.success && result.accounts) {
+                    allAssignableAccounts = result.accounts;
+                } else {
+                    allAssignableAccounts = [];
+                }
+            } catch (err) {
+                console.error('Error loading assignable accounts:', err);
+                allAssignableAccounts = [];
+            }
+        }
+
+        function normalizeStr(str) {
+            return (str || '').toString().trim().toLowerCase();
+        }
+
+        function isAccountNotAssigned(acc) {
+            if (!acc) return false;
+            const college = normalizeStr(acc.college);
+            const dept = normalizeStr(acc.department);
+
+            const isCollegeEmpty = !college || college === '' || college === 'unassigned' || college === 'unassigned college' || college === '-' || college === 'none' || college === 'null';
+            const isDeptEmpty = !dept || dept === '' || dept === 'unassigned' || dept === 'unassigned department' || dept === '-' || dept === 'none' || dept === 'null';
+
+            return isCollegeEmpty || isDeptEmpty;
+        }
+
+        function onAssignNotAssignedToggle() {
+            const emailInputVal = document.getElementById('assignCoordinatorEmail').value.trim();
+            const nameInputVal = document.getElementById('assignCoordinatorFullName').value.trim();
+            updateEmailDropdownList(emailInputVal);
+            updateNameDropdownList(nameInputVal);
+        }
+
+        function getFilteredAccountsForEmail(searchQuery = '') {
+            const selectedCollege = normalizeStr(document.getElementById('assignCoordinatorCollege').value);
+            const selectedDepartment = normalizeStr(document.getElementById('assignCoordinatorDepartment').value);
+            const notAssignedOnly = document.getElementById('assignNotAssignedOnly')?.checked || false;
+            const query = normalizeStr(searchQuery);
+
+            return allAssignableAccounts.filter(acc => {
+                // Show ONLY coordinator accounts (exclude alumni, head admin, developer)
+                const role = normalizeStr(acc.role);
+                if (role !== 'coordinator') {
+                    return false;
+                }
+
+                // If "Not assigned" is checked, only show accounts that are not assigned
+                if (notAssignedOnly && !isAccountNotAssigned(acc)) {
+                    return false;
+                }
+
+                // College filter (if selected)
+                if (selectedCollege !== '' && normalizeStr(acc.college) !== selectedCollege) {
+                    return false;
+                }
+
+                // Department filter (if selected)
+                if (selectedDepartment !== '' && normalizeStr(acc.department) !== selectedDepartment) {
+                    return false;
+                }
+
+                // In the email, the only thing that can be searched must be the email
+                if (query !== '') {
+                    return normalizeStr(acc.email).includes(query);
+                }
+
+                return true;
+            });
+        }
+
+        function getFilteredAccountsForName(searchQuery = '') {
+            const selectedCollege = normalizeStr(document.getElementById('assignCoordinatorCollege').value);
+            const selectedDepartment = normalizeStr(document.getElementById('assignCoordinatorDepartment').value);
+            const notAssignedOnly = document.getElementById('assignNotAssignedOnly')?.checked || false;
+            const query = normalizeStr(searchQuery);
+
+            return allAssignableAccounts.filter(acc => {
+                // Show ONLY coordinator accounts (exclude alumni, head admin, developer)
+                const role = normalizeStr(acc.role);
+                if (role !== 'coordinator') {
+                    return false;
+                }
+
+                // If "Not assigned" is checked, only show accounts that are not assigned
+                if (notAssignedOnly && !isAccountNotAssigned(acc)) {
+                    return false;
+                }
+
+                // College filter (if selected)
+                if (selectedCollege !== '' && normalizeStr(acc.college) !== selectedCollege) {
+                    return false;
+                }
+
+                // Department filter (if selected)
+                if (selectedDepartment !== '' && normalizeStr(acc.department) !== selectedDepartment) {
+                    return false;
+                }
+
+                // In the name, only first name or last name can be searched
+                if (query !== '') {
+                    const first = normalizeStr(acc.firstName);
+                    const last = normalizeStr(acc.lastName);
+                    const full = normalizeStr(acc.fullName);
+                    return first.includes(query) || last.includes(query) || full.includes(query);
+                }
+
+                return true;
+            });
+        }
+
+        function updateEmailDropdownList(query = '') {
+            const menu = document.getElementById('assignEmailDropdownList');
+            const hint = document.getElementById('assignEmailHint');
+            const filtered = getFilteredAccountsForEmail(query);
+            const collegeVal = document.getElementById('assignCoordinatorCollege').value;
+            const deptVal = document.getElementById('assignCoordinatorDepartment').value;
+            const notAssignedOnly = document.getElementById('assignNotAssignedOnly')?.checked || false;
+
+            if (hint) {
+                let hintText = `Showing ${filtered.length} coordinator account${filtered.length === 1 ? '' : 's'}`;
+                if (notAssignedOnly) {
+                    hintText += ` (not assigned)`;
+                }
+                if (collegeVal && deptVal) {
+                    hintText += ` in ${deptVal}, ${collegeVal}`;
+                } else if (collegeVal) {
+                    hintText += ` in ${collegeVal}`;
+                } else if (deptVal) {
+                    hintText += ` in ${deptVal}`;
+                } else if (!notAssignedOnly) {
+                    hintText += ` (all coordinator accounts)`;
+                }
+                hint.textContent = hintText;
+            }
+
+            if (!filtered || filtered.length === 0) {
+                const emptyMsg = notAssignedOnly
+                    ? '<div class="combobox-empty"><i class="fas fa-search"></i> No unassigned coordinator accounts found by email</div>'
+                    : '<div class="combobox-empty"><i class="fas fa-search"></i> No matching coordinator accounts found by email</div>';
+                menu.innerHTML = emptyMsg;
+                return;
+            }
+
+            const currentEmail = normalizeStr(document.getElementById('assignCoordinatorEmail').value);
+
+            let html = '';
+            filtered.forEach(acc => {
+                const isSelected = currentEmail === normalizeStr(acc.email);
+                const roleClass = acc.role && acc.role.toLowerCase() === 'coordinator' ? 'combobox-item-tag role-coord' : 'combobox-item-tag';
+                const safeEmail = escapeHtml(acc.email);
+                const safeName = escapeHtml(acc.fullName);
+                const safeRole = escapeHtml(acc.role || 'user');
+                const safeCollege = acc.college ? escapeHtml(acc.college) : '';
+                const safeDept = acc.department ? escapeHtml(acc.department) : '';
+
+                html += `
+                    <div class="combobox-item ${isSelected ? 'selected' : ''}" onclick="selectAccountByEmail('${safeEmail}')">
+                        <div class="combobox-item-email">
+                            <i class="fas fa-envelope" style="font-size: 11px; opacity: 0.6; margin-right: 4px;"></i> ${safeEmail}
+                        </div>
+                        <div class="combobox-item-details">
+                            <span><i class="fas fa-user" style="font-size: 10px;"></i> ${safeName}</span>
+                            <span class="${roleClass}">${safeRole}</span>
+                            ${safeCollege ? `<span>&bull; ${safeCollege}</span>` : ''}
+                            ${safeDept ? `<span>&bull; ${safeDept}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            menu.innerHTML = html;
+        }
+
+        function updateNameDropdownList(query = '') {
+            const menu = document.getElementById('assignNameDropdownList');
+            const hint = document.getElementById('assignNameHint');
+            const filtered = getFilteredAccountsForName(query);
+            const collegeVal = document.getElementById('assignCoordinatorCollege').value;
+            const deptVal = document.getElementById('assignCoordinatorDepartment').value;
+            const notAssignedOnly = document.getElementById('assignNotAssignedOnly')?.checked || false;
+
+            if (hint) {
+                let hintText = `Showing ${filtered.length} coordinator account${filtered.length === 1 ? '' : 's'}`;
+                if (notAssignedOnly) {
+                    hintText += ` (not assigned)`;
+                }
+                if (collegeVal && deptVal) {
+                    hintText += ` in ${deptVal}, ${collegeVal}`;
+                } else if (collegeVal) {
+                    hintText += ` in ${collegeVal}`;
+                } else if (deptVal) {
+                    hintText += ` in ${deptVal}`;
+                } else if (!notAssignedOnly) {
+                    hintText += ` (all coordinator accounts)`;
+                }
+                hint.textContent = hintText;
+            }
+
+            if (!filtered || filtered.length === 0) {
+                const emptyMsg = notAssignedOnly
+                    ? '<div class="combobox-empty"><i class="fas fa-search"></i> No unassigned coordinator accounts found by name</div>'
+                    : '<div class="combobox-empty"><i class="fas fa-search"></i> No matching coordinator accounts found by name</div>';
+                menu.innerHTML = emptyMsg;
+                return;
+            }
+
+            const currentEmail = normalizeStr(document.getElementById('assignCoordinatorEmail').value);
+
+            let html = '';
+            filtered.forEach(acc => {
+                const isSelected = currentEmail === normalizeStr(acc.email);
+                const roleClass = acc.role && acc.role.toLowerCase() === 'coordinator' ? 'combobox-item-tag role-coord' : 'combobox-item-tag';
+                const safeEmail = escapeHtml(acc.email);
+                const safeName = escapeHtml(acc.fullName);
+                const safeRole = escapeHtml(acc.role || 'user');
+                const safeCollege = acc.college ? escapeHtml(acc.college) : '';
+                const safeDept = acc.department ? escapeHtml(acc.department) : '';
+
+                html += `
+                    <div class="combobox-item ${isSelected ? 'selected' : ''}" onclick="selectAccountByEmail('${safeEmail}')">
+                        <div class="combobox-item-email" style="color: #1e4a76;">
+                            <i class="fas fa-user" style="font-size: 11px; opacity: 0.7; margin-right: 4px;"></i> ${safeName}
+                        </div>
+                        <div class="combobox-item-details">
+                            <span><i class="fas fa-envelope" style="font-size: 10px;"></i> ${safeEmail}</span>
+                            <span class="${roleClass}">${safeRole}</span>
+                            ${safeCollege ? `<span>&bull; ${safeCollege}</span>` : ''}
+                            ${safeDept ? `<span>&bull; ${safeDept}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            menu.innerHTML = html;
+        }
+
+        function openAssignEmailMenu() {
+            closeAssignNameMenu();
+            const menu = document.getElementById('assignEmailDropdownList');
+            const chevron = document.getElementById('assignEmailChevron');
+            if (menu) menu.classList.add('open');
+            if (chevron) chevron.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            updateEmailDropdownList(document.getElementById('assignCoordinatorEmail').value.trim());
+        }
+
+        function closeAssignEmailMenu() {
+            const menu = document.getElementById('assignEmailDropdownList');
+            const chevron = document.getElementById('assignEmailChevron');
+            if (menu) menu.classList.remove('open');
+            if (chevron) chevron.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        }
+
+        function toggleAssignEmailMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('assignEmailDropdownList');
+            if (menu && menu.classList.contains('open')) {
+                closeAssignEmailMenu();
+            } else {
+                openAssignEmailMenu();
+                document.getElementById('assignCoordinatorEmail').focus();
+            }
+        }
+
+        function onAssignEmailTyping(val) {
+            openAssignEmailMenu();
+            const query = val.trim();
+            updateEmailDropdownList(query);
+
+            const notAssignedOnly = document.getElementById('assignNotAssignedOnly')?.checked || false;
+            // In the email, the only thing searched must be the email
+            const matched = allAssignableAccounts.find(a => {
+                if (normalizeStr(a.email) !== normalizeStr(query)) return false;
+                if (notAssignedOnly && !isAccountNotAssigned(a)) return false;
+                return true;
+            });
+            const fullNameInput = document.getElementById('assignCoordinatorFullName');
+            if (matched) {
+                fullNameInput.value = matched.fullName;
+            } else {
+                fullNameInput.value = '';
+            }
+        }
+
+        function openAssignNameMenu() {
+            closeAssignEmailMenu();
+            const menu = document.getElementById('assignNameDropdownList');
+            const chevron = document.getElementById('assignNameChevron');
+            if (menu) menu.classList.add('open');
+            if (chevron) chevron.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            updateNameDropdownList(document.getElementById('assignCoordinatorFullName').value.trim());
+        }
+
+        function closeAssignNameMenu() {
+            const menu = document.getElementById('assignNameDropdownList');
+            const chevron = document.getElementById('assignNameChevron');
+            if (menu) menu.classList.remove('open');
+            if (chevron) chevron.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        }
+
+        function toggleAssignNameMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('assignNameDropdownList');
+            if (menu && menu.classList.contains('open')) {
+                closeAssignNameMenu();
+            } else {
+                openAssignNameMenu();
+                document.getElementById('assignCoordinatorFullName').focus();
+            }
+        }
+
+        function onAssignNameTyping(val) {
+            openAssignNameMenu();
+            const query = val.trim();
+            updateNameDropdownList(query);
+
+            const notAssignedOnly = document.getElementById('assignNotAssignedOnly')?.checked || false;
+            // In the name, only first name or last name can be searched
+            const q = normalizeStr(query);
+            const matched = q !== '' ? allAssignableAccounts.find(a => {
+                if (notAssignedOnly && !isAccountNotAssigned(a)) return false;
+                return normalizeStr(a.fullName) === q || normalizeStr(a.firstName) === q || normalizeStr(a.lastName) === q;
+            }) : null;
+            const emailInput = document.getElementById('assignCoordinatorEmail');
+            if (matched) {
+                emailInput.value = matched.email;
+            } else {
+                emailInput.value = '';
+            }
+        }
+
+        function selectAccountByEmail(email) {
+            const account = allAssignableAccounts.find(a => normalizeStr(a.email) === normalizeStr(email));
+            if (!account) return;
+
+            document.getElementById('assignCoordinatorEmail').value = account.email;
+            document.getElementById('assignCoordinatorFullName').value = account.fullName;
+            closeAssignEmailMenu();
+            closeAssignNameMenu();
+
+            // If college is not selected yet and user has a college, auto-select it
+            const collegeSelect = document.getElementById('assignCoordinatorCollege');
+            if (!collegeSelect.value && account.college) {
+                const matchedCol = allAssignColleges.find(c => normalizeStr(c.college) === normalizeStr(account.college));
+                if (matchedCol) {
+                    collegeSelect.value = matchedCol.college;
+                    populateAssignDepartments(matchedCol.college);
+
+                    // Auto-select department as well if available
+                    if (account.department) {
+                        const deptSelect = document.getElementById('assignCoordinatorDepartment');
+                        const matchedDept = allAssignDepartments.find(d => normalizeStr(d.department) === normalizeStr(account.department));
+                        if (matchedDept) {
+                            deptSelect.value = matchedDept.department;
+                        }
+                    }
+                }
+            }
+
+            // Refresh lists for current selection
+            updateEmailDropdownList('');
+            updateNameDropdownList('');
+        }
+
+        function onAssignCollegeChanged() {
+            const selectedCollege = document.getElementById('assignCoordinatorCollege').value;
+            populateAssignDepartments(selectedCollege);
+
+            // Re-render Email and Name dropdowns with the new filter
+            const emailInputVal = document.getElementById('assignCoordinatorEmail').value.trim();
+            const nameInputVal = document.getElementById('assignCoordinatorFullName').value.trim();
+            updateEmailDropdownList(emailInputVal);
+            updateNameDropdownList(nameInputVal);
+        }
+
+        function onAssignDepartmentChanged() {
+            const selectedDepartment = document.getElementById('assignCoordinatorDepartment').value;
+            
+            // If department was chosen but college was empty, auto-select the department's college
+            const collegeSelect = document.getElementById('assignCoordinatorCollege');
+            if (!collegeSelect.value && selectedDepartment) {
+                const deptObj = allAssignDepartments.find(d => normalizeStr(d.department) === normalizeStr(selectedDepartment));
+                if (deptObj && deptObj.college) {
+                    collegeSelect.value = deptObj.college;
+                    populateAssignDepartments(deptObj.college);
+                    document.getElementById('assignCoordinatorDepartment').value = selectedDepartment;
+                }
+            }
+
+            const emailInputVal = document.getElementById('assignCoordinatorEmail').value.trim();
+            const nameInputVal = document.getElementById('assignCoordinatorFullName').value.trim();
+            updateEmailDropdownList(emailInputVal);
+            updateNameDropdownList(nameInputVal);
+        }
+
+        function submitAssignCoordinatorForm() {
+            const email = document.getElementById('assignCoordinatorEmail').value.trim();
+            const college = document.getElementById('assignCoordinatorCollege').value.trim();
+            const department = document.getElementById('assignCoordinatorDepartment').value.trim();
+
+            if (!email) {
+                alert('Please type or select an account email.');
+                document.getElementById('assignCoordinatorEmail').focus();
+                return;
+            }
+
+            const accountExists = allAssignableAccounts.some(a => normalizeStr(a.email) === normalizeStr(email));
+            if (!accountExists) {
+                alert('The email "' + email + '" does not match any existing account. Please select a valid account.');
+                document.getElementById('assignCoordinatorEmail').focus();
+                return;
+            }
+
+            if (!college) {
+                alert('Please select a College for the coordinator assignment.');
+                document.getElementById('assignCoordinatorCollege').focus();
+                return;
+            }
+
+            if (!department) {
+                alert('Please select a Department for the coordinator assignment.');
+                document.getElementById('assignCoordinatorDepartment').focus();
+                return;
+            }
+
+            // Post assignment to backend
+            fetch('/Alumni_Tracer/public/staff/coordinators/assign', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, college, department })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeAssignCoordinatorModal();
+                    loadCoordinators();
+                    alert(data.message || 'Coordinator assigned successfully!');
+                } else {
+                    alert('Error assigning coordinator: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error assigning coordinator:', err);
+                alert('Error assigning coordinator. Please try again.');
+            });
+        }
+
+        // Close combobox when clicking outside
+        document.addEventListener('click', function(e) {
+            const emailCombobox = document.getElementById('assignEmailCombobox');
+            if (emailCombobox && !emailCombobox.contains(e.target)) {
+                closeAssignEmailMenu();
+            }
+            const nameCombobox = document.getElementById('assignNameCombobox');
+            if (nameCombobox && !nameCombobox.contains(e.target)) {
+                closeAssignNameMenu();
+            }
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const addModal = document.getElementById('addCoordinatorModal');
+            const assignModal = document.getElementById('assignCoordinatorModal');
+            if (event.target === addModal) {
+                closeAddCoordinatorModal();
+            }
+            if (event.target === assignModal) {
+                closeAssignCoordinatorModal();
+            }
+        }
+    </script>
+</body>
+</html>

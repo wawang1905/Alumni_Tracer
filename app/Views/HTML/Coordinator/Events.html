@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events | Coordinator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"><link rel="stylesheet" href="CoordinatorCommon.css">
+    <!-- Coordinator sidebar state pre-applied before paint to prevent transition flash -->
+    <script>
+        (function() {
+            document.documentElement.classList.add('coordinator-sidebar-preload');
+            if (localStorage.getItem('coordinatorSidebarCollapsed') === 'true') {
+                document.documentElement.classList.add('coordinator-sidebar-collapsed');
+            }
+        })();
+    </script></head>
+<body><div class="coordinator-shell"><aside class="coordinator-sidebar"><div class="brand-block"><div class="brand-mark"><i class="fas fa-graduation-cap"></i></div><div><h1>Alumni Tracker</h1><p>College Coordinator</p></div></div><div class="sidebar-user-card"><div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div><div class="sidebar-user-info"><span class="sidebar-user-name">Program Coordinator</span><span class="sidebar-user-role">Coordinator</span></div></div><nav class="coordinator-nav" aria-label="Coordinator sections"><span class="nav-section-label">Main</span><a class="nav-item" href="Dashboard.html" title="Overview"><i class="fas fa-table-columns"></i><span>Overview</span></a><a class="nav-item" href="Alumni.html" title="Alumni"><i class="fas fa-users"></i><span>Alumni</span></a><span class="nav-section-label">Data</span><div class="nav-group"><a class="nav-item" href="SurveyResponses.html" title="Surveys"><i class="fas fa-clipboard-check"></i><span>Surveys</span><i class="fas fa-chevron-down nav-caret"></i></a><a class="nav-subitem" href="SurveyResponses.html">Responses</a></div><a class="nav-item" href="Reports.html" title="Reports"><i class="fas fa-chart-line"></i><span>Reports</span></a><a class="nav-item" href="AlumniID.html" title="Alumni ID"><i class="fas fa-id-card"></i><span>Alumni ID</span></a><span class="nav-section-label">Manage</span><a class="nav-item active" href="Events.html" title="Events"><i class="fas fa-calendar-days"></i><span>Events</span></a><a class="nav-item" href="Payments.html" title="Payments"><i class="fas fa-receipt"></i><span>Payments</span></a><a class="nav-item" href="Communication.html" title="Communication"><i class="fas fa-envelope-open-text"></i><span>Communication</span></a></nav>
+            <div class="coordinator-sidebar-footer">
+                <button id="coordinatorLogoutBtn" class="coordinator-logout-btn" type="button" title="Log Out">
+                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                    <span class="logout-label">Log Out</span>
+                </button>
+            </div>
+        </aside><main class="coordinator-main"><header class="topbar"><div><p class="eyebrow">Assigned Department</p><h2>Events</h2></div><div class="profile-chip"><span>Program Coordinator</span><div class="avatar"><i class="fas fa-user"></i></div></div></header><div class="section-heading"><h3>Department Events</h3><button class="btn-primary"><i class="fas fa-plus"></i> Create Event</button></div><div class="action-grid"><article class="action-card"><i class="fas fa-calendar-plus"></i><h4>Create Events</h4><p>Set up optional department events for alumni.</p></article><article class="action-card"><i class="fas fa-people-group"></i><h4>Manage Attendees</h4><p>Monitor registrations and attendance lists.</p></article><article class="action-card"><i class="fas fa-folder-open"></i><h4>Upload Documentation</h4><p>Attach photos, reports, and event proof files.</p></article></div></main></div><script src="CoordinatorCommon.js"></script></body>
+</html>

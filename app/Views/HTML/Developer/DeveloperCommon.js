@@ -1,0 +1,1205 @@
+const DEVELOPER_STATE_KEY = 'developer_console_state_v1';
+
+const defaultDeveloperState = {
+    admins: [
+        {
+            id: 1,
+            firstName: 'Maria',
+            lastName: 'Santos',
+            email: 'maria.santos@ustp.edu.ph',
+            department: 'Alumni Affairs',
+            role: 'Head Admin',
+            status: 'Active',
+            lastActive: 'Today, 9:42 AM'
+        },
+        {
+            id: 2,
+            firstName: 'Rafael',
+            lastName: 'Cruz',
+            email: 'rafael.cruz@ustp.edu.ph',
+            department: 'Registrar',
+            role: 'Head Admin',
+            status: 'Locked',
+            lastActive: 'Jul 10, 2026'
+        },
+        {
+            id: 3,
+            firstName: 'Elena',
+            lastName: 'Lim',
+            email: 'elena.lim@ustp.edu.ph',
+            department: 'Guidance',
+            role: 'Staff',
+            status: 'Active',
+            lastActive: 'Jul 11, 2026'
+        }
+    ],
+    settings: {
+        appName: 'USTP Alumni Tracer',
+        supportEmail: 'support@ustp.edu.ph',
+        sessionTimeout: '30',
+        failedLoginLimit: '5',
+        forceResetNewAdmins: true,
+        notifyOnLock: true,
+        restrictStaffSettings: true
+    },
+    school: {
+        schoolName: 'University of Science and Technology of Southern Philippines',
+        schoolCampus: 'Cagayan de Oro',
+        registrarEmail: 'registrar@ustp.edu.ph',
+        schoolAddress: 'Lapasan, Cagayan de Oro City',
+        schoolPhone: '(088) 856-1738'
+    },
+    messaging: {
+        emailProvider: 'SMTP',
+        smtpHost: 'smtp.ustp.edu.ph',
+        senderEmail: 'alumni-tracer@ustp.edu.ph',
+        senderName: 'USTP Alumni Tracer',
+        smsProvider: 'Disabled',
+        smsSenderId: 'USTP',
+        smsEnabled: false
+    },
+    backups: [
+        {
+            name: 'alumni_tracer_backup_2026_07_10.sql',
+            date: 'Jul 10, 2026 8:00 PM',
+            size: '42 MB',
+            status: 'Completed',
+            createdBy: 'System'
+        }
+    ],
+    logs: [
+        {
+            level: 'info',
+            title: 'Developer console opened',
+            detail: 'System Administrator reviewed application controls.',
+            time: 'Just now'
+        },
+        {
+            level: 'warning',
+            title: 'Account locked',
+            detail: 'rafael.cruz@ustp.edu.ph exceeded the login limit.',
+            time: 'Jul 10, 2026 4:18 PM'
+        },
+        {
+            level: 'info',
+            title: 'Survey template updated',
+            detail: 'Graduate Employment template was revised.',
+            time: 'Jul 09, 2026 2:11 PM'
+        }
+    ],
+    announcements: [
+        {
+            title: 'Scheduled database backup',
+            body: 'Administrators should avoid importing alumni records during the Friday backup window.',
+            date: 'Jul 11, 2026'
+        }
+    ],
+    surveyTemplates: [
+        {
+            name: 'Graduate Employment',
+            description: 'Core employability questions for alumni tracking.',
+            questions: 18,
+            status: 'Active'
+        },
+        {
+            name: 'Further Studies',
+            description: 'Tracks postgraduate enrollment and certifications.',
+            questions: 9,
+            status: 'Draft'
+        },
+        {
+            name: 'Training Needs',
+            description: 'Collects feedback for seminars and alumni services.',
+            questions: 12,
+            status: 'Active'
+        }
+    ],
+    maintenance: {
+        enabled: false,
+        message: 'The Alumni Tracer is temporarily unavailable while maintenance is in progress.',
+        end: ''
+    },
+    nextAdminId: 4
+};
+
+let developerState = loadDeveloperState();
+let editingAdminId = null;
+let toastTimer = null;
+let developerUsers = [];
+let developerCampuses = [];
+let editingCampusId = null;
+const campusAddressApiUrls = {
+    provinces: 'https://psgc.gitlab.io/api/provinces.json',
+    municipalities: 'https://psgc.gitlab.io/api/municipalities.json',
+    cities: 'https://psgc.gitlab.io/api/cities.json',
+    barangays: 'https://psgc.gitlab.io/api/barangays.json',
+};
+const campusAddressData = {
+    provinces: [],
+    municipalities: [],
+    cities: [],
+    barangays: [],
+};
+let campusAddressLoaded = false;
+let campusAddressLoading = false;
+let campusAddressState = {
+    provinceCode: '',
+    municipalityCode: '',
+    barangayCode: '',
+    province: '',
+    municipality: '',
+    barangay: '',
+};
+
+function cloneDefaultState() {
+    return JSON.parse(JSON.stringify(defaultDeveloperState));
+}
+
+function loadDeveloperState() {
+    try {
+        const stored = localStorage.getItem(DEVELOPER_STATE_KEY);
+        if (!stored) return cloneDefaultState();
+        return { ...cloneDefaultState(), ...JSON.parse(stored) };
+    } catch (error) {
+        return cloneDefaultState();
+    }
+}
+
+function saveDeveloperState() {
+    localStorage.setItem(DEVELOPER_STATE_KEY, JSON.stringify(developerState));
+}
+
+function showToast(message) {
+    const toast = document.getElementById('developerToast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+
+function getLoginUrl() {
+    return new URL('../', window.location.href).toString();
+}
+
+function getSessionUrl() {
+    return new URL('../auth/session', window.location.href).toString();
+}
+
+function getLogoutUrl() {
+    return new URL('../auth/logout', window.location.href).toString();
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function sortCampusAddressItems(items) {
+    return [...items].sort((first, second) => String(first.name || '').localeCompare(String(second.name || '')));
+}
+
+function buildCampusAddress(parts) {
+    return parts.filter((part) => String(part || '').trim() !== '').join(', ');
+}
+
+function toCampusAddressOption(item) {
+    return {
+        value: item.code,
+        label: item.name,
+    };
+}
+
+function findCampusAddressItem(collectionName, name) {
+    const normalizedName = String(name || '').trim().toLowerCase();
+    return campusAddressData[collectionName].find((item) => String(item.name || '').trim().toLowerCase() === normalizedName) || null;
+}
+
+function buildCampusAddressMarkup(items, selectedValue, placeholder) {
+    const options = [`<option value="">${escapeHtml(placeholder)}</option>`];
+    items.forEach((item) => {
+        const selected = item.value === selectedValue ? ' selected' : '';
+        options.push(`<option value="${escapeHtml(item.value)}"${selected}>${escapeHtml(item.label)}</option>`);
+    });
+    return options.join('');
+}
+
+function renderCampusAddressSelects(selectedAddress = '') {
+    const provinceSelect = document.getElementById('campusProvince');
+    const municipalitySelect = document.getElementById('campusMunicipality');
+    const barangaySelect = document.getElementById('campusBarangay');
+    if (!provinceSelect || !municipalitySelect || !barangaySelect) return;
+
+    if (selectedAddress !== '') {
+        const addressParts = String(selectedAddress || '').split(',').map((part) => part.trim()).filter(Boolean);
+        const [provinceName, municipalityName, barangayName] = addressParts;
+
+        if (provinceName) {
+            const provinceItem = findCampusAddressItem('provinces', provinceName);
+            if (provinceItem) {
+                campusAddressState.provinceCode = provinceItem.code;
+                campusAddressState.province = provinceItem.name;
+            } else {
+                campusAddressState.provinceCode = '';
+                campusAddressState.province = provinceName;
+            }
+        }
+
+        if (municipalityName && campusAddressState.provinceCode) {
+            const municipalityItem = [...campusAddressData.municipalities, ...campusAddressData.cities].find((item) => item.provinceCode === campusAddressState.provinceCode && String(item.name || '').trim().toLowerCase() === municipalityName.toLowerCase()) || null;
+            if (municipalityItem) {
+                campusAddressState.municipalityCode = municipalityItem.code;
+                campusAddressState.municipality = municipalityItem.name;
+            } else {
+                campusAddressState.municipalityCode = '';
+                campusAddressState.municipality = municipalityName;
+            }
+        }
+
+        if (barangayName && campusAddressState.municipalityCode) {
+            const barangayItem = campusAddressData.barangays.find((item) => (item.cityCode || item.municipalityCode) === campusAddressState.municipalityCode && String(item.name || '').trim().toLowerCase() === barangayName.toLowerCase()) || null;
+            if (barangayItem) {
+                campusAddressState.barangayCode = barangayItem.code;
+                campusAddressState.barangay = barangayItem.name;
+            } else {
+                campusAddressState.barangayCode = '';
+                campusAddressState.barangay = barangayName;
+            }
+        }
+    }
+
+    const provinceOptions = sortCampusAddressItems(campusAddressData.provinces).map(toCampusAddressOption);
+    provinceSelect.innerHTML = buildCampusAddressMarkup(provinceOptions, campusAddressState.provinceCode, 'Select province');
+
+    const localityOptions = [...campusAddressData.municipalities, ...campusAddressData.cities]
+        .filter((item) => item.provinceCode === campusAddressState.provinceCode)
+        .map(toCampusAddressOption);
+    municipalitySelect.innerHTML = buildCampusAddressMarkup(localityOptions, campusAddressState.municipalityCode, 'Select municipality or city');
+
+    const barangayOptions = campusAddressData.barangays
+        .filter((item) => (item.cityCode || item.municipalityCode) === campusAddressState.municipalityCode)
+        .map(toCampusAddressOption);
+    barangaySelect.innerHTML = buildCampusAddressMarkup(barangayOptions, campusAddressState.barangayCode, 'Select barangay');
+
+    const hiddenAddressField = document.getElementById('campusAddress');
+    if (hiddenAddressField) {
+        hiddenAddressField.value = buildCampusAddress([campusAddressState.province, campusAddressState.municipality, campusAddressState.barangay]);
+    }
+}
+
+async function loadCampusAddressData() {
+    if (campusAddressLoaded || campusAddressLoading) return;
+
+    campusAddressLoading = true;
+    try {
+        const [provinces, municipalities, cities, barangays] = await Promise.all([
+            fetch(campusAddressApiUrls.provinces, { cache: 'force-cache' }).then((response) => {
+                if (!response.ok) throw new Error('Unable to load provinces');
+                return response.json();
+            }),
+            fetch(campusAddressApiUrls.municipalities, { cache: 'force-cache' }).then((response) => {
+                if (!response.ok) throw new Error('Unable to load municipalities');
+                return response.json();
+            }),
+            fetch(campusAddressApiUrls.cities, { cache: 'force-cache' }).then((response) => {
+                if (!response.ok) throw new Error('Unable to load cities');
+                return response.json();
+            }),
+            fetch(campusAddressApiUrls.barangays, { cache: 'force-cache' }).then((response) => {
+                if (!response.ok) throw new Error('Unable to load barangays');
+                return response.json();
+            }),
+        ]);
+
+        campusAddressData.provinces = provinces;
+        campusAddressData.municipalities = municipalities;
+        campusAddressData.cities = cities;
+        campusAddressData.barangays = barangays;
+        campusAddressLoaded = true;
+        renderCampusAddressSelects();
+    } catch (error) {
+        showToast('Unable to load address options.');
+    } finally {
+        campusAddressLoading = false;
+    }
+}
+
+async function loadCurrentUser() {
+    try {
+        const response = await fetch(getSessionUrl(), {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Session unavailable');
+        const session = await response.json();
+        if (!session.loggedIn) {
+            window.location.replace(getLoginUrl());
+            return;
+        }
+        const user = session.user || {};
+        const role = String(user.role || '').toLowerCase();
+        if (!DEVELOPER_ROLES.includes(role)) {
+            window.location.replace(role === 'head_admin' ? '../staff/Dashboard.html' : '../alumni/Main.html');
+            return;
+        }
+        document.querySelector('[data-developer-name]').textContent = user.name || 'System Administrator';
+        document.querySelector('[data-developer-role]').textContent = String(user.role || 'developer').replaceAll('_', ' ');
+    } catch (error) {
+        window.location.replace(getLoginUrl());
+    }
+}
+
+async function logoutDeveloper() {
+    try {
+        await fetch(getLogoutUrl(), {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+    } finally {
+        window.location.replace(getLoginUrl());
+    }
+}
+
+function switchPanel(sectionName) {
+    document.querySelectorAll('.developer-nav-item').forEach((item) => {
+        item.classList.toggle('active', item.dataset.section === sectionName);
+    });
+    document.querySelectorAll('.developer-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.dataset.panel === sectionName);
+    });
+
+    const activeLabel = document.querySelector(`.developer-nav-item[data-section="${sectionName}"] span`)?.textContent || 'Developer Overview';
+    document.getElementById('developerPageTitle').textContent = sectionName === 'overview' ? 'Developer Overview' : activeLabel;
+}
+
+function renderMetrics() {
+    const headAdmins = developerUsers.filter((admin) => admin.roleValue === 'head_admin' || admin.role === 'Head Admin');
+    const locked = developerUsers.filter((admin) => admin.status === 'Locked');
+
+    const headAdminCount = document.getElementById('headAdminCount');
+    if (headAdminCount) headAdminCount.textContent = headAdmins.length;
+
+    const lockedAccountCount = document.getElementById('lockedAccountCount');
+    if (lockedAccountCount) lockedAccountCount.textContent = locked.length;
+
+    const maintenanceStatus = document.getElementById('maintenanceStatus');
+    if (maintenanceStatus) maintenanceStatus.textContent = developerState.maintenance.enabled ? 'On' : 'Off';
+
+    const lastBackupDate = document.getElementById('lastBackupDate');
+    if (lastBackupDate) lastBackupDate.textContent = developerState.backups[0]?.date || 'None';
+
+    const overviewLockPolicy = document.getElementById('overviewLockPolicy');
+    if (overviewLockPolicy) overviewLockPolicy.textContent = `${developerState.settings.failedLoginLimit} failed attempts`;
+
+    const overviewEmailProvider = document.getElementById('overviewEmailProvider');
+    if (overviewEmailProvider) overviewEmailProvider.textContent = developerState.messaging.emailProvider || 'Not set';
+
+    const overviewSmsProvider = document.getElementById('overviewSmsProvider');
+    if (overviewSmsProvider) overviewSmsProvider.textContent = developerState.messaging.smsEnabled ? developerState.messaging.smsProvider : 'Disabled';
+
+    const overviewTemplateCount = document.getElementById('overviewTemplateCount');
+    if (overviewTemplateCount) overviewTemplateCount.textContent = developerState.surveyTemplates.filter((template) => template.status === 'Active').length;
+}
+
+function renderAdminTable() {
+    const tbody = document.getElementById('adminTableBody');
+    if (!tbody) return;
+
+    const searchInput = document.getElementById('adminSearch');
+    const search = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+    const roleFilterSelect = document.getElementById('roleFilter');
+    const roleFilter = roleFilterSelect ? roleFilterSelect.value : 'all';
+
+    const visibleUsers = developerUsers.filter((admin) => {
+        const roleValue = String(admin.roleValue || '').toLowerCase();
+        const roleLabel = String(admin.role || '').toLowerCase();
+        const isSupportedRole = roleValue === 'head_admin' || roleValue === 'developer' || roleLabel === 'head admin' || roleLabel === 'developer';
+        if (!isSupportedRole) {
+            return false;
+        }
+
+        const matchesRole = roleFilter === 'all' || roleValue === roleFilter || roleLabel === roleFilter;
+        const haystack = `${admin.firstName} ${admin.lastName} ${admin.email} ${admin.department}`.toLowerCase();
+        return matchesRole && haystack.includes(search);
+    });
+
+    tbody.innerHTML = visibleUsers.map((admin) => {
+        const campusValue = (admin.campus && String(admin.campus).trim() !== '') ? String(admin.campus) : 'Not Assigned';
+        return `
+            <tr>
+                <td><strong>${escapeHtml(admin.firstName)} ${escapeHtml(admin.lastName)}</strong></td>
+                <td>${escapeHtml(admin.email)}</td>
+                <td>${escapeHtml(admin.department)}</td>
+                <td>${escapeHtml(admin.role)}</td>
+                <td>${escapeHtml(campusValue)}</td>
+                <td>
+                    <div class="action-set">
+                        <button class="icon-button" type="button" title="Edit account" aria-label="Edit account" onclick="editAdmin('${escapeHtml(admin.email)}')"><i class="fas fa-pen"></i></button>
+                        <button class="icon-button" type="button" title="Reset password" aria-label="Reset password" onclick="resetAdminPassword('${escapeHtml(admin.email)}')"><i class="fas fa-key"></i></button>
+                        <button class="icon-button" type="button" title="Lock or unlock" aria-label="Lock or unlock" onclick="toggleAdminLock('${escapeHtml(admin.email)}')"><i class="fas fa-lock"></i></button>
+                        <button class="icon-button danger" type="button" title="Delete account" aria-label="Delete account" onclick="deleteAdmin('${escapeHtml(admin.email)}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function populateRoleDropdown() {
+    const select = document.getElementById('adminRole');
+    const filterSelect = document.getElementById('roleFilter');
+    if (!select || !filterSelect) return;
+
+    const options = DEVELOPER_ROLE_OPTIONS || [];
+    select.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+    filterSelect.innerHTML = ['<option value="all">All roles</option>', ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)].join('');
+}
+
+function openAdminModal(admin = null) {
+    editingAdminId = admin?.email || null;
+    document.getElementById('adminModalTitle').textContent = admin ? 'Edit Account' : 'Add User';
+    document.getElementById('adminFirstName').value = admin?.firstName || '';
+    document.getElementById('adminLastName').value = admin?.lastName || '';
+    document.getElementById('adminEmail').value = admin?.email || '';
+    document.getElementById('adminDepartment').value = admin?.department || '';
+    document.getElementById('adminRole').value = admin?.roleValue || 'alumni';
+    document.getElementById('adminStatus').value = admin?.status || 'Active';
+    const modal = document.getElementById('adminModal');
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAdminModal() {
+    const modal = document.getElementById('adminModal');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+async function saveAdminAccount() {
+    const account = {
+        firstName: document.getElementById('adminFirstName').value.trim(),
+        lastName: document.getElementById('adminLastName').value.trim(),
+        email: document.getElementById('adminEmail').value.trim(),
+        department: document.getElementById('adminDepartment').value.trim(),
+        role: document.getElementById('adminRole').value,
+        status: document.getElementById('adminStatus').value,
+        existingEmail: editingAdminId || ''
+    };
+
+    if (!account.firstName || !account.lastName || !account.email) {
+        showToast('Please complete the required account fields.');
+        return;
+    }
+
+    try {
+        const response = await fetch('../developer/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(account)
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Could not save the account.');
+        }
+
+        closeAdminModal();
+        await loadDeveloperUsers();
+        showToast('Account saved.');
+    } catch (error) {
+        showToast(error.message || 'Account save failed.');
+    }
+}
+
+function editAdmin(email) {
+    const admin = developerUsers.find((item) => item.email === email);
+    if (admin) openAdminModal(admin);
+}
+
+async function resetAdminPassword(email) {
+    const admin = developerUsers.find((item) => item.email === email);
+    if (!admin) return;
+    try {
+        const response = await fetch('../developer/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ ...admin, resetPassword: true, existingEmail: admin.email })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Password reset failed.');
+        }
+        showToast('Password reset flag created.');
+    } catch (error) {
+        showToast(error.message || 'Password reset failed.');
+    }
+}
+
+async function toggleAdminLock(email) {
+    const admin = developerUsers.find((item) => item.email === email);
+    if (!admin) return;
+    try {
+        const nextStatus = admin.status === 'Locked' ? 'Active' : 'Locked';
+        const response = await fetch('../developer/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ ...admin, status: nextStatus, existingEmail: admin.email })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Status update failed.');
+        }
+        await loadDeveloperUsers();
+    } catch (error) {
+        showToast(error.message || 'Status update failed.');
+    }
+}
+
+async function deleteAdmin(email) {
+    const admin = developerUsers.find((item) => item.email === email);
+    if (!admin) return;
+    try {
+        const response = await fetch(`../developer/users/${encodeURIComponent(admin.email)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Delete failed.');
+        }
+        await loadDeveloperUsers();
+        showToast('Account deleted.');
+    } catch (error) {
+        showToast(error.message || 'Account deletion failed.');
+    }
+}
+
+function addLog(level, title, detail) {
+    developerState.logs.unshift({
+        level,
+        title,
+        detail,
+        time: 'Just now'
+    });
+}
+
+async function loadDeveloperUsers() {
+    try {
+        const response = await fetch('../developer/users', {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Unable to load users');
+        const data = await response.json();
+        developerUsers = Array.isArray(data.users) ? data.users : [];
+        populateCampusAlumniHeadOptions();
+        if (Array.isArray(data.roles)) {
+            const options = data.roles;
+            const select = document.getElementById('adminRole');
+            const filterSelect = document.getElementById('roleFilter');
+            if (select) {
+                select.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+            }
+            if (filterSelect) {
+                filterSelect.innerHTML = ['<option value="all">All roles</option>', ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)].join('');
+            }
+        }
+        renderMetrics();
+        renderAdminTable();
+    } catch (error) {
+        showToast('Unable to sync user list.');
+    }
+}
+
+function renderSettingsForms() {
+    Object.entries(developerState.settings).forEach(([key, value]) => {
+        const field = document.getElementById(key);
+        if (!field) return;
+        if (field.type === 'checkbox') field.checked = Boolean(value);
+        else field.value = value;
+    });
+
+    Object.entries(developerState.school).forEach(([key, value]) => {
+        const field = document.getElementById(key);
+        if (field) field.value = value;
+    });
+
+    Object.entries(developerState.messaging).forEach(([key, value]) => {
+        const field = document.getElementById(key);
+        if (!field) return;
+        if (field.type === 'checkbox') field.checked = Boolean(value);
+        else field.value = value;
+    });
+
+    const maintenanceToggle = document.getElementById('maintenanceToggle');
+    if (maintenanceToggle) maintenanceToggle.checked = developerState.maintenance.enabled;
+
+    const maintenanceMessage = document.getElementById('maintenanceMessage');
+    if (maintenanceMessage) maintenanceMessage.value = developerState.maintenance.message;
+
+    const maintenanceEnd = document.getElementById('maintenanceEnd');
+    if (maintenanceEnd) maintenanceEnd.value = developerState.maintenance.end;
+}
+
+function saveSystemSettings() {
+    developerState.settings = {
+        appName: document.getElementById('appName').value.trim(),
+        supportEmail: document.getElementById('supportEmail').value.trim(),
+        sessionTimeout: document.getElementById('sessionTimeout').value,
+        failedLoginLimit: document.getElementById('failedLoginLimit').value,
+        forceResetNewAdmins: document.getElementById('forceResetNewAdmins').checked,
+        notifyOnLock: document.getElementById('notifyOnLock').checked,
+        restrictStaffSettings: document.getElementById('restrictStaffSettings').checked
+    };
+    addLog('info', 'System settings saved', 'Application and security settings were updated.');
+    saveDeveloperState();
+    renderAll();
+    showToast('System settings saved.');
+}
+
+function saveSchoolInfo() {
+    developerState.school = {
+        schoolName: document.getElementById('schoolName').value.trim(),
+        schoolCampus: document.getElementById('schoolCampus').value.trim(),
+        registrarEmail: document.getElementById('registrarEmail').value.trim(),
+        schoolAddress: document.getElementById('schoolAddress').value.trim(),
+        schoolPhone: document.getElementById('schoolPhone').value.trim()
+    };
+    addLog('info', 'School information saved', 'Institution profile details were updated.');
+    saveDeveloperState();
+    renderAll();
+    showToast('School information saved.');
+}
+
+function saveMessagingSettings() {
+    developerState.messaging = {
+        emailProvider: document.getElementById('emailProvider').value.trim(),
+        smtpHost: document.getElementById('smtpHost').value.trim(),
+        senderEmail: document.getElementById('senderEmail').value.trim(),
+        senderName: document.getElementById('senderName').value.trim(),
+        smsProvider: document.getElementById('smsProvider').value.trim(),
+        smsSenderId: document.getElementById('smsSenderId').value.trim(),
+        smsEnabled: document.getElementById('smsEnabled').checked
+    };
+    addLog('info', 'Email and SMS settings saved', 'Messaging configuration was updated.');
+    saveDeveloperState();
+    renderAll();
+    showToast('Messaging settings saved.');
+}
+
+function renderBackups() {
+    const tbody = document.getElementById('backupTableBody');
+    if (tbody) {
+        tbody.innerHTML = developerState.backups.map((backup) => `
+            <tr>
+                <td><strong>${escapeHtml(backup.name)}</strong></td>
+                <td>${escapeHtml(backup.date)}</td>
+                <td>${escapeHtml(backup.size)}</td>
+                <td><span class="status-pill status-active">${escapeHtml(backup.status)}</span></td>
+                <td>${escapeHtml(backup.createdBy)}</td>
+            </tr>
+        `).join('');
+    }
+
+    const select = document.getElementById('restorePointSelect');
+    if (select) {
+        select.innerHTML = developerState.backups.map((backup) => (
+            `<option value="${escapeHtml(backup.name)}">${escapeHtml(backup.name)}</option>`
+        )).join('');
+    }
+}
+
+function createBackup() {
+    const now = new Date();
+    const label = now.toISOString().slice(0, 10).replaceAll('-', '_');
+    developerState.backups.unshift({
+        name: `alumni_tracer_backup_${label}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.sql`,
+        date: now.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+        size: `${Math.floor(38 + Math.random() * 9)} MB`,
+        status: 'Completed',
+        createdBy: 'Developer'
+    });
+    addLog('info', 'Database backup created', 'A new backup snapshot was recorded.');
+    saveDeveloperState();
+    renderAll();
+    showToast('Backup record created.');
+}
+
+function queueRestore() {
+    const selected = document.getElementById('restorePointSelect').value;
+    if (!selected) {
+        showToast('No backup is available to restore.');
+        return;
+    }
+    addLog('critical', 'Restore queued for review', `${selected} was queued for restore review.`);
+    saveDeveloperState();
+    renderAll();
+    showToast('Restore queued for review.');
+}
+
+function renderLogs() {
+    const logLevelFilter = document.getElementById('logLevelFilter');
+    const logLevel = logLevelFilter ? logLevelFilter.value : 'all';
+    const logs = developerState.logs.filter((log) => logLevel === 'all' || log.level === logLevel);
+    const html = logs.map((log) => `
+        <article class="log-item">
+            <span class="level-pill level-${escapeHtml(log.level)}">${escapeHtml(log.level)}</span>
+            <div class="log-message">
+                <strong>${escapeHtml(log.title)}</strong>
+                <span>${escapeHtml(log.detail)}</span>
+            </div>
+            <time class="log-time">${escapeHtml(log.time)}</time>
+        </article>
+    `).join('');
+
+    const systemLogFeed = document.getElementById('systemLogFeed');
+    if (systemLogFeed) {
+        systemLogFeed.innerHTML = html || '<p class="empty-state">No logs match this filter.</p>';
+    }
+
+    const overviewLogs = document.getElementById('overviewLogs');
+    if (overviewLogs) {
+        overviewLogs.innerHTML = developerState.logs.slice(0, 4).map((log) => `
+            <article class="log-item">
+                <span class="level-pill level-${escapeHtml(log.level)}">${escapeHtml(log.level)}</span>
+                <div class="log-message">
+                    <strong>${escapeHtml(log.title)}</strong>
+                    <span>${escapeHtml(log.detail)}</span>
+                </div>
+            </article>
+        `).join('');
+    }
+}
+
+function publishAnnouncement() {
+    const title = document.getElementById('announcementTitle').value.trim();
+    const body = document.getElementById('announcementBody').value.trim();
+    if (!title || !body) {
+        showToast('Enter an announcement title and details.');
+        return;
+    }
+    developerState.announcements.unshift({
+        title,
+        body,
+        date: new Date().toLocaleDateString([], { dateStyle: 'medium' })
+    });
+    document.getElementById('announcementTitle').value = '';
+    document.getElementById('announcementBody').value = '';
+    addLog('info', 'Announcement published', title);
+    saveDeveloperState();
+    renderAll();
+    showToast('Announcement published.');
+}
+
+function renderAnnouncements() {
+    const announcementList = document.getElementById('announcementList');
+    if (announcementList) {
+        announcementList.innerHTML = developerState.announcements.map((announcement, index) => `
+            <article class="announcement-item">
+                <h4>${escapeHtml(announcement.title)}</h4>
+                <p>${escapeHtml(announcement.body)}</p>
+                <div class="template-meta">
+                    <span>${escapeHtml(announcement.date)}</span>
+                    <button class="icon-button danger" type="button" title="Remove announcement" aria-label="Remove announcement" onclick="removeAnnouncement(${index})"><i class="fas fa-trash"></i></button>
+                </div>
+            </article>
+        `).join('');
+    }
+}
+
+function removeAnnouncement(index) {
+    const removed = developerState.announcements.splice(index, 1)[0];
+    addLog('warning', 'Announcement removed', removed?.title || 'Announcement removed.');
+    saveDeveloperState();
+    renderAll();
+    showToast('Announcement removed.');
+}
+
+function renderSurveyTemplates() {
+    const surveyTemplateGrid = document.getElementById('surveyTemplateGrid');
+    if (surveyTemplateGrid) {
+        surveyTemplateGrid.innerHTML = developerState.surveyTemplates.map((template, index) => `
+            <article class="template-card">
+                <h4>${escapeHtml(template.name)}</h4>
+                <p>${escapeHtml(template.description)}</p>
+                <div class="template-meta">
+                    <span>${escapeHtml(template.questions)} questions</span>
+                    <span class="status-pill ${template.status === 'Active' ? 'status-active' : 'status-queued'}">${escapeHtml(template.status)}</span>
+                </div>
+                <div class="template-meta">
+                    <button class="btn-secondary" type="button" onclick="toggleTemplateStatus(${index})">Toggle Status</button>
+                    <button class="icon-button danger" type="button" title="Delete template" aria-label="Delete template" onclick="deleteTemplate(${index})"><i class="fas fa-trash"></i></button>
+                </div>
+            </article>
+        `).join('');
+    }
+}
+
+function addSurveyTemplate() {
+    const nextNumber = developerState.surveyTemplates.length + 1;
+    developerState.surveyTemplates.unshift({
+        name: `Custom Template ${nextNumber}`,
+        description: 'New reusable survey template for administrators.',
+        questions: 0,
+        status: 'Draft'
+    });
+    addLog('info', 'Survey template added', `Custom Template ${nextNumber} was created.`);
+    saveDeveloperState();
+    renderAll();
+    showToast('Survey template added.');
+}
+
+function toggleTemplateStatus(index) {
+    const template = developerState.surveyTemplates[index];
+    if (!template) return;
+    template.status = template.status === 'Active' ? 'Draft' : 'Active';
+    addLog('info', 'Survey template status changed', `${template.name} is now ${template.status}.`);
+    saveDeveloperState();
+    renderAll();
+}
+
+function deleteTemplate(index) {
+    const removed = developerState.surveyTemplates.splice(index, 1)[0];
+    addLog('warning', 'Survey template deleted', removed?.name || 'Template removed.');
+    saveDeveloperState();
+    renderAll();
+    showToast('Survey template deleted.');
+}
+
+function saveMaintenance() {
+    developerState.maintenance = {
+        enabled: document.getElementById('maintenanceToggle').checked,
+        message: document.getElementById('maintenanceMessage').value.trim(),
+        end: document.getElementById('maintenanceEnd').value
+    };
+    addLog(developerState.maintenance.enabled ? 'critical' : 'info', 'Maintenance mode updated', developerState.maintenance.enabled ? 'Maintenance mode is enabled.' : 'Maintenance mode is disabled.');
+    saveDeveloperState();
+    renderAll();
+    showToast('Maintenance settings saved.');
+}
+
+function renderMaintenance() {
+    const state = document.getElementById('maintenanceState');
+    if (state) {
+        state.classList.toggle('is-on', developerState.maintenance.enabled);
+        state.innerHTML = developerState.maintenance.enabled
+            ? '<i class="fas fa-triangle-exclamation"></i><div><strong>Application is in maintenance mode</strong><p>Access should be limited while maintenance is active.</p></div>'
+            : '<i class="fas fa-circle-check"></i><div><strong>Application is available</strong><p>Administrators and alumni can access the system normally.</p></div>';
+    }
+
+    const maintenanceToggle = document.getElementById('maintenanceToggle');
+    if (maintenanceToggle) maintenanceToggle.checked = developerState.maintenance.enabled;
+}
+
+function populateCampusAlumniHeadOptions() {
+    const select = document.getElementById('campusAlumniHeadEmail');
+    if (!select) return;
+
+    const headAdmins = developerUsers.filter((user) => {
+        const roleValue = String(user.roleValue || '').toLowerCase();
+        const roleLabel = String(user.role || '').toLowerCase();
+        return roleValue === 'head_admin' || roleLabel === 'head admin';
+    });
+
+    const options = headAdmins.map((user) => {
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        const label = name ? `${name} (${user.email})` : user.email;
+        return `<option value="${escapeHtml(user.email)}">${escapeHtml(label)}</option>`;
+    });
+
+    select.innerHTML = ['<option value="">Select alumni head</option>', ...options].join('');
+}
+
+function renderCampusTable() {
+    const tbody = document.getElementById('campusTableBody');
+    if (!tbody) return;
+
+    if (developerCampuses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted);">No campuses found. Click "Add Campus" to create one.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = developerCampuses.map((campus) => `
+        <tr>
+            <td><strong>${escapeHtml(campus.schoolName)}</strong></td>
+            <td>${escapeHtml(campus.abbreviation)}</td>
+            <td>${escapeHtml(campus.campus)}</td>
+            <td>${escapeHtml(campus.address)}</td>
+            <td>${escapeHtml(campus.alumniHeadEmail) || '-'}</td>
+            <td>
+                <div class="action-set">
+                    <button class="icon-button" type="button" title="Edit campus" aria-label="Edit campus" onclick="editCampus(${campus.id})"><i class="fas fa-pen"></i></button>
+                    <button class="icon-button danger" type="button" title="Delete campus" aria-label="Delete campus" onclick="deleteCampus(${campus.id})"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function loadCampuses() {
+    try {
+        const response = await fetch('../developer/campuses', {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Unable to load campuses');
+        const data = await response.json();
+        developerCampuses = Array.isArray(data.campuses) ? data.campuses : [];
+        renderCampusTable();
+    } catch (error) {
+        showToast('Unable to load campuses.');
+        const tbody = document.getElementById('campusTableBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Failed to load campuses.</td></tr>';
+        }
+    }
+}
+
+function openCampusModal(campus = null) {
+    editingCampusId = campus?.id || null;
+    populateCampusAlumniHeadOptions();
+    campusAddressState = {
+        provinceCode: '',
+        municipalityCode: '',
+        barangayCode: '',
+        province: '',
+        municipality: '',
+        barangay: '',
+    };
+    loadCampusAddressData();
+    document.getElementById('campusModalTitle').textContent = campus ? 'Edit Campus' : 'Add Campus';
+    document.getElementById('campusSchoolName').value = campus?.schoolName || '';
+    document.getElementById('campusAbbreviation').value = campus?.abbreviation || '';
+    document.getElementById('campusName').value = campus?.campus || '';
+    const alumniHeadSelect = document.getElementById('campusAlumniHeadEmail');
+    if (alumniHeadSelect) {
+        alumniHeadSelect.value = campus?.alumniHeadEmail || '';
+    }
+    renderCampusAddressSelects(campus?.address || '');
+    document.getElementById('campusExistingId').value = campus?.id || 0;
+    const modal = document.getElementById('campusModal');
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeCampusModal() {
+    const modal = document.getElementById('campusModal');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    editingCampusId = null;
+    campusAddressState = {
+        provinceCode: '',
+        municipalityCode: '',
+        barangayCode: '',
+        province: '',
+        municipality: '',
+        barangay: '',
+    };
+}
+
+async function saveCampusRecord() {
+    const campus = {
+        schoolName: document.getElementById('campusSchoolName').value.trim(),
+        abbreviation: document.getElementById('campusAbbreviation').value.trim(),
+        campus: document.getElementById('campusName').value.trim(),
+        alumniHeadEmail: document.getElementById('campusAlumniHeadEmail').value.trim(),
+        address: buildCampusAddress([campusAddressState.province, campusAddressState.municipality, campusAddressState.barangay]),
+        existingId: parseInt(document.getElementById('campusExistingId').value) || 0
+    };
+
+    if (!campus.schoolName || !campus.abbreviation || !campus.campus || !campus.address) {
+        showToast('Please complete the required fields.');
+        return;
+    }
+
+    try {
+        const response = await fetch('../developer/campuses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(campus)
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Could not save the campus.');
+        }
+
+        closeCampusModal();
+        await loadCampuses();
+        showToast('Campus saved.');
+    } catch (error) {
+        showToast(error.message || 'Campus save failed.');
+    }
+}
+
+function editCampus(id) {
+    const campus = developerCampuses.find((item) => item.id === id);
+    if (campus) openCampusModal(campus);
+}
+
+async function deleteCampus(id) {
+    if (!confirm('Are you sure you want to delete this campus?')) return;
+
+    try {
+        const response = await fetch(`../developer/campuses/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Delete failed.');
+        }
+        await loadCampuses();
+        showToast('Campus deleted.');
+    } catch (error) {
+        showToast(error.message || 'Campus deletion failed.');
+    }
+}
+
+function exportLogs() {
+    const text = developerState.logs.map((log) => `[${log.level.toUpperCase()}] ${log.time} - ${log.title}: ${log.detail}`).join('\n');
+    navigator.clipboard?.writeText(text);
+    showToast('Logs prepared for export.');
+}
+
+function bindEvents() {
+    document.querySelectorAll('.developer-nav-item').forEach((item) => {
+        item.addEventListener('click', () => switchPanel(item.dataset.section));
+    });
+
+    const developerLogout = document.getElementById('developerLogout');
+    if (developerLogout) developerLogout.addEventListener('click', logoutDeveloper);
+
+    const adminSearch = document.getElementById('adminSearch');
+    if (adminSearch) adminSearch.addEventListener('input', renderAdminTable);
+
+    const roleFilter = document.getElementById('roleFilter');
+    if (roleFilter) roleFilter.addEventListener('change', renderAdminTable);
+
+    const openAdminModalButton = document.getElementById('openAdminModal');
+    if (openAdminModalButton) openAdminModalButton.addEventListener('click', () => openAdminModal());
+
+    const closeAdminModalButton = document.getElementById('closeAdminModal');
+    if (closeAdminModalButton) closeAdminModalButton.addEventListener('click', closeAdminModal);
+
+    const cancelAdminModalButton = document.getElementById('cancelAdminModal');
+    if (cancelAdminModalButton) cancelAdminModalButton.addEventListener('click', closeAdminModal);
+
+    const saveAdminAccountButton = document.getElementById('saveAdminAccount');
+    if (saveAdminAccountButton) saveAdminAccountButton.addEventListener('click', saveAdminAccount);
+
+    const saveSystemSettingsButton = document.getElementById('saveSystemSettings');
+    if (saveSystemSettingsButton) saveSystemSettingsButton.addEventListener('click', saveSystemSettings);
+
+    const saveSchoolInfoButton = document.getElementById('saveSchoolInfo');
+    if (saveSchoolInfoButton) saveSchoolInfoButton.addEventListener('click', saveSchoolInfo);
+
+    const createBackupButton = document.getElementById('createBackup');
+    if (createBackupButton) createBackupButton.addEventListener('click', createBackup);
+
+    const queueRestoreButton = document.getElementById('queueRestore');
+    if (queueRestoreButton) queueRestoreButton.addEventListener('click', queueRestore);
+
+    const logLevelFilter = document.getElementById('logLevelFilter');
+    if (logLevelFilter) logLevelFilter.addEventListener('change', renderLogs);
+
+    const exportLogsButton = document.getElementById('exportLogs');
+    if (exportLogsButton) exportLogsButton.addEventListener('click', exportLogs);
+
+    const publishAnnouncementButton = document.getElementById('publishAnnouncement');
+    if (publishAnnouncementButton) publishAnnouncementButton.addEventListener('click', publishAnnouncement);
+
+    const saveMessagingSettings = document.getElementById('saveMessagingSettings');
+    if (saveMessagingSettings) saveMessagingSettings.addEventListener('click', saveMessagingSettings);
+
+    const addSurveyTemplate = document.getElementById('addSurveyTemplate');
+    if (addSurveyTemplate) addSurveyTemplate.addEventListener('click', addSurveyTemplate);
+
+    const saveMaintenance = document.getElementById('saveMaintenance');
+    if (saveMaintenance) saveMaintenance.addEventListener('click', saveMaintenance);
+
+    const maintenanceToggle = document.getElementById('maintenanceToggle');
+    if (maintenanceToggle) maintenanceToggle.addEventListener('change', () => {
+        developerState.maintenance.enabled = document.getElementById('maintenanceToggle').checked;
+        renderMaintenance();
+        renderMetrics();
+    });
+
+    const openCampusModalButton = document.getElementById('openCampusModal');
+    if (openCampusModalButton) openCampusModalButton.addEventListener('click', () => openCampusModal());
+
+    const closeCampusModalButton = document.getElementById('closeCampusModal');
+    if (closeCampusModalButton) closeCampusModalButton.addEventListener('click', closeCampusModal);
+
+    const cancelCampusModalButton = document.getElementById('cancelCampusModal');
+    if (cancelCampusModalButton) cancelCampusModalButton.addEventListener('click', closeCampusModal);
+
+    const campusProvinceSelect = document.getElementById('campusProvince');
+    if (campusProvinceSelect) campusProvinceSelect.addEventListener('change', (event) => {
+        const selectedOption = event.target.selectedOptions[0];
+        campusAddressState.provinceCode = event.target.value;
+        campusAddressState.province = selectedOption ? selectedOption.textContent.trim() : '';
+        campusAddressState.municipalityCode = '';
+        campusAddressState.municipality = '';
+        campusAddressState.barangayCode = '';
+        campusAddressState.barangay = '';
+        renderCampusAddressSelects();
+    });
+
+    const campusMunicipalitySelect = document.getElementById('campusMunicipality');
+    if (campusMunicipalitySelect) campusMunicipalitySelect.addEventListener('change', (event) => {
+        const selectedOption = event.target.selectedOptions[0];
+        campusAddressState.municipalityCode = event.target.value;
+        campusAddressState.municipality = selectedOption ? selectedOption.textContent.trim() : '';
+        campusAddressState.barangayCode = '';
+        campusAddressState.barangay = '';
+        renderCampusAddressSelects();
+    });
+
+    const campusBarangaySelect = document.getElementById('campusBarangay');
+    if (campusBarangaySelect) campusBarangaySelect.addEventListener('change', (event) => {
+        const selectedOption = event.target.selectedOptions[0];
+        campusAddressState.barangayCode = event.target.value;
+        campusAddressState.barangay = selectedOption ? selectedOption.textContent.trim() : '';
+        renderCampusAddressSelects();
+    });
+
+    const saveCampusBtn = document.getElementById('saveCampus');
+    if (saveCampusBtn) saveCampusBtn.addEventListener('click', saveCampusRecord);
+}
+
+function renderAll() {
+    renderMetrics();
+    renderAdminTable();
+    renderSettingsForms();
+    renderBackups();
+    renderLogs();
+    renderAnnouncements();
+    renderSurveyTemplates();
+    renderMaintenance();
+    renderCampusTable();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    populateRoleDropdown();
+    bindEvents();
+    renderAll();
+    loadCurrentUser();
+    loadDeveloperUsers();
+    loadCampuses();
+});
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        buildCampusAddress,
+    };
+}

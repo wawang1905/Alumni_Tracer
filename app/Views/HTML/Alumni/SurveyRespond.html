@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USTP Alumni Tracer — Respond to survey</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="AlumniCommon.css">
+</head>
+<body>
+    <div class="alumni-shell">
+        <div class="alumni-sidebar-overlay" id="alumniSidebarOverlay"></div>
+        <aside class="alumni-sidebar" id="alumniSidebar">
+            <div class="alumni-brand">
+                <h2>Alumni Tracker</h2>
+                <p>Navigation</p>
+            </div>
+            <nav class="alumni-menu">
+                <a class="alumni-menu-item" href="Main.html"><i class="fas fa-house"></i><span>Main Page</span></a>
+                <a class="alumni-menu-item" href="Events.html"><i class="fas fa-calendar-alt"></i><span>Events</span></a>
+                <a class="alumni-menu-item" href="News.html"><i class="fas fa-bullhorn"></i><span>News</span></a>
+                <a class="alumni-menu-item active" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Survey</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
+            </nav>
+            <div class="alumni-sidebar-profile" data-profile-menu>
+                <button class="alumni-profile-trigger" data-profile-trigger type="button" aria-expanded="false">
+                    <span class="alumni-avatar"><i class="fas fa-user"></i></span>
+                    <span class="alumni-profile-copy">
+                        <strong data-alumni-user-name>Alumni User</strong>
+                        <small data-alumni-user-role>alumni</small>
+                    </span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="alumni-profile-dropdown" data-profile-dropdown>
+                    <a class="alumni-dropdown-item" href="Profile.html">
+                        <i class="fas fa-user"></i>
+                        <span>Profile</span>
+                    </a>
+                    <button class="alumni-dropdown-item danger" data-logout-button type="button">
+                        <i class="fas fa-right-from-bracket"></i>
+                        <span>Log Out</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="alumni-content">
+            <header class="alumni-topbar">
+                <div class="alumni-topbar-left">
+                    <button class="alumni-menu-toggle" id="menuToggleButton" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="alumniSidebar">
+                        <i class="fas fa-bars"></i>
+                        <span class="alumni-menu-dot" id="menuToggleNotificationDot" aria-hidden="true"></span>
+                    </button>
+                    <div class="page-title-block survey-detail-header">
+                        <a class="survey-back-link" href="Surveys.html"><i class="fas fa-arrow-left"></i> Back to surveys</a>
+                        <h1 id="surveyRespondPageTitle">Survey</h1>
+                       <!--<p id="surveyRespondPageSubtitle">Answer the questions below and submit once.</p>-->
+                    </div>
+                </div>
+                <div class="alumni-topbar-actions" data-profile-menu>
+                    <button class="alumni-profile-trigger alumni-profile-trigger--icon" data-profile-trigger type="button" aria-label="Open profile menu" aria-expanded="false">
+                        <span class="alumni-avatar"><i class="fas fa-user"></i></span>
+                    </button>
+                    <div class="alumni-profile-dropdown" data-profile-dropdown>
+                        <div class="alumni-dropdown-user">
+                            <strong data-alumni-user-name>Alumni User</strong>
+                            <small data-alumni-user-role>alumni</small>
+                        </div>
+                        <a class="alumni-dropdown-item" href="Profile.html">
+                            <i class="fas fa-user"></i>
+                            <span>Profile</span>
+                        </a>
+                        <button class="alumni-dropdown-item danger" data-logout-button type="button">
+                            <i class="fas fa-right-from-bracket"></i>
+                            <span>Log Out</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <section class="content-card survey-detail-card">
+                <div id="alumniSurveyDetailMount"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Confirm Submit Survey Modal -->
+    <div class="alumni-modal-backdrop" id="confirmSubmitSurveyModal" style="display: none;" onclick="if(event.target===this) closeConfirmSubmitModal();">
+        <div class="alumni-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmSubmitSurveyModalTitle">
+            <div class="alumni-modal-header">
+                <div class="alumni-modal-icon-badge">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <div style="flex: 1;">
+                    <h3 class="alumni-modal-title" id="confirmSubmitSurveyModalTitle">Submit Survey Answers?</h3>
+                    <p class="alumni-modal-desc">Please confirm if you are ready to submit your responses.</p>
+                </div>
+                <button type="button" class="alumni-modal-close" onclick="closeConfirmSubmitModal()" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="alumni-modal-body">
+                <div class="alumni-submit-summary-card">
+                    <div class="alumni-submit-summary-item">
+                        <span class="alumni-submit-summary-label"><i class="fas fa-clipboard-check"></i> Survey</span>
+                        <strong id="confirmSubmitSurveyTitle" class="alumni-submit-summary-value">-</strong>
+                    </div>
+                    <div class="alumni-submit-summary-item">
+                        <span class="alumni-submit-summary-label"><i class="fas fa-check-double"></i> Progress</span>
+                        <strong id="confirmSubmitAnswersCount" class="alumni-submit-summary-value">-</strong>
+                    </div>
+                </div>
+                <div class="alumni-submit-confirm-notice">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Are you sure you really want to submit?</strong>
+                        <p>Once submitted, your answers will be officially recorded and you cannot change them.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="alumni-modal-footer">
+                <button type="button" class="button-secondary" id="confirmSubmitCancelButton" onclick="closeConfirmSubmitModal()">Review answers</button>
+                <button type="button" class="button-primary alumni-btn-confirm-submit" id="confirmSubmitSurveyButton" onclick="executeSubmitAlumniSurvey()">
+                    <i class="fas fa-paper-plane"></i> Yes, submit answers
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="AlumniCommon.js"></script>
+</body>
+</html>
