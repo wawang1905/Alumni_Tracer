@@ -479,9 +479,10 @@
         });
 
         function loadCoordinators() {
-            console.log('[DEBUG] Attempting to fetch from: /Alumni_Tracer/public/staff/coordinators');
+            const coordinatorsUrl = new URL('../staff/coordinators', window.location.href).toString();
+            console.log('[DEBUG] Attempting to fetch from:', coordinatorsUrl);
             console.log('[DEBUG] Current page URL:', window.location.href);
-            fetch('/Alumni_Tracer/public/staff/coordinators')
+            fetch(coordinatorsUrl)
                 .then(response => {
                     console.log('[DEBUG] Response status:', response.status);
                     console.log('[DEBUG] Response ok:', response.ok);
@@ -691,7 +692,7 @@
             if (!select) return;
 
             try {
-                const response = await fetch('/Alumni_Tracer/public/staff/colleges-data');
+                const response = await fetch(new URL('../staff/colleges-data', window.location.href).toString());
                 const result = await response.json();
 
                 if (result.success && result.colleges) {
@@ -719,7 +720,7 @@
             }
 
             try {
-                const response = await fetch('/Alumni_Tracer/public/staff/departments-data');
+                const response = await fetch(new URL('../staff/departments-data', window.location.href).toString());
                 const result = await response.json();
 
                 if (result.success && result.departments) {
@@ -757,7 +758,7 @@
                 return;
             }
 
-            fetch('/Alumni_Tracer/public/staff/coordinators/create', {
+            fetch(new URL('../staff/coordinators/create', window.location.href).toString(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -826,7 +827,7 @@
 
         async function loadAssignColleges() {
             try {
-                const response = await fetch('/Alumni_Tracer/public/staff/colleges-data');
+                const response = await fetch(new URL('../staff/colleges-data', window.location.href).toString());
                 const result = await response.json();
                 const select = document.getElementById('assignCoordinatorCollege');
                 select.innerHTML = '<option value="">Select a college (optional)...</option>';
@@ -846,7 +847,7 @@
 
         async function loadAssignDepartments() {
             try {
-                const response = await fetch('/Alumni_Tracer/public/staff/departments-data');
+                const response = await fetch(new URL('../staff/departments-data', window.location.href).toString());
                 const result = await response.json();
                 if (result.success && result.departments) {
                     allAssignDepartments = result.departments;
@@ -883,7 +884,7 @@
 
         async function loadAssignableAccounts() {
             try {
-                const response = await fetch('/Alumni_Tracer/public/staff/assignable-accounts');
+                const response = await fetch(new URL('../staff/assignable-accounts', window.location.href).toString());
                 const result = await response.json();
                 if (result.success && result.accounts) {
                     allAssignableAccounts = result.accounts;
@@ -1310,7 +1311,7 @@
             }
 
             // Post assignment to backend
-            fetch('/Alumni_Tracer/public/staff/coordinators/assign', {
+            fetch(new URL('../staff/coordinators/assign', window.location.href).toString(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

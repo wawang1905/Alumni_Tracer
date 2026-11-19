@@ -42,11 +42,18 @@ class App extends BaseConfig
             || (! empty($_SERVER['HTTP_CF_VISITOR']) && str_contains((string) $_SERVER['HTTP_CF_VISITOR'], '"scheme":"https"'))
         );
 
-        if ($isHttps && str_starts_with($this->baseURL, 'http://')) {
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $configuredBaseUrl = env('app.baseURL') ?? env('app_baseURL');
+
+        // Auto-detect baseURL from incoming request when no env override is set
+        if (empty($configuredBaseUrl) && $host !== '') {
+            $scheme = $isHttps ? 'https' : 'http';
+            $scriptDir = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/')));
+            $basePath = rtrim($scriptDir, '/');
+            $this->baseURL = $scheme . '://' . $host . ($basePath !== '' ? $basePath . '/' : '/');
+        } elseif ($isHttps && str_starts_with($this->baseURL, 'http://')) {
             $this->baseURL = preg_replace('/^http:/i', 'https:', $this->baseURL);
         }
-
-        $host = $_SERVER['HTTP_HOST'] ?? '';
 
         if ($host !== '') {
             $hostname = preg_replace('/:\d+$/', '', $host) ?? $host;

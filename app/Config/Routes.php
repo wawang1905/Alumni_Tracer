@@ -78,7 +78,7 @@ $routes->group('', ['filter' => 'role:staff,coordinator'], static function (Rout
     $routes->post('staff/payments/update-status', 'StaffController::updatePaymentStatus');
     $routes->get('staff/payments/export', 'StaffController::exportPayments');
     $routes->get('staff/payments/export-excel', 'StaffController::exportPaymentExcel');
-    $routes->match(['get', 'post'], 'staff/payments/export-excel/check', 'StaffController::checkPaymentExcelCount');
+    $routes->match(['GET', 'POST'], 'staff/payments/export-excel/check', 'StaffController::checkPaymentExcelCount');
 
     // Event Management
     $routes->post('events/create', 'EventController::create');

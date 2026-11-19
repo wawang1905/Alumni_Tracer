@@ -14,16 +14,23 @@ class Email extends BaseConfig
     {
         parent::__construct();
 
-        $this->fromEmail   = (string) (env('email.fromEmail') ?: $this->fromEmail);
-        $this->fromName    = (string) (env('email.fromName') ?: $this->fromName);
-        $this->protocol    = (string) (env('email.protocol') ?: $this->protocol);
-        $this->SMTPHost    = (string) (env('email.SMTPHost') ?: $this->SMTPHost);
-        $this->SMTPUser    = (string) (env('email.SMTPUser') ?: $this->SMTPUser);
-        $this->SMTPPass    = (string) (env('email.SMTPPass') ?: $this->SMTPPass);
-        $this->SMTPPort    = (int) (env('email.SMTPPort') ?: $this->SMTPPort);
-        $this->SMTPCrypto  = (string) (env('email.SMTPCrypto') ?: $this->SMTPCrypto);
-        $this->SMTPTimeout = (int) (env('email.SMTPTimeout') ?: $this->SMTPTimeout);
-        $this->mailType    = (string) (env('email.mailType') ?: 'html');
+        $this->fromEmail   = (string) ($this->readEnv('email.fromEmail') ?: $this->fromEmail);
+        $this->fromName    = (string) ($this->readEnv('email.fromName') ?: $this->fromName);
+        $this->protocol    = (string) ($this->readEnv('email.protocol') ?: $this->protocol);
+        $this->SMTPHost    = (string) ($this->readEnv('email.SMTPHost') ?: $this->SMTPHost);
+        $this->SMTPUser    = (string) ($this->readEnv('email.SMTPUser') ?: $this->SMTPUser);
+        $this->SMTPPass    = (string) ($this->readEnv('email.SMTPPass') ?: $this->SMTPPass);
+        $this->SMTPPort    = (int) ($this->readEnv('email.SMTPPort') ?: $this->SMTPPort);
+        $this->SMTPCrypto  = (string) ($this->readEnv('email.SMTPCrypto') ?: $this->SMTPCrypto);
+        $this->SMTPTimeout = (int) ($this->readEnv('email.SMTPTimeout') ?: $this->SMTPTimeout);
+        $this->mailType    = (string) ($this->readEnv('email.mailType') ?: 'html');
+    }
+
+    private function readEnv(string $dotKey): mixed
+    {
+        $underscoreKey = str_replace('.', '_', $dotKey);
+
+        return env($dotKey) ?? env($underscoreKey);
     }
 
     /**

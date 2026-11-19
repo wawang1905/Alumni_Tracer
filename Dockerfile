@@ -46,15 +46,15 @@ RUN sed -i 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
         AllowOverride All\n\
         Require all granted\n\
     </Directory>\n\
-    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
-    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+    ErrorLog /dev/stderr\n\
+    CustomLog /dev/stdout combined\n\
 </VirtualHost>\n' > /etc/apache2/sites-available/000-default.conf
 
 # Set writable permissions
-RUN mkdir -p writable/cache writable/logs writable/session writable/uploads \
+RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writable/backups writable/debugbar \
     && chown -R www-data:www-data writable \
     && chmod -R 775 writable
 
 EXPOSE 10000
 
-CMD ["apache2-foreground"]
+CMD ["/bin/sh", "-c", "sed -i \"s/Listen .*/Listen ${PORT:-10000}/\" /etc/apache2/ports.conf && sed -i \"s/<VirtualHost \\*:[0-9]*>/<VirtualHost *:${PORT:-10000}>/\" /etc/apache2/sites-available/000-default.conf && exec apache2-foreground"]

@@ -33,7 +33,7 @@ class Database extends Config
         'schema'       => 'public',
         'DBDriver'     => 'Postgre',
         'DBPrefix'     => '',
-        'pConnect'     => true,
+        'pConnect'     => false,
         'DBDebug'      => true,
         'charset'      => 'utf8',
         'DBCollat'     => '',
@@ -201,6 +201,32 @@ class Database extends Config
         // we don't overwrite live data on accident.
         if (ENVIRONMENT === 'testing') {
             $this->defaultGroup = 'tests';
+        }
+
+        // Allow a standard DATABASE_URL fallback when database.default.password is unset
+        $databaseUrl = env('DATABASE_URL');
+        if ($this->default['password'] === '' && is_string($databaseUrl) && $databaseUrl !== '') {
+            $parsed = parse_url($databaseUrl);
+            if ($parsed !== false) {
+                if (! empty($parsed['host'])) {
+                    $this->default['hostname'] = $parsed['host'];
+                }
+                if (! empty($parsed['port'])) {
+                    $this->default['port'] = (int) $parsed['port'];
+                }
+                if (! empty($parsed['user'])) {
+                    $this->default['username'] = rawurldecode($parsed['user']);
+                }
+                if (isset($parsed['pass'])) {
+                    $this->default['password'] = rawurldecode($parsed['pass']);
+                }
+                if (! empty($parsed['path'])) {
+                    $dbName = ltrim($parsed['path'], '/');
+                    if ($dbName !== '') {
+                        $this->default['database'] = $dbName;
+                    }
+                }
+            }
         }
     }
 }

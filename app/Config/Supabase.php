@@ -51,14 +51,21 @@ class Supabase extends BaseConfig
     {
         parent::__construct();
 
-        $this->projectUrl = rtrim(trim((string) env('supabase.projectUrl', $this->projectUrl)), '/');
-        $this->publishableKey = trim((string) env('supabase.publishableKey', env('supabase.anonKey', $this->publishableKey)));
-        $this->secretKey = trim((string) env('supabase.secretKey', $this->secretKey));
-        $this->bucketName = trim((string) env('supabase.bucketName', $this->bucketName));
-        $this->authEnabled = filter_var(env('supabase.authEnabled', true), FILTER_VALIDATE_BOOLEAN);
-        $this->authSyncFallback = filter_var(env('supabase.authSyncFallback', false), FILTER_VALIDATE_BOOLEAN);
-        $this->verifyTokenIntervalSeconds = max(30, (int) env('supabase.verifyTokenIntervalSeconds', 300));
-        $this->httpTimeoutSeconds = max(3, (int) env('supabase.httpTimeoutSeconds', 10));
+        $this->projectUrl = rtrim(trim((string) $this->readEnv('supabase.projectUrl', $this->projectUrl)), '/');
+        $this->publishableKey = trim((string) $this->readEnv('supabase.publishableKey', $this->readEnv('supabase.anonKey', $this->publishableKey)));
+        $this->secretKey = trim((string) $this->readEnv('supabase.secretKey', $this->secretKey));
+        $this->bucketName = trim((string) $this->readEnv('supabase.bucketName', $this->bucketName));
+        $this->authEnabled = filter_var($this->readEnv('supabase.authEnabled', true), FILTER_VALIDATE_BOOLEAN);
+        $this->authSyncFallback = filter_var($this->readEnv('supabase.authSyncFallback', false), FILTER_VALIDATE_BOOLEAN);
+        $this->verifyTokenIntervalSeconds = max(30, (int) $this->readEnv('supabase.verifyTokenIntervalSeconds', 300));
+        $this->httpTimeoutSeconds = max(3, (int) $this->readEnv('supabase.httpTimeoutSeconds', 10));
+    }
+
+    private function readEnv(string $dotKey, mixed $default = null): mixed
+    {
+        $underscoreKey = str_replace('.', '_', $dotKey);
+
+        return env($dotKey) ?? env($underscoreKey) ?? $default;
     }
 
     /**

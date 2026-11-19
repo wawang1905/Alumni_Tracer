@@ -113,6 +113,11 @@ function getExportAlumniUrl(year = '', college = '', course = '') {
     return url.toString();
 }
 
+function resolveStaffAppUrl(path) {
+    const cleanPath = String(path || '').replace(/^\/+/, '');
+    return new URL('../' + cleanPath, window.location.href).toString();
+}
+
 function getGenerateReportUrl() {
     return new URL('../reports/generate', window.location.href).toString();
 }
@@ -6660,9 +6665,9 @@ async function wizardInitData(targetSurveyId = null) {
     try {
         const [surveysRes, batchesRes, collegesRes, deptRes] = await Promise.all([
             fetch(getSurveyListUrl(), { credentials: 'include', cache: 'no-store' }),
-            fetch('/Alumni_Tracer/public/alumni/batches', { credentials: 'include', cache: 'no-store' }).catch(() => null),
-            fetch('/Alumni_Tracer/public/staff/colleges-data', { credentials: 'include', cache: 'no-store' }).catch(() => null),
-            fetch('/Alumni_Tracer/public/staff/departments-data', { credentials: 'include', cache: 'no-store' }).catch(() => null),
+            fetch(resolveStaffAppUrl('alumni/batches'), { credentials: 'include', cache: 'no-store' }).catch(() => null),
+            fetch(resolveStaffAppUrl('staff/colleges-data'), { credentials: 'include', cache: 'no-store' }).catch(() => null),
+            fetch(resolveStaffAppUrl('staff/departments-data'), { credentials: 'include', cache: 'no-store' }).catch(() => null),
         ]);
 
         if (surveysRes && surveysRes.ok) {
@@ -7317,7 +7322,7 @@ async function wizardFetchLivePreviewCount() {
     if (!reportWizardState.selectedSurveyId) return;
 
     try {
-        const response = await fetch('/Alumni_Tracer/public/reports/preview-count', {
+        const response = await fetch(resolveStaffAppUrl('reports/preview-count'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -7992,7 +7997,7 @@ async function loadCollegesPage() {
         }).catch(() => null);
 
         if (!response || !response.ok) {
-            response = await fetch('/Alumni_Tracer/public/staff/colleges-data', {
+            response = await fetch(resolveStaffAppUrl('staff/colleges-data'), {
                 credentials: 'include',
                 cache: 'no-store'
             }).catch(() => null);
@@ -8277,7 +8282,7 @@ async function submitCollegeForm() {
                 credentials: 'include'
             });
         } catch (e) {
-            response = await fetch('/Alumni_Tracer/public/staff/colleges/create', {
+            response = await fetch(resolveStaffAppUrl('staff/colleges/create'), {
                 method: 'POST',
                 body: formData,
                 credentials: 'include'
@@ -8323,7 +8328,7 @@ async function loadCollegesForDepartmentModal() {
     if (!select) return;
 
     try {
-        const response = await fetch('/Alumni_Tracer/public/staff/colleges-data');
+        const response = await fetch(resolveStaffAppUrl('staff/colleges-data'));
         const result = await response.json();
 
         if (result.success && result.colleges) {
@@ -8361,7 +8366,7 @@ async function submitDepartmentForm() {
     formData.append('abbreviation', abbreviation);
 
     try {
-        const response = await fetch('/Alumni_Tracer/public/staff/departments/create', {
+        const response = await fetch(resolveStaffAppUrl('staff/departments/create'), {
             method: 'POST',
             body: formData
         });
@@ -8388,9 +8393,10 @@ async function submitDepartmentForm() {
 let localDepartmentsData = [];
 async function loadDepartmentsPage() {
     try {
-        console.log('[DEBUG] Attempting to fetch from: /Alumni_Tracer/public/staff/departments-data');
+        const departmentsUrl = resolveStaffAppUrl('staff/departments-data');
+        console.log('[DEBUG] Attempting to fetch from:', departmentsUrl);
         console.log('[DEBUG] Current page URL:', window.location.href);
-        const response = await fetch('/Alumni_Tracer/public/staff/departments-data');
+        const response = await fetch(departmentsUrl);
         console.log('[DEBUG] Response status:', response.status);
         console.log('[DEBUG] Response ok:', response.ok);
         console.log('[DEBUG] Response URL:', response.url);
