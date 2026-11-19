@@ -1,4 +1,3 @@
-
 FROM php:8.2-apache
 
 # Install system dependencies, Python, and PHP extensions
@@ -10,10 +9,11 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
-       mysqli pdo_mysql pdo_pgsql intl mbstring zip gd \
+       mysqli pdo_mysql pgsql pdo_pgsql intl mbstring zip gd \
     && a2enmod rewrite \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
