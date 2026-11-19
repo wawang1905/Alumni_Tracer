@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alumni Tracker - All Survey Response Details</title>
+    <title>All Survey Response Details | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -14,13 +15,19 @@
                 document.documentElement.classList.add('staff-sidebar-collapsed');
             }
         })();
-    </script></head>
-<body class="has-staff-breadcrumbs">
+    </script>
+</head>
+<body class="staff-survey-response-detail-page has-staff-breadcrumbs">
     <div class="dashboard-container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
                 <div class="menu-item" onclick="location.href='Dashboard.html'">
@@ -66,54 +73,59 @@
 
         <div class="main-content">
             <div class="staff-sticky-navigation">
-            <div class="top-bar">
-                <div>
-                    <div class="page-title">Overall Survey Response Details</div>
-                </div>
-                <div class="staff-info">
-                    <span class="staff-name">Sarah Johnson</span>
-                    <div class="staff-avatar">
-                        <i class="fas fa-user"></i>
+                <div class="top-bar">
+                    <div>
+                        <div class="page-title">Overall Survey Response Details</div>
+                    </div>
+                    <div class="staff-info">
+                        <span class="staff-name">Sarah Johnson</span>
+                        <div class="staff-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="staff-breadcrumb-bar">
-                <span class="breadcrumb-location-label"><i class="fas fa-location-dot" aria-hidden="true"></i> You are here</span>
-                <nav class="staff-breadcrumbs" aria-label="Breadcrumb">
-                    <ol>
-                        <li><a href="Surveys.html"><i class="fas fa-file-alt" aria-hidden="true"></i> Surveys</a></li>
-                        <li><a id="allResponsesBreadcrumb" href="Surveys.html">Response Records</a></li>
-                        <li aria-current="page">All Response Details</li>
-                    </ol>
-                </nav>
-            </div>
-            </div>
-
-            <div class="section-card">
-                <div class="section-header">
-                    <h3><i class="fas fa-info-circle"></i> Survey Overview</h3>
-                    <button class="btn-secondary" onclick="location.href='Surveys.html'">Back to Surveys</button>
+                <div class="staff-breadcrumb-bar">
+                    <span class="breadcrumb-location-label"><i class="fas fa-location-dot" aria-hidden="true"></i> You are here</span>
+                    <nav class="staff-breadcrumbs" aria-label="Breadcrumb">
+                        <ol>
+                            <li><a href="Surveys.html"><i class="fas fa-file-alt" aria-hidden="true"></i> Surveys</a></li>
+                            <li><a id="allResponsesBreadcrumb" href="Surveys.html">Response Records</a></li>
+                            <li aria-current="page">All Response Details</li>
+                        </ol>
+                    </nav>
                 </div>
-                <p><strong>Survey:</strong> <span id="overviewSurveyTitle">-</span></p>
-                <p style="margin-top: 8px;"><strong>Total Responses:</strong> <span id="overviewTotalResponses">0</span></p>
             </div>
 
-            <div class="section-card">
-                <div class="section-header">
-                    <h3><i class="fas fa-users"></i> Detailed Answers (All Users)</h3>
+            <div class="section-card response-detail-summary">
+                <div class="response-detail-top" style="border-bottom: 0; padding-bottom: 0;">
+                    <div class="response-detail-meta" style="padding-top: 0; grid-template-columns: auto auto; gap: 32px;">
+                        <div class="response-meta-item">
+                            <small>Survey</small>
+                            <strong id="overviewSurveyTitle">-</strong>
+                        </div>
+                        <div class="response-meta-item">
+                            <small>Total Responses</small>
+                            <strong id="overviewTotalResponses">0</strong>
+                        </div>
+                    </div>
+                    <button class="response-detail-back" type="button" onclick="location.href='Surveys.html'">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                        <span>Back</span>
+                    </button>
                 </div>
-                <div id="allResponsesContainer"></div>
             </div>
-            <div class="sidebar-footer">
-                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
-                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Log Out</span>
-                </button>
+
+            <div class="response-detail-body">
+                <div class="response-detail-section-bar">
+                    <h3>All Respondent Submissions</h3>
+                </div>
+                <div id="allResponsesContainer" class="response-detail-answers"></div>
             </div>
         </div>
     </div>
 
+    <script src="StaffCommon.js"></script>
     <script>
         function escapeHtml(value) {
             return String(value ?? '')
@@ -139,7 +151,7 @@
             const container = document.getElementById('allResponsesContainer');
 
             if (!surveyId) {
-                container.innerHTML = '<p style="color:#7f8c8d;">Survey details not found.</p>';
+                container.innerHTML = '<div class="response-detail-loading">Survey details not found.</div>';
                 return;
             }
 
@@ -154,7 +166,7 @@
                     throw new Error('Survey not found.');
                 }
             } catch (error) {
-                container.innerHTML = '<p style="color:#7f8c8d;">Survey details not found.</p>';
+                container.innerHTML = '<div class="response-detail-loading">Survey details not found.</div>';
                 return;
             }
 
@@ -169,35 +181,49 @@
             document.getElementById('overviewTotalResponses').textContent = responses.length;
 
             if (!survey) {
-                container.innerHTML = '<p style="color:#7f8c8d;">Survey record does not exist.</p>';
+                container.innerHTML = '<div class="response-detail-loading">Survey record does not exist.</div>';
                 return;
             }
 
             if (responses.length === 0) {
-                container.innerHTML = '<p style="color:#7f8c8d;">No responses recorded yet for this survey.</p>';
+                container.innerHTML = '<div class="response-detail-loading">No responses recorded yet for this survey.</div>';
                 return;
             }
 
             container.innerHTML = responses.map((response, responseIndex) => `
-                <div style="border: 1px solid #e6ebf1; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-                    <div style="margin-bottom: 8px;">
-                        <strong>${responseIndex + 1}. ${escapeHtml(response.alumniName)}</strong>
-                        <span style="color:#7f8c8d;"> - Submitted: ${escapeHtml(response.submittedAt)}</span>
-                    </div>
-                    ${response.answers && response.answers.length > 0 ? response.answers.map((answer, answerIndex) => `
-                        <div style="margin-bottom: 8px; padding-left: 4px;">
-                            <strong>Q${answerIndex + 1}: ${escapeHtml(answer.questionText)}</strong><br>
-                            ${answer.imageUrl
-                                ? `<div style="margin-top: 8px;">
-                                    <span>Answer: Uploaded image</span><br>
-                                    <a href="${escapeHtml(answer.imageUrl)}" target="_blank" rel="noopener noreferrer">
-                                        <img src="${escapeHtml(answer.imageUrl)}" alt="Survey answer image" style="margin-top: 8px; max-width: min(100%, 320px); border-radius: 8px; border: 1px solid #dbe4ee;">
-                                    </a>
-                                </div>`
-                                : `<span>Answer: ${escapeHtml(answer.value)}</span>`}
+                <section class="response-category-group">
+                    <div class="response-category-heading">
+                        <div class="response-category-title-wrap">
+                            <span class="response-category-number">${responseIndex + 1}</span>
+                            <div class="response-category-copy">
+                                <h3>${escapeHtml(response.alumniName)}</h3>
+                            </div>
                         </div>
-                    `).join('') : '<p style="color:#7f8c8d;">No answers saved.</p>'}
-                </div>
+                        <span class="response-category-count">Submitted ${escapeHtml(response.submittedAt)}</span>
+                    </div>
+                    <div class="response-category-answers">
+                        ${response.answers && response.answers.length > 0 ? response.answers.map((answer, answerIndex) => {
+                            const hasValue = answer.value !== null && answer.value !== undefined && String(answer.value).trim() !== '';
+                            return `
+                            <article class="response-answer-card">
+                                <div class="response-answer-question">
+                                    <span class="response-q-index">Q${answerIndex + 1}</span>
+                                    <h4>${escapeHtml(answer.questionText)}</h4>
+                                </div>
+                                ${answer.imageUrl
+                                    ? `<div class="response-answer-value response-answer-image">
+                                        <a href="${escapeHtml(answer.imageUrl)}" target="_blank" rel="noopener noreferrer">
+                                            <img src="${escapeHtml(answer.imageUrl)}" alt="Survey answer image">
+                                        </a>
+                                    </div>`
+                                    : `<div class="response-answer-value">
+                                        <p class="${hasValue ? '' : 'is-empty'}">${escapeHtml(hasValue ? answer.value : 'No answer provided')}</p>
+                                    </div>`}
+                            </article>
+                        `;
+                        }).join('') : '<div class="response-category-empty">No answers saved.</div>'}
+                    </div>
+                </section>
             `).join('');
         }
 
@@ -205,8 +231,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alumni Tracker - Survey Response Details</title>
+    <title>Survey Response Details | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -19,8 +20,13 @@
     <div class="dashboard-container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
                 <div class="menu-item" onclick="location.href='Dashboard.html'">
@@ -92,45 +98,52 @@
             </div>
 
             <div class="section-card response-detail-summary">
-                <div class="section-header">
-                    <h3><i class="fas fa-user-graduate"></i> Alumni Information</h3>
-                    <button id="detailBackButton" class="response-detail-back" type="button" onclick="history.back()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to responses</button>
-                </div>
-                <div class="response-detail-profile">
-                    <span id="detailAlumniAvatar" class="response-detail-avatar" aria-hidden="true">AR</span>
-                    <div>
-                        <span class="response-detail-eyebrow">Respondent</span>
-                        <h2 id="detailAlumniName">-</h2>
+                <div class="response-detail-top">
+                    <div class="response-detail-profile">
+                        <span id="detailAlumniAvatar" class="response-detail-avatar" aria-hidden="true">AR</span>
+                        <div class="response-detail-identity">
+                            <span class="response-detail-eyebrow">Respondent</span>
+                            <h2 id="detailAlumniName">-</h2>
+                        </div>
                     </div>
+                    <button id="detailBackButton" class="response-detail-back" type="button" onclick="history.back()" title="Back to responses">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                        <span>Back</span>
+                    </button>
                 </div>
                 <div class="response-detail-meta">
-                    <div><i class="fas fa-clipboard-list" aria-hidden="true"></i><span><small>Survey</small><strong id="detailSurveyTitle">-</strong></span></div>
-                    <div><i class="far fa-calendar-check" aria-hidden="true"></i><span><small>Submitted</small><strong id="detailSubmittedAt">-</strong></span></div>
-                    <div><i class="far fa-message" aria-hidden="true"></i><span><small>Completion</small><strong id="detailAnswerCount">—</strong></span></div>
-                    <div><i class="fas fa-stamp" aria-hidden="true"></i><span><small>Review Status</small><span id="detailReviewStatus">—</span></span></div>
+                    <div class="response-meta-item">
+                        <small>Survey</small>
+                        <strong id="detailSurveyTitle">-</strong>
+                    </div>
+                    <div class="response-meta-item">
+                        <small>Submitted</small>
+                        <strong id="detailSubmittedAt">-</strong>
+                    </div>
+                    <div class="response-meta-item">
+                        <small>Completion</small>
+                        <strong id="detailAnswerCount">—</strong>
+                    </div>
+                    <div class="response-meta-item">
+                        <small>Status</small>
+                        <div id="detailReviewStatus">—</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="section-card">
-                <div class="section-header">
-                    <div>
-                        <h3><i class="fas fa-list-ol"></i> Detailed Answers</h3>
-                        <p class="response-section-description">Answers are displayed in the same order as the survey.</p>
-                    </div>
+            <div class="response-detail-body">
+                <div class="response-detail-section-bar">
+                    <h3>Responses</h3>
+                    <span class="response-section-description">Displayed in survey order</span>
                 </div>
                 <div id="detailAnswersContainer" class="response-detail-answers">
                     <div class="response-detail-loading"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Loading complete response…</div>
                 </div>
             </div>
-            <div class="sidebar-footer">
-                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
-                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Log Out</span>
-                </button>
-            </div>
         </div>
     </div>
 
+    <script src="StaffCommon.js"></script>
     <script>
         function escapeHtml(value) {
             return String(value ?? '')
@@ -248,34 +261,36 @@
             answersContainer.innerHTML = groupedAnswers.map((category, categoryIndex) => `
                 <section class="response-category-group">
                     <div class="response-category-heading">
-                        <span class="response-category-number">${categoryIndex + 1}</span>
-                        <div class="response-category-copy">
-                            <span class="response-detail-eyebrow">Category</span>
-                            <h3>${escapeHtml(category.name)}</h3>
-                            ${category.description ? `<p>${escapeHtml(category.description)}</p>` : ''}
+                        <div class="response-category-title-wrap">
+                            <span class="response-category-number">${categoryIndex + 1}</span>
+                            <div class="response-category-copy">
+                                <h3>${escapeHtml(category.name)}</h3>
+                                ${category.description ? `<p>${escapeHtml(category.description)}</p>` : ''}
+                            </div>
                         </div>
-                        <span class="response-category-count">${category.answers.length} ${category.answers.length === 1 ? 'answer' : 'answers'}</span>
+                        <span class="response-category-count">${category.answers.length} ${category.answers.length === 1 ? 'item' : 'items'}</span>
                     </div>
                     <div class="response-category-answers">
-                        ${category.answers.length ? category.answers.map(({ answer, answerIndex }) => `
+                        ${category.answers.length ? category.answers.map(({ answer, answerIndex }) => {
+                            const hasValue = answer.value !== null && answer.value !== undefined && String(answer.value).trim() !== '';
+                            return `
                             <article class="response-answer-card">
                                 <div class="response-answer-question">
-                                    <span>Question ${answerIndex + 1}</span>
+                                    <span class="response-q-index">Q${answerIndex + 1}</span>
                                     <h4>${escapeHtml(answer.questionText)}</h4>
                                 </div>
                                 ${answer.imageUrl
                                     ? `<div class="response-answer-value response-answer-image">
-                                        <span class="response-answer-label"><i class="far fa-image" aria-hidden="true"></i> Uploaded image</span>
                                         <a href="${escapeHtml(answer.imageUrl)}" target="_blank" rel="noopener noreferrer" title="Open full-size image">
                                             <img src="${escapeHtml(answer.imageUrl)}" alt="Uploaded answer for question ${answerIndex + 1}">
                                         </a>
                                     </div>`
                                     : `<div class="response-answer-value">
-                                        <span class="response-answer-label">Answer</span>
-                                        <p>${escapeHtml(answer.value || 'No answer provided')}</p>
+                                        <p class="${hasValue ? '' : 'is-empty'}">${escapeHtml(hasValue ? answer.value : 'No answer provided')}</p>
                                     </div>`}
                             </article>
-                        `).join('') : '<div class="response-category-empty"><i class="far fa-circle-question" aria-hidden="true"></i> No saved answers in this category.</div>'}
+                        `;
+                        }).join('') : '<div class="response-category-empty">No saved answers in this category.</div>'}
                     </div>
                 </section>
             `).join('');

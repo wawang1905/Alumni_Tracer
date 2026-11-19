@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer</title>
+    <title>Batch Colleges | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -14,13 +15,19 @@
                 document.documentElement.classList.add('staff-sidebar-collapsed');
             }
         })();
-    </script></head>
+    </script>
+</head>
 <body class="alumni-management-page">
     <div class="dashboard-container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
                 <div class="menu-item" onclick="location.href='Dashboard.html'">
@@ -66,84 +73,85 @@
 
         <div class="main-content">
             <div class="top-bar">
-                <div class="page-title">Batch Colleges</div>
+                <div class="page-title">Alumni Management</div>
                 <div class="staff-info">
-                    <span class="staff-name">Staff User</span>
+                    <span class="staff-name">Head Admin</span>
                     <div class="staff-avatar">
                         <i class="fas fa-user"></i>
                     </div>
                 </div>
             </div>
 
-            <div id="alumniBatchBreadcrumb" class="alumni-breadcrumb alumni-page-breadcrumb" hidden></div>
-
-            <div class="section-card" id="alumniBatchDetailsSection">
-                <div class="section-header">
-                    <div>
-                        <h3 id="alumniBatchDetailsTitle"><i class="fas fa-layer-group"></i> Batch Colleges</h3>
-                        <p class="alumni-section-copy" id="alumniBatchDetailsCopy">Loading batch information...</p>
-                    </div>
+            <div class="alumni-workspace">
+                <!-- Minimalist Navigation Bar -->
+                <div class="alumni-nav-bar">
+                    <div id="alumniBatchBreadcrumb" class="alumni-breadcrumb alumni-page-breadcrumb" hidden></div>
                     <div class="alumni-batch-actions">
-                        <button class="btn-secondary" type="button" onclick="location.href='AlumniManagement.html'">Back to Batches</button>
-                        <button class="btn-secondary" id="exportBatchBtn" type="button" onclick="exportSelectedBatchExcel()">Export</button>
-                        <button class="btn-secondary" id="importBatchBtn" type="button" onclick="openImportAlumniModal()">Import Excel</button>
-                        <button class="btn-primary" id="addBatchAlumniBtn" type="button" onclick="openAddAlumniModal()">+ Add Alumni</button>
-                    </div>
-                </div>
-                <div id="alumniBatchDetailsState"></div>
-
-                <!-- Stats Row -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <h3 id="batchTotalAlumniStat">—</h3>
-                            <p>Total Alumni in Batch</p>
-                        </div>
-                        <div class="stat-icon">
-                            <i class="fas fa-users"></i>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <h3 id="batchCollegeCountStat">—</h3>
-                            <p>Number of Colleges</p>
-                        </div>
-                        <div class="stat-icon">
-                            <i class="fas fa-building-columns"></i>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <h3 id="batchEmployedCountStat">—</h3>
-                            <p>Employed Count</p>
-                        </div>
-                        <div class="stat-icon">
-                            <i class="fas fa-briefcase"></i>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <h3 id="batchFurtherStudiesCountStat">—</h3>
-                            <p>Further Studies Count</p>
-                        </div>
-                        <div class="stat-icon">
-                            <i class="fas fa-book"></i>
-                        </div>
+                        <button class="alumni-btn alumni-btn-secondary" type="button" onclick="location.href='AlumniManagement.html'">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>Batches</span>
+                        </button>
+                        <button class="alumni-btn alumni-btn-secondary" id="exportBatchBtn" type="button" onclick="exportSelectedBatchExcel()" title="Export Batch (.xlsx)">
+                            <i class="fas fa-file-export"></i>
+                            <span>Export</span>
+                        </button>
+                        <button class="alumni-btn alumni-btn-secondary" id="importBatchBtn" type="button" onclick="openImportAlumniModal()" title="Import Alumni (.xlsx)">
+                            <i class="fas fa-file-import"></i>
+                            <span>Import</span>
+                        </button>
+                        <button class="alumni-btn alumni-btn-primary" id="addBatchAlumniBtn" type="button" onclick="openAddAlumniModal()">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Alumni</span>
+                        </button>
                     </div>
                 </div>
 
-                <div id="alumniCollegeSection" hidden>
-                    <div class="alumni-subsection-header">
-                        <h4><i class="fas fa-building-columns"></i> Colleges</h4>
-                        <p>Select a college to continue to the department list.</p>
+                <!-- Minimalist KPI Strip -->
+                <div class="alumni-kpi-grid">
+                    <div class="alumni-kpi-card">
+                        <div class="alumni-kpi-top">
+                            <span class="alumni-kpi-label">Alumni in Batch</span>
+                            <div class="alumni-kpi-icon"><i class="fas fa-users"></i></div>
+                        </div>
+                        <div class="alumni-kpi-value" id="batchTotalAlumniStat">—</div>
                     </div>
-                    <div id="alumniCollegeGrid" class="alumni-batch-grid alumni-nested-grid"></div>
+                    <div class="alumni-kpi-card">
+                        <div class="alumni-kpi-top">
+                            <span class="alumni-kpi-label">Colleges</span>
+                            <div class="alumni-kpi-icon"><i class="fas fa-building-columns"></i></div>
+                        </div>
+                        <div class="alumni-kpi-value" id="batchCollegeCountStat">—</div>
+                    </div>
+                    <div class="alumni-kpi-card">
+                        <div class="alumni-kpi-top">
+                            <span class="alumni-kpi-label">Active Accounts</span>
+                            <div class="alumni-kpi-icon"><i class="fas fa-circle-check"></i></div>
+                        </div>
+                        <div class="alumni-kpi-value" id="batchEmployedCountStat">—</div>
+                    </div>
+                    <div class="alumni-kpi-card">
+                        <div class="alumni-kpi-top">
+                            <span class="alumni-kpi-label">Pending Accounts</span>
+                            <div class="alumni-kpi-icon"><i class="fas fa-clock"></i></div>
+                        </div>
+                        <div class="alumni-kpi-value" id="batchFurtherStudiesCountStat">—</div>
+                    </div>
                 </div>
-            <div class="sidebar-footer">
-                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
-                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Log Out</span>
-                </button>
+
+                <!-- Colleges Directory Card -->
+                <div class="section-card alumni-directory-card" id="alumniBatchDetailsSection">
+                    <div class="alumni-directory-header">
+                        <div>
+                            <h3 id="alumniBatchDetailsTitle">Batch Colleges</h3>
+                            <p class="alumni-section-copy" id="alumniBatchDetailsCopy">Loading batch information...</p>
+                        </div>
+                    </div>
+                    <div id="alumniBatchDetailsState"></div>
+
+                    <div id="alumniCollegeSection" hidden>
+                        <div id="alumniCollegeGrid" class="alumni-batch-grid alumni-nested-grid"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -162,42 +170,25 @@
             <input type="text" id="alumniCollege" placeholder="College" readonly>
             <input type="text" id="alumniCourse" placeholder="Department" readonly>
             <div class="modal-buttons">
-                <button class="btn-secondary" onclick="closeAddAlumniModal()">Cancel</button>
-                <button class="btn-primary" onclick="addAlumni()">Add Alumni</button>
-            </div>
-            <div class="sidebar-footer">
-                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
-                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Log Out</span>
-                </button>
+                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAddAlumniModal()">Cancel</button>
+                <button class="alumni-btn alumni-btn-primary" type="button" onclick="addAlumni()">Add Alumni</button>
             </div>
         </div>
     </div>
 
     <div id="importAlumniModal" class="modal">
         <div class="modal-content">
-            <h3>Import Alumni Excel</h3>
-            <p style="margin-bottom: 12px; color: #6a7b8c;">Upload the completed template for the currently selected batch.</p>
+            <h3>Import Alumni (.xlsx)</h3>
+            <p style="margin-bottom: 12px; color: #64748b; font-size: 12.5px;">Upload the completed Excel template for the selected batch.</p>
             <input type="text" id="importBatchYear" readonly>
             <input type="file" id="alumniImportFile" accept=".xlsx">
             <div class="modal-buttons">
-                <button class="btn-secondary" onclick="closeImportAlumniModal()">Cancel</button>
-                <button class="btn-primary" onclick="importAlumniExcel()">Import Alumni</button>
-            </div>
-            <div class="sidebar-footer">
-                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
-                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Log Out</span>
-                </button>
+                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeImportAlumniModal()">Cancel</button>
+                <button class="alumni-btn alumni-btn-primary" type="button" onclick="importAlumniExcel()">Import</button>
             </div>
         </div>
     </div>
 
-    <script src="StaffCommon.js"></script>  
+    <script src="StaffCommon.js"></script>
 </body>
 </html>
-
-
-
-
-

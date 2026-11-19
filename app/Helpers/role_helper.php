@@ -12,7 +12,7 @@ if (! function_exists('role_config')) {
 if (! function_exists('normalize_role')) {
     function normalize_role(?string $role): string
     {
-        return strtolower(trim((string) $role));
+        return str_replace(' ', '_', strtolower(trim((string) $role)));
     }
 }
 
@@ -39,11 +39,7 @@ if (! function_exists('developer_user_role_options')) {
     function developer_user_role_options(): array
     {
         return [
-            ['value' => 'alumni', 'label' => 'Alumni'],
             ['value' => 'head_admin', 'label' => 'Head Admin'],
-            ['value' => 'staff', 'label' => 'Staff'],
-            ['value' => 'coordinator', 'label' => 'Coordinator'],
-            ['value' => 'developer', 'label' => 'Developer'],
         ];
     }
 }

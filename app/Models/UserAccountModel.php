@@ -24,14 +24,24 @@ class UserAccountModel extends Model
 
     public function findByEmail(string $email): ?array
     {
-        $user = $this->where('Email', $email)->first();
+        $normalized = strtolower(trim($email));
+        if ($normalized === '') {
+            return null;
+        }
+
+        $user = $this->where('LOWER("Email")', $normalized)->first();
 
         return is_array($user) ? $user : null;
     }
 
     public function findByAccountId(string $accountId): ?array
     {
-        $user = $this->where('account_id', $accountId)->first();
+        $trimmed = trim($accountId);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $user = $this->where('account_id', $trimmed)->first();
 
         return is_array($user) ? $user : null;
     }

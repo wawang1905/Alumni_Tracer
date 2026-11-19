@@ -34,7 +34,7 @@ class PaymentPurposeModel extends Model
      */
     public function getActivePurposes(): array
     {
-        return $this->where('is_active', 1)
+        return $this->where('is_active', true)
             ->orderBy('id', 'ASC')
             ->findAll();
     }
@@ -49,7 +49,7 @@ class PaymentPurposeModel extends Model
         }
 
         return $this->where('id', $id)
-            ->where('is_active', 1)
+            ->where('is_active', true)
             ->first();
     }
 
@@ -77,7 +77,7 @@ class PaymentPurposeModel extends Model
         }
 
         return $this->where('code', $cleanCode)
-            ->where('is_active', 1)
+            ->where('is_active', true)
             ->first();
     }
 }

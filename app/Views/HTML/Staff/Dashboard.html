@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer</title>
+    <title>GradVision - Head Admin</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -23,9 +24,9 @@
             <div class="sidebar-header">
                 <div class="sidebar-logo-wrap">
                     <div class="sidebar-logo-icon">
-                        <i class="fas fa-graduation-cap"></i>
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
                     </div>
-                    <h2>Alumni Tracer</h2>
+                    <h2>GradVision</h2>
                 </div>
                 <p>Head Admin</p>
             </div>
@@ -79,133 +80,168 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="top-bar">
-                <div class="page-title" id="pageTitle">Dashboard Overview</div>
+                <div class="page-title" id="pageTitle">Dashboard</div>
                 <div class="staff-info">
+                    <span class="staff-name">Head Admin</span>
                     <div class="staff-avatar">
-                        <i class="fas fa-user-shield"></i>
+                        <i class="fas fa-user"></i>
                     </div>
-                    <span class="staff-name">Sarah Johnson</span>
                 </div>
             </div>
 
             <!-- Dashboard Page -->
-            <div id="dashboardPage">
-                <!-- Stats Cards -->
-                <div class="stats-grid">
+            <div id="dashboardPage" class="dashboard-workspace">
+                <!-- Minimalist Executive Toolbar + Centralized Batch Filter -->
+                <div class="dashboard-exec-bar">
+                    <div class="dashboard-exec-copy">
+                        <h2>Institutional Tracer Overview</h2>
+                        <p>Key graduate outcomes, response coverage, and academic distribution across batches.</p>
+                    </div>
+                    <div class="dashboard-exec-controls">
+                        <div class="dashboard-batch-filter-bar" role="region" aria-label="Centralized batch filter">
+                            <label for="dashboardBatchFilter" class="dashboard-batch-filter-label">
+                                <i class="fas fa-layer-group" aria-hidden="true"></i>
+                                <span>Batch Filter</span>
+                            </label>
+                            <select id="dashboardBatchFilter" class="dashboard-batch-filter-select" onchange="handleDashboardBatchFilterChange()">
+                                <option value="all">All Batches</option>
+                            </select>
+                            <span id="dashboardBatchScopeSummary" class="dashboard-batch-scope-summary">All records</span>
+                            <button type="button" id="dashboardResetBatchBtn" class="dashboard-batch-reset-btn" onclick="resetDashboardBatchFilter()" hidden>
+                                <i class="fas fa-rotate-left" aria-hidden="true"></i>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+                        <div class="dashboard-exec-actions">
+                            <button type="button" class="alumni-btn alumni-btn-secondary" onclick="location.href='AlumniManagement.html'">
+                                <i class="fas fa-users"></i>
+                                <span>Alumni Directory</span>
+                            </button>
+                            <button type="button" class="alumni-btn alumni-btn-primary" onclick="location.href='Surveys.html'">
+                                <i class="fas fa-file-alt"></i>
+                                <span>Manage Surveys</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Minimalist KPI Strip -->
+                <div class="stats-grid dashboard-kpi-strip">
                     <div class="stat-card kpi-stat-card">
                         <div class="kpi-stat-header">
-                            <span class="kpi-stat-title">TOTAL TRACED GRADUATES</span>
-                            <div class="kpi-stat-icon kpi-icon-blue">
+                            <span class="kpi-stat-title">Traced Graduates</span>
+                            <div class="kpi-stat-icon">
                                 <i class="fas fa-user-graduate"></i>
                             </div>
                         </div>
-                        <div class="kpi-stat-value">1,280 / 1,600</div>
+                        <div class="kpi-stat-value">1,280 <span class="kpi-stat-Total">/ 1,600</span></div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-subtext-note">(80.0% Response Rate)</span>
+                            <span class="kpi-badge-neutral">80.0% response rate</span>
                         </div>
                     </div>
 
                     <div class="stat-card kpi-stat-card">
                         <div class="kpi-stat-header">
-                            <span class="kpi-stat-title">OVERALL EMPLOYMENT RATE</span>
-                            <div class="kpi-stat-icon kpi-icon-green">
+                            <span class="kpi-stat-title">Employment Rate</span>
+                            <div class="kpi-stat-icon">
                                 <i class="fas fa-briefcase"></i>
                             </div>
                         </div>
                         <div class="kpi-stat-value">85.2%</div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-trend positive">▲ 2.8%</span>
-                            <span class="kpi-subtext-note">from AY 23-24</span>
+                            <span class="kpi-trend positive">+2.8%</span>
+                            <span class="kpi-subtext-note">vs. AY 2023–2024</span>
                         </div>
                     </div>
 
                     <div class="stat-card kpi-stat-card">
                         <div class="kpi-stat-header">
-                            <span class="kpi-stat-title">CURRICULUM ALIGNMENT</span>
-                            <div class="kpi-stat-icon kpi-icon-purple">
+                            <span class="kpi-stat-title">Curriculum Alignment</span>
+                            <div class="kpi-stat-icon">
                                 <i class="fas fa-compass"></i>
                             </div>
                         </div>
                         <div class="kpi-stat-value">78.4%</div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-subtext-note">Jobs related to degree</span>
+                            <span class="kpi-subtext-note">Employed in degree-related fields</span>
                         </div>
                     </div>
 
                     <div class="stat-card kpi-stat-card">
                         <div class="kpi-stat-header">
-                            <span class="kpi-stat-title">AVG. TIME TO 1ST JOB</span>
-                            <div class="kpi-stat-icon kpi-icon-amber">
+                            <span class="kpi-stat-title">Avg. Time to First Job</span>
+                            <div class="kpi-stat-icon">
                                 <i class="fas fa-clock"></i>
                             </div>
                         </div>
-                        <div class="kpi-stat-value">3.2 Months</div>
+                        <div class="kpi-stat-value">3.2 <span class="kpi-stat-unit">mos</span></div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-subtext-note">64% employed in &lt;3 mos</span>
+                            <span class="kpi-subtext-note">64% hired within 3 months</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="dashboard-charts-grid">
+                <!-- Hero Chart: Alumni by Graduation Year (Line Graph) -->
+                <div class="section-card chart-card dashboard-hero-chart-card">
+                    <div class="section-header hero-chart-header">
+                        <div class="chart-header-title">
+                            <div class="hero-chart-eyebrow">
+                                <span class="hero-chart-pill">
+                                    <i class="fas fa-chart-line" aria-hidden="true"></i>
+                                    <span>Graduation Trajectory</span>
+                                </span>
+                                <span class="hero-chart-hint">Click any batch point to filter the breakdown cards below</span>
+                            </div>
+                            <h3>Alumni by Graduation Year</h3>
+                            <span class="chart-header-subtitle">Batch registration volume across graduating classes</span>
+                        </div>
+                        <div id="yearDistributionHeroMeta" class="hero-chart-metrics"></div>
+                    </div>
+                    <div id="yearDistribution" class="chart-shell hero-line-chart-shell"></div>
+                </div>
+
+                <!-- Batch-Scoped Breakdown Grid (Status, College, Department / Course) -->
+                <div class="dashboard-breakdown-grid">
                     <div class="section-card chart-card">
                         <div class="section-header">
-                            <h3><i class="fas fa-chart-pie"></i> Alumni Status Overview</h3>
+                            <div class="chart-header-title">
+                                <h3>Account &amp; Tracer Status</h3>
+                                <span class="chart-header-subtitle">Current verification and activity breakdown</span>
+                            </div>
+                            <div class="chart-header-controls">
+                                <span class="chart-scope-badge" data-dashboard-batch-badge>All Batches</span>
+                            </div>
                         </div>
                         <div id="alumniStatusChart" class="chart-shell"></div>
                     </div>
 
                     <div class="section-card chart-card">
                         <div class="section-header">
-                            <h3><i class="fas fa-chart-bar"></i> Alumni by Graduation Year</h3>
-                        </div>
-                        <div id="yearDistribution" class="chart-shell"></div>
-                    </div>
-
-                    <div class="section-card chart-card">
-                        <div class="section-header">
-                            <h3><i class="fas fa-university"></i> Alumni by College</h3>
-                            <select id="collegeBatchFilter" class="chart-filter-select" onchange="handleDashboardCollegeBatchChange()">
-                                <option value="all">All Batches</option>
-                            </select>
+                            <div class="chart-header-title">
+                                <h3>Distribution by College</h3>
+                                <span class="chart-header-subtitle">Graduate share per academic unit</span>
+                            </div>
+                            <div class="chart-header-controls">
+                                <span class="chart-scope-badge" data-dashboard-batch-badge>All Batches</span>
+                            </div>
                         </div>
                         <div id="collegeDistributionChart" class="chart-shell"></div>
                     </div>
 
                     <div class="section-card chart-card">
                         <div class="section-header">
-                            <h3><i class="fas fa-book"></i> Alumni by Course</h3>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <div class="chart-header-title">
+                                <h3>Distribution by Department / Course</h3>
+                                <span class="chart-header-subtitle">Program-level graduate concentration</span>
+                            </div>
+                            <div class="chart-header-controls">
                                 <select id="courseCollegeFilter" class="chart-filter-select" onchange="handleDashboardCourseCollegeChange()">
                                     <option value="all">All Colleges</option>
                                 </select>
-                                <select id="courseBatchFilter" class="chart-filter-select" onchange="handleDashboardCourseBatchChange()">
-                                    <option value="all">All Batches</option>
-                                </select>
+                                <span class="chart-scope-badge" data-dashboard-batch-badge>All Batches</span>
                             </div>
                         </div>
                         <div id="courseDistributionChart" class="chart-shell"></div>
-                    </div>
-                </div>
-
-                <!-- Recent Activities -->
-                <div class="section-card">
-                    <div class="section-header">
-                        <h3><i class="fas fa-clock"></i> Recent Activities</h3>
-                        <button class="btn-secondary" onclick="viewAllActivities()">View All</button>
-                    </div>
-                    <div id="recentActivities"></div>
-                </div>
-
-                <!-- Quick Actions -->
-                <div class="section-card">
-                    <div class="section-header">
-                        <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                    </div>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn-primary" onclick="location.href='AlumniManagement.html'"><i class="fas fa-user-plus"></i> Add New Alumni</button>
-                        <button class="btn-secondary" onclick="openCreateEventModal()"><i class="fas fa-calendar-plus"></i> Create Event</button>
-                        <button class="btn-secondary" onclick="location.href='News.html'"><i class="fas fa-newspaper"></i> Manage News</button>
-                        <button class="btn-success" onclick="sendNewsletter()"><i class="fas fa-paper-plane"></i> Send Newsletter</button>
                     </div>
                 </div>
             </div>

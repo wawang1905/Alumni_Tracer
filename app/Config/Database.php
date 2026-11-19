@@ -33,7 +33,7 @@ class Database extends Config
         'schema'       => 'public',
         'DBDriver'     => 'Postgre',
         'DBPrefix'     => '',
-        'pConnect'     => false,
+        'pConnect'     => true,
         'DBDebug'      => true,
         'charset'      => 'utf8',
         'DBCollat'     => '',

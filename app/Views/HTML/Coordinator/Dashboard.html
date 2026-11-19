@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coordinator Overview Dashboard | USTP Alumni Tracer</title>
+    <title>Coordinator Overview Dashboard | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <!-- Google Fonts & Font Awesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,9 +27,9 @@
     <div class="coordinator-shell">
         <aside class="coordinator-sidebar">
             <div class="brand-block">
-                <div class="brand-mark"><i class="fas fa-graduation-cap"></i></div>
+                <div class="brand-mark"><img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="brand-logo"></div>
                 <div>
-                    <h1>Alumni Tracker</h1>
+                    <h1>GradVision</h1>
                     <p>College Coordinator</p>
                 </div>
             </div>
@@ -36,8 +37,8 @@
             <div class="sidebar-user-card">
                 <div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div>
                 <div class="sidebar-user-info">
-                    <span class="sidebar-user-name">Program Coordinator</span>
-                    <span class="sidebar-user-role">Coordinator</span>
+                    <span class="sidebar-user-name">Loading...</span>
+                    <span class="sidebar-user-role">Loading...</span>
                 </div>
             </div>
 
@@ -72,21 +73,8 @@
             <!-- Topbar -->
             <header class="topbar">
                 <div>
-                    <p class="eyebrow">College Coordinator Portal</p>
-                    <h2>College of Engineering &amp; Architecture</h2>
-                </div>
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <div class="college-switcher" style="min-width: 260px; margin: 0;">
-                        <select id="collegeSelect" style="padding: 7px 10px; font-size: 13px;">
-                            <option>College of Engineering &amp; Architecture</option>
-                            <option>College of Science &amp; Technology</option>
-                            <option>College of Information Technology</option>
-                        </select>
-                    </div>
-                    <div class="profile-chip">
-                        <span>Engr. Maria Santos</span>
-                        <div class="avatar"><i class="fas fa-user"></i></div>
-                    </div>
+                    <p class="eyebrow" id="topbarCollegeEyebrow">Assigned Department</p>
+                    <h2 id="topbarTitle">Coordinator Overview</h2>
                 </div>
             </header>
 
@@ -94,13 +82,13 @@
                 <!-- Hero Analytics Banner -->
                 <section class="coord-hero-card">
                     <div class="coord-hero-left">
-                        <span class="coord-hero-badge"><i class="fas fa-chart-pie"></i> Visual Intelligence &amp; Tracer Overview</span>
-                        <h2>College Coordinator Analytics Dashboard</h2>
-                        <p id="coordHeaderSubtitle">College-wide cohort insights, graduate career trajectory, employability metrics, and alumni tracking overview.</p>
+                        <span class="coord-hero-badge"><i class="fas fa-chart-pie"></i> Department Tracer Overview</span>
+                        <h2>Department Coordinator Analytics Dashboard</h2>
+                        <p id="coordHeaderSubtitle">Loading alumni, employment, survey, and payment records for your assigned department...</p>
                     </div>
                     <div class="coord-hero-actions">
                         <button class="btn-primary" id="btnExportOverview" type="button">
-                            <i class="fas fa-file-export"></i> Export Report
+                            <i class="fas fa-file-export"></i> Export Summary
                         </button>
                     </div>
                 </section>
@@ -109,95 +97,83 @@
                 <section class="coord-filter-toolbar">
                     <div class="coord-filter-group">
                         <span class="coord-filter-label"><i class="fas fa-calendar-alt"></i> Graduation Cohort:</span>
-                        <div class="coord-pill-list" role="tablist">
+                        <div class="coord-pill-list" id="coordBatchPills" role="tablist">
                             <button class="coord-batch-pill active" data-batch="all" type="button">All Batches</button>
-                            <button class="coord-batch-pill" data-batch="2024" type="button">2024</button>
-                            <button class="coord-batch-pill" data-batch="2023" type="button">2023</button>
-                            <button class="coord-batch-pill" data-batch="2022" type="button">2022</button>
-                            <button class="coord-batch-pill" data-batch="2021" type="button">2021</button>
-                            <button class="coord-batch-pill" data-batch="2020" type="button">2020</button>
                         </div>
                     </div>
 
                     <div class="coord-filter-group">
-                        <span class="coord-filter-label"><i class="fas fa-graduation-cap"></i> Program:</span>
-                        <div class="coord-select-wrap">
-                            <select id="coordProgramFilter" class="coord-filter-select">
-                                <option value="all">All College Programs</option>
-                                <option value="ce">BS Civil Engineering</option>
-                                <option value="me">BS Mechanical Engineering</option>
-                                <option value="ee">BS Electrical Engineering</option>
-                                <option value="ece">BS Electronics Engineering</option>
-                                <option value="cpe">BS Computer Engineering</option>
-                            </select>
-                            <i class="fas fa-chevron-down"></i>
+                        <span class="coord-filter-label"><i class="fas fa-building-columns"></i> Department:</span>
+                        <div class="coord-locked-dept-pill" title="Assigned department (cannot be changed)">
+                            <i class="fas fa-lock"></i>
+                            <span id="coordLockedDeptLabel">Loading department...</span>
                         </div>
                     </div>
                 </section>
 
                 <!-- Key Metric KPI Row -->
-                <section class="coord-kpi-grid" aria-label="Executive KPI Metrics">
+                <section class="coord-kpi-grid" aria-label="Department KPI Metrics">
                     <!-- KPI 1 -->
                     <article class="coord-kpi-card kpi-blue">
                         <div class="coord-kpi-top">
-                            <span class="coord-kpi-label">Total Traced Graduates</span>
+                            <span class="coord-kpi-label">Department Alumni</span>
                             <div class="coord-kpi-icon"><i class="fas fa-user-graduate"></i></div>
                         </div>
                         <div class="coord-kpi-value-row">
-                            <span class="coord-kpi-number" id="kpiTotalGraduates">1,284</span>
-                            <span class="coord-trend-badge positive" id="kpiGradTrend"><i class="fas fa-arrow-up"></i> 3.1%</span>
+                            <span class="coord-kpi-number" id="kpiTotalGraduates">0</span>
+                            <span class="coord-trend-badge positive" id="kpiGradTrend">0.0% traced</span>
                         </div>
-                        <span class="coord-kpi-subtext" id="kpiGradNote">98.2% traced &amp; verified</span>
+                        <span class="coord-kpi-subtext" id="kpiGradNote">0 traced of 0 in department</span>
                     </article>
 
                     <!-- KPI 2 -->
                     <article class="coord-kpi-card kpi-emerald">
                         <div class="coord-kpi-top">
-                            <span class="coord-kpi-label">Overall Employment Rate</span>
+                            <span class="coord-kpi-label">Employment Rate</span>
                             <div class="coord-kpi-icon"><i class="fas fa-briefcase"></i></div>
                         </div>
                         <div class="coord-kpi-value-row">
-                            <span class="coord-kpi-number" id="kpiEmploymentRate">81.4%</span>
-                            <span class="coord-trend-badge positive" id="kpiEmpTrend"><i class="fas fa-arrow-up"></i> 2.5%</span>
+                            <span class="coord-kpi-number" id="kpiEmploymentRate">0.0%</span>
+                            <span class="coord-trend-badge positive" id="kpiEmpTrend">0 employed</span>
                         </div>
-                        <span class="coord-kpi-subtext" id="kpiEmpNote">1,045 employed / 1,284 total</span>
+                        <span class="coord-kpi-subtext" id="kpiEmpNote">0 employed / 0 traced</span>
                     </article>
 
                     <!-- KPI 3 -->
                     <article class="coord-kpi-card kpi-indigo">
                         <div class="coord-kpi-top">
-                            <span class="coord-kpi-label">Curriculum Alignment</span>
-                            <div class="coord-kpi-icon"><i class="fas fa-compass"></i></div>
+                            <span class="coord-kpi-label">Survey Responses</span>
+                            <div class="coord-kpi-icon"><i class="fas fa-clipboard-check"></i></div>
                         </div>
                         <div class="coord-kpi-value-row">
-                            <span class="coord-kpi-number" id="kpiAlignmentRate">87.2%</span>
-                            <span class="coord-trend-badge positive" id="kpiAlignTrend"><i class="fas fa-arrow-up"></i> 1.8%</span>
+                            <span class="coord-kpi-number" id="kpiSurveyResponses">0</span>
+                            <span class="coord-trend-badge positive" id="kpiSurveyTrend">0 pending</span>
                         </div>
-                        <span class="coord-kpi-subtext" id="kpiAlignNote">Degree-relevant employment</span>
+                        <span class="coord-kpi-subtext" id="kpiSurveyNote">0 reviewed · 0 needs revision</span>
                     </article>
 
                     <!-- KPI 4 -->
                     <article class="coord-kpi-card kpi-amber">
                         <div class="coord-kpi-top">
-                            <span class="coord-kpi-label">Avg. Time to 1st Job</span>
-                            <div class="coord-kpi-icon"><i class="fas fa-clock"></i></div>
+                            <span class="coord-kpi-label">Department Payments</span>
+                            <div class="coord-kpi-icon"><i class="fas fa-receipt"></i></div>
                         </div>
                         <div class="coord-kpi-value-row">
-                            <span class="coord-kpi-number" id="kpiTimeToJob">2.8 Mos</span>
-                            <span class="coord-trend-badge positive" id="kpiTimeTrend"><i class="fas fa-arrow-down"></i> 0.4 mos</span>
+                            <span class="coord-kpi-number" id="kpiDeptPayments">0</span>
+                            <span class="coord-trend-badge positive" id="kpiPayTrend">0 pending</span>
                         </div>
-                        <span class="coord-kpi-subtext" id="kpiTimeNote">66.9% placed in &le; 90 days</span>
+                        <span class="coord-kpi-subtext" id="kpiPayNote">0 verified transactions</span>
                     </article>
                 </section>
 
-                <!-- Core Visual Analytics 2x2 Grid -->
+                <!-- Core Visual Analytics Grid -->
                 <section class="coord-charts-grid">
                     <!-- Chart 1: Graduates per Year & Employment Breakdown -->
                     <article class="coord-chart-card">
                         <div class="coord-chart-header">
                             <div class="coord-chart-title-wrap">
-                                <h3><i class="fas fa-chart-column"></i> Graduates per Year &amp; Employability Cohorts</h3>
-                                <p>Comparison of graduates per year and their employment absorption status</p>
+                                <h3><i class="fas fa-chart-column"></i> Graduates per Year &amp; Tracer Status</h3>
+                                <p>Graduation cohorts in your assigned department</p>
                             </div>
                             <div class="coord-chart-controls">
                                 <div class="coord-toggle-group">
@@ -210,28 +186,24 @@
                             <div class="coord-canvas-container">
                                 <canvas id="graduatesYearChart"></canvas>
                             </div>
-                            <div class="coord-chart-footer">
-                                <span class="coord-footer-pill"><i class="fas fa-arrow-trend-up"></i> Peak Cohort: <strong>2023 (330 alumni)</strong></span>
-                                <span class="coord-footer-pill"><i class="fas fa-check-circle"></i> Highest Employment: <strong>2024 (86.0%)</strong></span>
-                            </div>
                         </div>
                     </article>
 
-                    <!-- Chart 2: Current Employment Status Donut Chart -->
+                    <!-- Chart 2: Department Tracer Status Donut Chart -->
                     <article class="coord-chart-card">
                         <div class="coord-chart-header">
                             <div class="coord-chart-title-wrap">
-                                <h3><i class="fas fa-chart-pie"></i> Current Labor Force Status</h3>
-                                <p>Breakdown across verified employment and professional classifications</p>
+                                <h3><i class="fas fa-chart-pie"></i> Department Employment Breakdown</h3>
+                                <p>Employment distribution for your assigned department</p>
                             </div>
-                            <span class="coord-chart-badge">1,284 Traced Records</span>
+                            <span class="coord-chart-badge" id="chartTotalRecordsBadge">0 Department Alumni</span>
                         </div>
                         <div class="coord-chart-body">
                             <div class="coord-donut-layout">
                                 <div class="coord-donut-canvas-wrap">
                                     <canvas id="employmentStatusChart"></canvas>
                                     <div class="coord-donut-center-metric">
-                                        <span class="coord-donut-pct" id="donutCenterPct">81.4%</span>
+                                        <span class="coord-donut-pct" id="donutCenterPct">0.0%</span>
                                         <span class="coord-donut-sub">Employed</span>
                                     </div>
                                 </div>
@@ -239,91 +211,34 @@
                                     <div class="coord-legend-row">
                                         <div class="coord-legend-info">
                                             <span class="coord-swatch" style="background:#10b981;"></span>
-                                            <span class="coord-legend-name">Employed Full-Time</span>
+                                            <span class="coord-legend-name">Employed</span>
                                         </div>
                                         <div class="coord-legend-data">
-                                            <span class="coord-legend-count" data-status-count>931</span>
-                                            <span class="coord-legend-pct" data-status-pct>72.5%</span>
-                                        </div>
-                                    </div>
-                                    <div class="coord-legend-row">
-                                        <div class="coord-legend-info">
-                                            <span class="coord-swatch" style="background:#0284c7;"></span>
-                                            <span class="coord-legend-name">Self-Employed / Freelance</span>
-                                        </div>
-                                        <div class="coord-legend-data">
-                                            <span class="coord-legend-count" data-status-count>114</span>
-                                            <span class="coord-legend-pct" data-status-pct>8.9%</span>
+                                            <span class="coord-legend-count" data-status-count>0</span>
+                                            <span class="coord-legend-pct" data-status-pct>0.0%</span>
                                         </div>
                                     </div>
                                     <div class="coord-legend-row">
                                         <div class="coord-legend-info">
                                             <span class="coord-swatch" style="background:#f43f5e;"></span>
-                                            <span class="coord-legend-name">Unemployed Seeking</span>
+                                            <span class="coord-legend-name">Unemployed</span>
                                         </div>
                                         <div class="coord-legend-data">
-                                            <span class="coord-legend-count" data-status-count>177</span>
-                                            <span class="coord-legend-pct" data-status-pct>13.8%</span>
+                                            <span class="coord-legend-count" data-status-count>0</span>
+                                            <span class="coord-legend-pct" data-status-pct>0.0%</span>
                                         </div>
                                     </div>
                                     <div class="coord-legend-row">
                                         <div class="coord-legend-info">
-                                            <span class="coord-swatch" style="background:#f59e0b;"></span>
-                                            <span class="coord-legend-name">Further Studies / Review</span>
+                                            <span class="coord-swatch" style="background:#94a3b8;"></span>
+                                            <span class="coord-legend-name">Not Tracked</span>
                                         </div>
                                         <div class="coord-legend-data">
-                                            <span class="coord-legend-count" data-status-count>62</span>
-                                            <span class="coord-legend-pct" data-status-pct>4.8%</span>
+                                            <span class="coord-legend-count" data-status-count>0</span>
+                                            <span class="coord-legend-pct" data-status-pct>0.0%</span>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="coord-chart-footer">
-                                <span class="coord-footer-pill"><i class="fas fa-shield-alt"></i> Employment Health: <strong>Above Regional Target (80%)</strong></span>
-                            </div>
-                        </div>
-                    </article>
-
-                    <!-- Chart 3: Time to First Job Velocity -->
-                    <article class="coord-chart-card">
-                        <div class="coord-chart-header">
-                            <div class="coord-chart-title-wrap">
-                                <h3><i class="fas fa-business-time"></i> Time to First Job (Placement Velocity)</h3>
-                                <p>Duration from graduation date to securing first professional role</p>
-                            </div>
-                            <span class="coord-chart-badge">Market Readiness</span>
-                        </div>
-                        <div class="coord-chart-body">
-                            <div class="coord-canvas-container">
-                                <canvas id="timeToJobChart"></canvas>
-                            </div>
-                            <div class="coord-chart-footer">
-                                <span class="coord-footer-pill"><i class="fas fa-bolt"></i> <strong>66.9%</strong> of graduates secure employment within their first 90 days</span>
-                            </div>
-                        </div>
-                    </article>
-
-                    <!-- Chart 4: Curriculum Relevance & Top Employing Industries -->
-                    <article class="coord-chart-card">
-                        <div class="coord-chart-header">
-                            <div class="coord-chart-title-wrap">
-                                <h3><i class="fas fa-layer-group"></i> Degree Relevance &amp; Industry Dispersion</h3>
-                                <p>Alignment with academic curriculum and primary employment sectors</p>
-                            </div>
-                            <div class="coord-chart-controls">
-                                <div class="coord-toggle-group">
-                                    <button class="coord-toggle-btn active" data-relevance-mode="relevance" type="button">Degree Relevance</button>
-                                    <button class="coord-toggle-btn" data-relevance-mode="sectors" type="button">Top Sectors</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="coord-chart-body">
-                            <div class="coord-canvas-container">
-                                <canvas id="relevanceIndustryChart"></canvas>
-                            </div>
-                            <div class="coord-chart-footer">
-                                <span class="coord-footer-pill"><i class="fas fa-compass"></i> Direct Match: <strong>70.8%</strong> in college discipline</span>
-                                <span class="coord-footer-pill"><i class="fas fa-building"></i> Top Absorber: <strong>Software &amp; Tech (36.2%)</strong></span>
                             </div>
                         </div>
                     </article>
@@ -333,28 +248,28 @@
                 <section class="coord-ops-grid">
                     <article class="coord-ops-card">
                         <div class="coord-ops-header">
-                            <h4><i class="fas fa-list-check" style="color:#0284c7;"></i> Coordinator Priority Verification Queue</h4>
-                            <span style="font-size:12px; font-weight:700; color:#64748b;">4 Active Tasks</span>
+                            <h4><i class="fas fa-list-check" style="color:#0284c7;"></i> Department Action Queue</h4>
+                            <span style="font-size:12px; font-weight:700; color:#64748b;">Department Scoped</span>
                         </div>
                         <div class="task-list">
-                            <a class="coord-task-item" href="Alumni.html">
-                                <span>Verify 24 new employment proof submissions</span>
-                                <span class="coord-task-badge badge-urgent">Urgent</span>
+                            <a class="coord-task-item" href="SurveyResponses.html">
+                                <span>Pending survey response reviews</span>
+                                <span class="coord-task-badge badge-urgent" id="taskPendingSurveys">0 Pending</span>
                                 <i class="fas fa-chevron-right task-arrow"></i>
                             </a>
-                            <a class="coord-task-item" href="Communication.html">
-                                <span>Follow up with 41 untraced alumni from 2023 cohort</span>
-                                <span class="coord-task-badge badge-pending">Follow-up</span>
+                            <a class="coord-task-item" href="SurveyResponses.html">
+                                <span>Survey responses flagged for revision</span>
+                                <span class="coord-task-badge badge-pending" id="taskRevisionSurveys">0 Revision</span>
                                 <i class="fas fa-chevron-right task-arrow"></i>
                             </a>
                             <a class="coord-task-item" href="Alumni.html">
-                                <span>Review 12 missing graduation record requests</span>
-                                <span class="coord-task-badge badge-info">Review</span>
+                                <span>Alumni not yet tracked in surveys</span>
+                                <span class="coord-task-badge badge-info" id="taskNotTrackedAlumni">0 Untraced</span>
                                 <i class="fas fa-chevron-right task-arrow"></i>
                             </a>
                             <a class="coord-task-item" href="Payments.html">
-                                <span>Validate 8 pending alumni ID fee payments</span>
-                                <span class="coord-task-badge badge-info">Finance</span>
+                                <span>Pending department alumni payments</span>
+                                <span class="coord-task-badge badge-info" id="taskPendingPayments">0 Pending</span>
                                 <i class="fas fa-chevron-right task-arrow"></i>
                             </a>
                         </div>
@@ -362,17 +277,17 @@
 
                     <article class="coord-ops-card">
                         <div class="coord-ops-header">
-                            <h4><i class="fas fa-square-poll-vertical" style="color:#10b981;"></i> Tracer Survey Progress Snapshot</h4>
-                            <span style="font-size:12px; font-weight:700; color:#10b981;">Active Cycle</span>
+                            <h4><i class="fas fa-square-poll-vertical" style="color:#10b981;"></i> Department Tracer Snapshot</h4>
+                            <span style="font-size:12px; font-weight:700; color:#10b981;">Live Department Data</span>
                         </div>
-                        <div class="progress-row"><span>Survey Response Rate</span><strong>76%</strong></div>
-                        <div class="progress-track"><span style="width:76%; background:#10b981;"></span></div>
+                        <div class="progress-row"><span>Department Tracer Response Rate</span><strong id="snapResponseRate">0.0%</strong></div>
+                        <div class="progress-track"><span id="snapResponseBar" style="width:0%; background:#10b981;"></span></div>
 
-                        <div class="progress-row" style="margin-top:14px;"><span>Employment Verification Rate</span><strong>81.4%</strong></div>
-                        <div class="progress-track"><span style="width:81.4%; background:#0284c7;"></span></div>
+                        <div class="progress-row" style="margin-top:14px;"><span>Survey Review Completion</span><strong id="snapReviewRate">0%</strong></div>
+                        <div class="progress-track"><span id="snapReviewBar" style="width:0%; background:#0284c7;"></span></div>
 
-                        <div class="progress-row" style="margin-top:14px;"><span>ID Endorsements Ready</span><strong>38 Ready</strong></div>
-                        <div class="progress-track"><span style="width:65%; background:#f59e0b;"></span></div>
+                        <div class="progress-row" style="margin-top:14px;"><span>Verified Department Payments</span><strong id="snapPaymentRate">0 / 0</strong></div>
+                        <div class="progress-track"><span id="snapPaymentBar" style="width:0%; background:#f59e0b;"></span></div>
 
                         <div style="margin-top: 18px; display: flex; justify-content: flex-end;">
                             <a href="SurveyResponses.html" class="btn-primary" style="text-decoration:none;">

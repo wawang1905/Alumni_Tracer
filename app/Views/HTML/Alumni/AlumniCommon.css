@@ -70,8 +70,15 @@ body {
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .profile-avatar-wrap {
@@ -225,7 +232,7 @@ body {
     cursor: pointer;
     font-size: 13px;
     transition: background 0.2s, transform 0.15s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .profile-avatar-overlay:hover {
@@ -707,16 +714,45 @@ body {
     padding: 0;
     border-bottom: none;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.alumni-brand-mark {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+}
+
+.alumni-brand-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.alumni-brand-text {
+    min-width: 0;
 }
 
 .alumni-brand h2 {
-    font-size: 22px;
-    margin-bottom: 6px;
+    font-size: 20px;
+    line-height: 1.15;
+    margin-bottom: 2px;
 }
 
 .alumni-brand p {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.72);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.74);
 }
 
 .alumni-menu {
@@ -925,8 +961,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 20px;
-    padding: 18px 22px;
+    gap: 16px;
+    padding: 12px 18px;
     background: linear-gradient(180deg, #15344b 0%, #0d2434 100%);
     backdrop-filter: blur(14px);
     border: 1px solid rgba(219, 229, 238, 0.8);
@@ -934,6 +970,37 @@ body {
     box-shadow: 0 10px 28px rgba(18, 50, 74, 0.06);
     margin-bottom: 24px;
     color: #fff;
+}
+
+.alumni-topbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+
+.alumni-topbar-brand-mark {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
+.alumni-topbar-brand-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media (min-width: 861px) {
@@ -1938,6 +2005,7 @@ a.survey-respond-btn {
 }
 
 @media (max-width: 1080px) {
+
     .hero-card,
     .split-grid,
     .news-feed-shell {
@@ -2066,8 +2134,8 @@ a.survey-respond-btn {
     .alumni-topbar {
         top: 0;
         margin-top: 0;
-        align-items: flex-start;
-        padding: 16px;
+        align-items: center;
+        padding: 10px 16px;
         margin-left: -16px;
         margin-right: -16px;
         margin-bottom: 16px;
@@ -2078,24 +2146,24 @@ a.survey-respond-btn {
 
     .alumni-menu-toggle,
     .alumni-profile-trigger--icon {
-        width: 44px;
-        height: 44px;
-        min-width: 44px;
-        min-height: 44px;
-        border-radius: 14px;
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        border-radius: 12px;
     }
 
     .alumni-topbar-left {
-        align-items: flex-start;
+        align-items: center;
         flex: 1;
         min-width: 0;
     }
 
-     .value-main{
+    .value-main {
         font-size: 32px;
         font-weight: 800;
         color: var(--alumni-navy);
-    } 
+    }
 
     .stats-grid,
     .card-grid,
@@ -2110,7 +2178,7 @@ a.survey-respond-btn {
         grid-template-columns: repeat(2, 1fr);
         width: 100%;
     }
-    
+
     .hero-card,
     .content-card,
     .stat-card,
@@ -2228,7 +2296,7 @@ a.survey-respond-btn {
         margin-left: -12px;
         margin-right: -12px;
         margin-bottom: 14px;
-        padding: 14px;
+        padding: 10px 12px;
         border-top: 0;
         border-top-left-radius: 0;
         border-top-right-radius: 0;
@@ -2274,6 +2342,7 @@ a.survey-respond-btn {
 }
 
 @media (max-width: 860px) {
+
     .alumni-news-page,
     .alumni-news-page .alumni-shell,
     .alumni-news-page .alumni-content {
@@ -2506,13 +2575,25 @@ a.survey-respond-btn {
 }
 
 @keyframes alumniFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes alumniScaleIn {
-    from { opacity: 0; transform: scale(0.96) translateY(6px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 /* ==========================================================================
@@ -2564,10 +2645,13 @@ a.survey-respond-btn {
 
 /* Pulse animation for notification dot */
 @keyframes alumniDotPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         opacity: 1;
     }
+
     50% {
         transform: scale(1.3);
         opacity: 0.82;
@@ -2594,4 +2678,1162 @@ a.survey-respond-btn {
 
 .survey-card-new-badge i {
     font-size: 10px;
+}
+
+/* ==========================================================================
+   Redesigned Alumni Community News Feed & Interactive Engagement Styles
+   ========================================================================== */
+
+.feed-layout-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 24px;
+    align-items: start;
+    margin-top: 4px;
+}
+
+.feed-main-stream {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+/* Feed Hero / Welcome Banner */
+.feed-hero-welcome {
+    background: linear-gradient(135deg, #0a2240 0%, #153a65 60%, #1b497e 100%);
+    border-radius: 24px;
+    padding: 24px 28px;
+    color: #ffffff;
+    box-shadow: 0 16px 36px rgba(10, 34, 64, 0.14);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.feed-hero-welcome::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    right: -40px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(245, 158, 11, 0.05) 50%, transparent 70%);
+    pointer-events: none;
+}
+
+.feed-welcome-text h2 {
+    font-size: clamp(22px, 3.2vw, 28px);
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 6px;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+}
+
+.feed-welcome-text p {
+    font-size: 14.5px;
+    color: #cbd5e1;
+    margin: 0;
+    line-height: 1.55;
+    max-width: 620px;
+}
+
+/* Search bar */
+.feed-search-box {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 16px;
+    padding: 2px 14px;
+    transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feed-search-box:focus-within {
+    background: #ffffff;
+    border-color: #f59e0b;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.feed-search-box i.fa-magnifying-glass {
+    color: #94a3b8;
+    margin-right: 10px;
+    font-size: 15px;
+    transition: color 0.2s;
+}
+
+.feed-search-box:focus-within i.fa-magnifying-glass {
+    color: #d97706;
+}
+
+.feed-search-box input {
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    width: 100%;
+    padding: 10px 0;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+}
+
+.feed-search-box:focus-within input {
+    color: #0f172a;
+}
+
+.feed-search-box input::placeholder {
+    color: #94a3b8;
+}
+
+.feed-search-box button#feedSearchClear {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.15s;
+}
+
+.feed-search-box button#feedSearchClear:hover {
+    color: #ef4444;
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* Category Filter Tabs */
+.feed-filter-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 2px 6px;
+    scrollbar-width: none;
+}
+
+.feed-filter-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.feed-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 5px rgba(15, 23, 42, 0.04);
+    font-family: inherit;
+}
+
+.feed-tab-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+    transform: translateY(-1px);
+}
+
+.feed-tab-btn.active {
+    background: #0a2240;
+    border-color: #0a2240;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(10, 34, 64, 0.24);
+}
+
+.feed-tab-btn.active i {
+    color: #f59e0b;
+}
+
+.feed-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.22);
+    color: inherit;
+}
+
+.feed-tab-btn:not(.active) .feed-tab-count {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+/* Pinned Alert */
+.feed-pinned-alert {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 18px;
+    padding: 13px 18px;
+    color: #92400e;
+    font-size: 13.5px;
+    line-height: 1.5;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.06);
+}
+
+.pinned-alert-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #fef3c7;
+    color: #d97706;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* Post Enhancements */
+.facebook-post {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.facebook-post:hover {
+    box-shadow: 0 22px 50px rgba(18, 50, 74, 0.11);
+}
+
+.post-category-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.post-category-tag.career {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.post-category-tag.announcement {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+}
+
+.post-category-tag.spotlight {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+}
+
+.post-category-tag.campus {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+}
+
+.facebook-post-image.lightbox-trigger {
+    cursor: zoom-in;
+    transition: opacity 0.2s ease;
+}
+
+.facebook-post-image.lightbox-trigger:hover {
+    opacity: 0.95;
+}
+
+/* Post Social Action Bar (Hidden for now as requested) */
+.post-social-bar,
+.post-comments-drawer {
+    display: none !important;
+}
+
+.post-social-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-top: 1px solid #f1f5f9;
+    background: #fafcff;
+}
+
+.post-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 13.5px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    font-family: inherit;
+}
+
+.post-action-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.post-action-btn i {
+    font-size: 16px;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;
+}
+
+.post-action-btn.like-btn.liked {
+    color: #e11d48;
+}
+
+.post-action-btn.like-btn.liked i {
+    color: #e11d48;
+    animation: heartPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.post-action-btn.bookmark-btn.bookmarked {
+    color: #d97706;
+}
+
+.post-action-btn.bookmark-btn.bookmarked i {
+    color: #d97706;
+}
+
+@keyframes heartPop {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.35);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.like-count,
+.comment-count {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-weight: 800;
+}
+
+.post-action-btn.liked .like-count {
+    background: #ffe4e6;
+    color: #e11d48;
+}
+
+/* Post Comments Drawer */
+.post-comments-drawer {
+    border-top: 1px solid #edf2f7;
+    background: #f8fafc;
+    padding: 16px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: fadeInDown 0.2s ease;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.comment-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.comment-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0a2240 0%, #173b64 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.comment-bubble {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 8px 14px;
+    flex-grow: 1;
+    font-size: 13px;
+    line-height: 1.45;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+}
+
+.comment-bubble-author {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.comment-bubble-author strong {
+    font-size: 12.5px;
+    color: #0a2240;
+}
+
+.comment-bubble-time {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.comment-bubble-text {
+    color: #334155;
+    word-break: break-word;
+}
+
+.comment-input-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.comment-user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.comment-input {
+    flex-grow: 1;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: #0f172a;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.comment-input:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.comment-submit-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #0a2240;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: background 0.18s, transform 0.15s;
+    flex-shrink: 0;
+}
+
+.comment-submit-btn:hover {
+    background: #f59e0b;
+    transform: scale(1.05);
+}
+
+/* Sidebar Widgets Column */
+.feed-sidebar-widgets {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 96px;
+}
+
+.community-widget {
+    background: #ffffff;
+    border: 1px solid #e6edf4;
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: 0 12px 30px rgba(18, 50, 74, 0.06);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.widget-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #0a2240;
+}
+
+.widget-title i {
+    color: #d97706;
+}
+
+.widget-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.widget-badge.live-pulse {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.widget-badge.live-pulse i {
+    font-size: 7px;
+    animation: alumniDotPulse 1.6s infinite;
+}
+
+.widget-badge.new-badge {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.widget-badge.done-badge {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.widget-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.widget-btn.outline {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #0a2240;
+}
+
+.widget-btn.outline:hover {
+    background: #edf2f7;
+    border-color: #94a3b8;
+}
+
+.widget-btn.primary {
+    background: #0a2240;
+    border: 1px solid #0a2240;
+    color: #ffffff;
+}
+
+.widget-btn.primary:hover {
+    background: #173b64;
+}
+
+.widget-btn.accent {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: none;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+}
+
+.widget-btn.accent:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+/* 1. Profile Snapshot Widget */
+.profile-snapshot-widget {
+    padding: 0;
+    text-align: center;
+}
+
+.profile-snapshot-cover {
+    height: 70px;
+    background: linear-gradient(135deg, #0a2240 0%, #1e4b85 100%);
+}
+
+.profile-snapshot-avatar-wrap {
+    margin-top: -38px;
+    display: flex;
+    justify-content: center;
+}
+
+.profile-snapshot-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 4px solid #ffffff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    font-size: 26px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.profile-snapshot-body {
+    padding: 10px 20px 20px;
+}
+
+.profile-snapshot-body h3 {
+    font-size: 17px;
+    color: #0a2240;
+    margin: 4px 0 2px;
+    font-weight: 800;
+}
+
+.profile-snapshot-dept {
+    font-size: 12.5px;
+    color: #64748b;
+    margin: 0 0 10px;
+    line-height: 1.4;
+}
+
+.profile-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #059669;
+    background: #ecfdf5;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+}
+
+/* 2. Event Spotlight Widget */
+.event-spotlight-content {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    align-items: center;
+}
+
+.event-spotlight-datebox {
+    width: 54px;
+    height: 58px;
+    background: #0a2240;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
+    box-shadow: 0 6px 14px rgba(10, 34, 64, 0.2);
+}
+
+.event-spotlight-month {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #f59e0b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.event-spotlight-day {
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.event-spotlight-info h4 {
+    font-size: 14.5px;
+    color: #0a2240;
+    margin: 0 0 4px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.event-spotlight-meta {
+    font-size: 12px;
+    color: #64748b;
+    margin: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.event-spotlight-meta i {
+    color: #d97706;
+    font-size: 11px;
+}
+
+/* 3. Community Poll Widget */
+.poll-question {
+    font-size: 13.5px;
+    color: #1e293b;
+    font-weight: 700;
+    line-height: 1.45;
+    margin: 0 0 14px;
+}
+
+.poll-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-bottom: 12px;
+}
+
+.poll-option-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #1e293b;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    text-align: left;
+}
+
+.poll-option-btn:hover:not(.voted) {
+    background: #edf2f7;
+    border-color: #cbd5e1;
+}
+
+.poll-choice-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(245, 158, 11, 0.2);
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.poll-choice-label {
+    position: relative;
+    z-index: 2;
+    padding-right: 8px;
+}
+
+.poll-choice-percent {
+    position: relative;
+    z-index: 2;
+    font-size: 12px;
+    font-weight: 800;
+    color: #0a2240;
+}
+
+.poll-option-btn.selected {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.poll-option-btn.selected .poll-choice-bar {
+    background: rgba(245, 158, 11, 0.35);
+}
+
+.poll-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: #64748b;
+    padding-top: 4px;
+}
+
+/* 4. Survey Reminder Widget */
+.survey-reminder-widget h4 {
+    font-size: 14.5px;
+    color: #0a2240;
+    margin: 0 0 4px;
+    font-weight: 800;
+}
+
+.survey-reminder-widget p {
+    font-size: 12.5px;
+    color: #64748b;
+    line-height: 1.45;
+    margin: 0 0 14px;
+}
+
+/* 5. Quick Links Widget */
+.quick-links-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.quick-link-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    color: #0a2240;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.quick-link-chip:hover {
+    background: #ffffff;
+    border-color: #f59e0b;
+    color: #d97706;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
+}
+
+.quick-link-chip i {
+    font-size: 16px;
+    color: #d97706;
+}
+
+/* Image Lightbox Modal */
+.feed-lightbox-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.feed-lightbox-modal.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.lightbox-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 34, 64, 0.85);
+    backdrop-filter: blur(6px);
+}
+
+.lightbox-container {
+    position: relative;
+    z-index: 2;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lightbox-image {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 18px;
+    object-fit: contain;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    background: #000;
+}
+
+.lightbox-caption {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 12px;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: -16px;
+    right: -16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #0f172a;
+    border: none;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s, background 0.15s;
+}
+
+.lightbox-close:hover {
+    background: #f59e0b;
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+/* Floating Toast */
+.alumni-toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 99999;
+    background: #0a2240;
+    color: #ffffff;
+    padding: 12px 20px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 700;
+    box-shadow: 0 10px 30px rgba(10, 34, 64, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alumni-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ==========================================================================
+   Dual Independent Scrollable Columns (Desktop >= 961px)
+   Allows .feed-main-stream and .feed-sidebar-widgets to scroll independently
+   without relying on each other.
+   ========================================================================== */
+@media (min-width: 961px) {
+    body.alumni-news-page {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .alumni-news-page .alumni-shell {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .alumni-news-page .alumni-content {
+        height: 100vh;
+        overflow: hidden;
+        padding: 96px 28px 16px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .alumni-news-page .feed-layout-container {
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 370px);
+        gap: 24px;
+        align-items: stretch;
+        margin-top: 0;
+    }
+
+    .alumni-news-page .feed-main-stream {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0;
+        height: calc(100vh - 116px);
+        max-height: calc(100vh - 116px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        padding-right: 12px;
+        padding-bottom: 40px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+    }
+
+    /* Prevent any main stream element from being squished */
+    .alumni-news-page .feed-main-stream>* {
+        flex-shrink: 0 !important;
+    }
+
+    .alumni-news-page .feed-sidebar-widgets {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        position: relative;
+        top: auto;
+        width: 100%;
+        min-width: 320px;
+        height: calc(100vh - 116px);
+        max-height: calc(100vh - 116px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        padding-right: 12px;
+        padding-bottom: 40px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+    }
+
+    /* CRITICAL: Prevent widgets from being squeezed into viewport */
+    .alumni-news-page .feed-sidebar-widgets>*,
+    .alumni-news-page .community-widget {
+        flex-shrink: 0 !important;
+    }
+
+    /* Sleek visible scrollbars for both independent columns */
+    .alumni-news-page .feed-main-stream::-webkit-scrollbar,
+    .alumni-news-page .feed-sidebar-widgets::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .alumni-news-page .feed-main-stream::-webkit-scrollbar-track,
+    .alumni-news-page .feed-sidebar-widgets::-webkit-scrollbar-track {
+        background: rgba(241, 245, 249, 0.6);
+        border-radius: 999px;
+    }
+
+    .alumni-news-page .feed-main-stream::-webkit-scrollbar-thumb,
+    .alumni-news-page .feed-sidebar-widgets::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+
+    .alumni-news-page .feed-main-stream::-webkit-scrollbar-thumb:hover,
+    .alumni-news-page .feed-sidebar-widgets::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+}
+
+/* Responsive Rules for Mobile / Small Screens */
+@media (max-width: 960px) {
+
+    body.alumni-news-page,
+    .alumni-news-page .alumni-shell,
+    .alumni-news-page .alumni-content {
+        height: auto;
+        overflow: visible;
+    }
+
+    .feed-layout-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        gap: 0;
+    }
+
+    .feed-sidebar-widgets,
+    .feed-sidebar-widget {
+        display: none !important;
+    }
+
+    .feed-main-stream {
+        height: auto;
+        max-height: none;
+        overflow-y: visible;
+        position: static;
+        padding-right: 0;
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .feed-hero-welcome {
+        padding: 20px 18px;
+    }
+
+    .post-social-bar {
+        padding: 8px 12px;
+    }
+
+    .post-action-btn {
+        padding: 6px 10px;
+        font-size: 12.5px;
+    }
+
+    .alumni-toast {
+        left: 20px;
+        right: 20px;
+        bottom: 20px;
+        text-align: center;
+    }
 }

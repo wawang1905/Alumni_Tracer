@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alumni Tracker - Portal Login & Registration</title>
+  <title>GradVision - Portal Login & Registration</title>
+  <link rel="icon" type="image/x-icon" href="<?= base_url('images/gradvision-logo.ico') ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,12 +21,9 @@
       <!-- Minimalist Card Header -->
       <div class="auth-card-header">
         <div class="brand-logo-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-          </svg>
+          <img src="<?= base_url('images/gradvision-logo.ico') ?>" alt="GradVision Logo" class="brand-logo-img">
         </div>
-        <div class="brand-title">Alumni Tracer</div>
+        <div class="brand-title">GradVision</div>
         <h2 id="authHeading" class="auth-heading">Welcome Back</h2>
         <p id="authSubheading" class="auth-subheading">Please enter your credentials to access your account</p>
       </div>

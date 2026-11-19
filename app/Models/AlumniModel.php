@@ -25,17 +25,60 @@ class AlumniModel extends Model
         'Contact_Number',
     ];
 
-    public function getSortedList(string $sort = 'last_name_asc'): array
+    /**
+     * @param array<string, mixed> $filters
+     */
+    public function getSortedList(string $sort = 'last_name_asc', array $filters = []): array
     {
         [$column, $direction] = $this->mapSort($sort);
 
-        return $this->builder()
+        $builder = $this->builder()
             ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, alumni.Province, alumni.Municipality, alumni.Barangay, alumni.Contact_Number, c.College_Name AS College, d.Department_Name AS Course')
             ->join('colleges c', 'c.College_ID = alumni.College_ID', 'left')
-            ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left')
+            ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left');
+
+        $year = trim((string) ($filters['year'] ?? $filters['graduationYear'] ?? ''));
+        if ($year !== '' && strtolower($year) !== 'all') {
+            $builder->where('alumni.GraduationYear', $year);
+        }
+
+        $college = trim((string) ($filters['college'] ?? ''));
+        if ($college !== '' && strtolower($college) !== 'all') {
+            $builder->where('LOWER(c."College_Name")', strtolower($college));
+        }
+
+        $course = trim((string) ($filters['course'] ?? ''));
+        if ($course !== '' && strtolower($course) !== 'all') {
+            $builder->where('LOWER(d."Department_Name")', strtolower($course));
+        }
+
+        $status = trim((string) ($filters['status'] ?? ''));
+        if ($status !== '' && strtolower($status) !== 'all') {
+            $builder->where('LOWER(alumni."Status"::text)', strtolower($status));
+        }
+
+        return $builder
             ->orderBy($column, $direction)
             ->get()
             ->getResultArray();
+    }
+
+    /**
+     * @return array{totalAlumni: int, totalColleges: int, totalCourses: int, totalBatches: int}
+     */
+    public function getOverallCounts(): array
+    {
+        $row = $this->builder()
+            ->select('COUNT(alumni.id) AS total_alumni, COUNT(DISTINCT alumni."College_ID") AS total_colleges, COUNT(DISTINCT alumni."Department_ID") AS total_courses, COUNT(DISTINCT alumni."GraduationYear") AS total_batches', false)
+            ->get()
+            ->getRowArray();
+
+        return [
+            'totalAlumni'   => (int) ($row['total_alumni'] ?? 0),
+            'totalColleges' => (int) ($row['total_colleges'] ?? 0),
+            'totalCourses'  => (int) ($row['total_courses'] ?? 0),
+            'totalBatches'  => (int) ($row['total_batches'] ?? 0),
+        ];
     }
 
     public function findByEmail(string $email): ?array
@@ -83,7 +126,7 @@ class AlumniModel extends Model
         return $this->builder()
             ->select('GraduationYear')
             ->selectCount('id', 'alumni_count')
-            ->select("SUM(CASE WHEN LOWER(\"Status\") = 'active' THEN 1 ELSE 0 END) AS active_count", false)
+            ->select("SUM(CASE WHEN LOWER(\"Status\"::text) = 'active' THEN 1 ELSE 0 END) AS active_count", false)
             ->where('"GraduationYear" IS NOT NULL', null, false)
             ->groupBy('GraduationYear')
             ->orderBy('GraduationYear', 'DESC')

@@ -932,7 +932,7 @@ async function handleLogin() {
   const password = document.getElementById('loginPassword').value;
 
   if (!identifier || !password) {
-    showAlert(loginAlert, 'Please enter both identifier and password.', 'error');
+    showAlert(loginAlert, 'Please enter your email and password.', 'error');
     return;
   }
 

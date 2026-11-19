@@ -3,23 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer</title>
+    <title>Community News Feed - GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="AlumniCommon.css">
 </head>
-<body>
+<body class="alumni-news-page">
     <div class="alumni-shell">
         <div class="alumni-sidebar-overlay" id="alumniSidebarOverlay"></div>
         <aside class="alumni-sidebar" id="alumniSidebar">
             <div class="alumni-brand">
-                <h2>Alumni Tracker</h2>
-                <p>Navigation</p>
+                <div class="alumni-brand-mark">
+                    <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="alumni-brand-logo">
+                </div>
+                <div class="alumni-brand-text">
+                    <h2>GradVision</h2>
+                    <p>Alumni Portal</p>
+                </div>
             </div>
             <nav class="alumni-menu">
-                <a class="alumni-menu-item" href="Main.html"><i class="fas fa-house"></i><span>Main Page</span></a>
+                <a class="alumni-menu-item active" href="Main.html"><i class="fas fa-newspaper"></i><span>News Feed</span></a>
                 <a class="alumni-menu-item" href="Events.html"><i class="fas fa-calendar-alt"></i><span>Events</span></a>
-                <a class="alumni-menu-item" href="News.html"><i class="fas fa-bullhorn"></i><span>News</span></a>
-                <a class="alumni-menu-item" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Survey</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
+                <a class="alumni-menu-item" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Surveys</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
             </nav>
             <div class="alumni-sidebar-profile" data-profile-menu>
                 <button class="alumni-profile-trigger" data-profile-trigger type="button" aria-expanded="false">
@@ -50,9 +55,11 @@
                         <i class="fas fa-bars"></i>
                         <span class="alumni-menu-dot" id="menuToggleNotificationDot" aria-hidden="true"></span>
                     </button>
-                    <div class="page-title-block">
-                        <h1>Alumni Home</h1>
-                        <!--<p>Your hub for events, updates, and ways to stay involved.</p>-->
+                    <div class="alumni-topbar-brand">
+                        <span class="alumni-topbar-brand-mark">
+                            <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="alumni-brand-logo">
+                        </span>
+                        <span class="alumni-topbar-brand-name">GradVision</span>
                     </div>
                 </div>
                 <div class="alumni-topbar-actions" data-profile-menu>
@@ -76,115 +83,194 @@
                 </div>
             </header>
 
-            <section class="hero-card">
-                <div>
-                    <h2>Welcome back, <span id="welcomeName">Alumni</span>.</h2>
-                    <p>This main page is designed to give alumni a quick pulse on the community. It highlights upcoming gatherings, recent staff updates, and active surveys so you can decide where to engage first.</p>
-                    <div class="hero-badges">
-                        <span class="hero-badge"><i class="fas fa-calendar-check"></i> Stay updated on upcoming events</span>
-                        <span class="hero-badge"><i class="fas fa-newspaper"></i> Catch staff announcements quickly</span>
-                        <span class="hero-badge"><i class="fas fa-comments"></i> Share feedback through surveys</span>
-                    </div>
-                </div>
-                <div class="hero-side">
-                    <div class="highlight-card">
-                        <p class="section-note">Next event spotlight</p>
-                        <h3 id="nextEventTitle">Upcoming event will appear here</h3>
-                        <strong id="nextEventMeta">Check the events page for details.</strong>
-                    </div>
-                    <div class="highlight-card">
-                        <p class="section-note">Latest staff update</p>
-                        <h3 id="latestUpdateTitle">Recent announcements will appear here</h3>
-                        <strong id="latestUpdateMeta">Watch the news page for fresh updates.</strong>
-                    </div>
-                </div>
-            </section>
-
-            <section class="stats-grid content-card-1">
-                <article class="stat-card stat-card-highlight-1">
-                    <div class="label">Total events posted</div>
-                    <div class="value value-main" id="statTotalEvents">0</div>
-                </article>
-                <article class="stat-card stat-card-highlight-1">
-                    <div class="label">Upcoming events</div>
-                    <div class="value value-main" id="statUpcomingEvents">0</div>
-                </article>
-                <article class="stat-card stat-card-highlight-1">
-                    <div class="label">Recent updates</div>
-                    <div class="value value-main" id="statNewsCount">0</div>
-                </article>
-                <article class="stat-card stat-card-highlight-1">
-                    <div class="label">Active surveys</div>
-                    <div class="value value-main" id="statSurveyCount">0</div>
-                </article>
-            </section>
-
-            <section class="content-card" style="margin-bottom: 18px;">
-                <div class="section-header">
-                    <div>
-                        <h3>Main Page Ideas Included</h3>
-                        <p>This landing page combines discovery, participation, and timely reminders.</p>
-                    </div>
-                </div>
-                <div class="quick-links">
-                    <a class="quick-link" href="Events.html">
-                        <i class="fas fa-calendar-days"></i>
-                        <h4>Event Spotlight</h4>
-                        <p>See the next alumni activities and plan attendance from one place.</p>
-                    </a>
-                    <a class="quick-link" href="News.html">
-                        <i class="fas fa-bullhorn"></i>
-                        <h4>Staff Bulletin</h4>
-                        <p>Track campus announcements, outreach updates, and important reminders.</p>
-                    </a>
-                    <a class="quick-link" href="Surveys.html">
-                        <i class="fas fa-square-poll-vertical"></i>
-                        <h4>Feedback Center</h4>
-                        <p>Respond to surveys so the staff can improve alumni programs and services.</p>
-                    </a>
-                    <div class="quick-link">
-                        <i class="fas fa-lightbulb"></i>
-                        <h4>Community Tips</h4>
-                        <p>Use this space for future additions like job boards, mentoring, or alumni directory features.</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="split-grid">
-                <div class="content-card">
-                    <div class="section-header">
-                        <div>
-                            <h3>Upcoming Events</h3>
-                            <p>Your next opportunities to reconnect with the alumni network.</p>
+            <!-- Main Community Feed Layout -->
+            <div class="feed-layout-container">
+                <!-- Center/Main Stream: Announcements & News Posts -->
+                <section class="feed-main-stream">
+                    <!-- Welcoming Banner & Live Search -->
+                    <div class="feed-hero-welcome">
+                        <div class="feed-welcome-text">
+                            <h2>Welcome back, <span id="welcomeName">Alumni</span>! 👋</h2>
+                            <p>Catch up on official campus notices, alumni achievements, and career opportunities right from your community feed.</p>
                         </div>
-                        <a class="button-link" href="Events.html">View all <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                    <div id="mainEventsPreview" class="events-grid"></div>
-                </div>
-                <div class="content-card">
-                    <div class="section-header">
-                        <div>
-                            <h3>Latest Surveys</h3>
-                            <p>Quick ways to share your voice with the staff.</p>
+                        <div class="feed-search-box">
+                            <i class="fas fa-magnifying-glass"></i>
+                            <input type="text" id="feedSearchInput" placeholder="Search posts, topics, or announcements..." autocomplete="off">
+                            <button type="button" id="feedSearchClear" title="Clear search" style="display: none;"><i class="fas fa-times"></i></button>
                         </div>
-                        <a class="button-link" href="Surveys.html">Open surveys <i class="fas fa-arrow-right"></i></a>
                     </div>
-                    <div id="mainSurveyPreview" class="surveys-grid surveys-grid--cards"></div>
-                </div>
-            </section>
 
-            <section class="content-card" style="margin-top: 18px;">
-                <div class="section-header">
-                    <div>
-                        <h3>Recent News</h3>
-                        <p>Fresh notices and updates from the staff office.</p>
+                    <!-- Category Filter Tabs -->
+                    <div class="feed-filter-tabs" id="feedFilterTabs">
+                        <button type="button" class="feed-tab-btn active" data-category="all">
+                            <i class="fas fa-layer-group"></i> All Posts
+                            <span class="feed-tab-count" id="feedCountAll">0</span>
+                        </button>
+                        <button type="button" class="feed-tab-btn" data-category="announcement">
+                            <i class="fas fa-bullhorn"></i> Announcements
+                        </button>
+                        <button type="button" class="feed-tab-btn" data-category="campus">
+                            <i class="fas fa-university"></i> Campus News
+                        </button>
+                        <button type="button" class="feed-tab-btn" data-category="career">
+                            <i class="fas fa-briefcase"></i> Career & Jobs
+                        </button>
+                        <button type="button" class="feed-tab-btn" data-category="spotlight">
+                            <i class="fas fa-star"></i> Spotlights
+                        </button>
                     </div>
-                    <a class="button-link" href="News.html">Go to news <i class="fas fa-arrow-right"></i></a>
-                </div>
-                <div id="mainNewsPreview" class="news-grid"></div>
-            </section>
+
+                    <!-- Pinned Bulletin Notice -->
+                    <div class="feed-pinned-alert" id="feedPinnedNotice">
+                        <div class="pinned-alert-icon"><i class="fas fa-thumbtack"></i></div>
+                        <div class="pinned-alert-content">
+                            <strong>Notice to all graduates:</strong> Keep your contact information and employment status up to date in your profile to receive alumni invitations and exclusive career opportunities.
+                        </div>
+                    </div>
+
+                    <!-- The Primary Posts Feed Container -->
+                    <div id="alumniNewsGrid" class="news-facebook-feed">
+                        <!-- Populated dynamically by AlumniCommon.js -->
+                    </div>
+                </section>
+
+                <!-- Right Column: Engaging Social Community Hub Widgets -->
+                <aside class="feed-sidebar-widgets">
+                    <!-- 1. Alumni Identity Snapshot -->
+                    <div class="community-widget profile-snapshot-widget">
+                        <div class="profile-snapshot-cover"></div>
+                        <div class="profile-snapshot-avatar-wrap">
+                            <div class="alumni-avatar profile-snapshot-avatar"><i class="fas fa-user"></i></div>
+                        </div>
+                        <div class="profile-snapshot-body">
+                            <h3 data-alumni-user-name>Alumni User</h3>
+                            <p class="profile-snapshot-dept" id="widgetUserDept">Bachelor of Science in Information Technology</p>
+                            <span class="profile-verified-badge"><i class="fas fa-certificate"></i> Verified Alumni</span>
+                            <div class="profile-snapshot-actions">
+                                <a href="Profile.html" class="widget-btn outline"><i class="fas fa-user-pen"></i> View Profile</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Upcoming Event Spotlight -->
+                    <div class="community-widget event-spotlight-widget" id="widgetEventSpotlight">
+                        <div class="widget-header">
+                            <div class="widget-title">
+                                <i class="fas fa-calendar-star"></i>
+                                <span>Upcoming Event</span>
+                            </div>
+                            <span class="widget-badge" id="widgetEventCountdown">Upcoming</span>
+                        </div>
+                        <div class="event-spotlight-content">
+                            <div class="event-spotlight-datebox" id="widgetEventDateBox">
+                                <span class="event-spotlight-month" id="widgetEventMonth">EVENT</span>
+                                <span class="event-spotlight-day" id="widgetEventDay">--</span>
+                            </div>
+                            <div class="event-spotlight-info">
+                                <h4 id="widgetEventTitle">Upcoming Gathering</h4>
+                                <p class="event-spotlight-meta"><i class="fas fa-clock"></i> <span id="widgetEventTime">Check events page</span></p>
+                                <p class="event-spotlight-meta"><i class="fas fa-location-dot"></i> <span id="widgetEventLocation">Campus / Online</span></p>
+                            </div>
+                        </div>
+                        <a href="Events.html" class="widget-btn primary"><i class="fas fa-arrow-right"></i> Browse All Events</a>
+                    </div>
+
+                    <!-- 3. Community Pulse: Interactive Quick Poll -->
+                    <div class="community-widget poll-widget" id="widgetCommunityPoll">
+                        <div class="widget-header">
+                            <div class="widget-title">
+                                <i class="fas fa-chart-simple"></i>
+                                <span>Community Pulse</span>
+                            </div>
+                            <span class="widget-badge live-pulse"><i class="fas fa-circle"></i> Live Poll</span>
+                        </div>
+                        <p class="poll-question">Which alumni service or activity would you like us to focus on next?</p>
+                        <div class="poll-options-list" id="pollOptionsList">
+                            <button type="button" class="poll-option-btn" data-poll-choice="1">
+                                <span class="poll-choice-label">Career Networking & Mentorship</span>
+                                <span class="poll-choice-percent"></span>
+                                <div class="poll-choice-bar" style="width: 0%;"></div>
+                            </button>
+                            <button type="button" class="poll-option-btn" data-poll-choice="2">
+                                <span class="poll-choice-label">Grand Alumni Homecoming Gala</span>
+                                <span class="poll-choice-percent"></span>
+                                <div class="poll-choice-bar" style="width: 0%;"></div>
+                            </button>
+                            <button type="button" class="poll-option-btn" data-poll-choice="3">
+                                <span class="poll-choice-label">Tech Upskilling Webinars</span>
+                                <span class="poll-choice-percent"></span>
+                                <div class="poll-choice-bar" style="width: 0%;"></div>
+                            </button>
+                            <button type="button" class="poll-option-btn" data-poll-choice="4">
+                                <span class="poll-choice-label">Alumni ID Perks & Discounts</span>
+                                <span class="poll-choice-percent"></span>
+                                <div class="poll-choice-bar" style="width: 0%;"></div>
+                            </button>
+                        </div>
+                        <div class="poll-footer">
+                            <span id="pollVoteCount"><i class="fas fa-users"></i> 142 votes cast</span>
+                            <span class="poll-status" id="pollStatusNote">Click an option to vote</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Active Survey Quick Prompt -->
+                    <div class="community-widget survey-reminder-widget" id="widgetSurveyReminder">
+                        <div class="widget-header">
+                            <div class="widget-title">
+                                <i class="fas fa-clipboard-check"></i>
+                                <span>Alumni Survey</span>
+                            </div>
+                            <span class="widget-badge new-badge" id="widgetSurveyBadge">Action needed</span>
+                        </div>
+                        <h4 id="widgetSurveyTitle">Graduate Tracer Survey</h4>
+                        <p id="widgetSurveyDesc">Your answers take ~2 minutes and help shape future university initiatives.</p>
+                        <a href="Surveys.html" class="widget-btn accent" id="widgetSurveyBtn"><i class="fas fa-reply"></i> Open Survey</a>
+                    </div>
+
+                    <!-- 5. Campus Quick Links -->
+                    <div class="community-widget quick-links-widget">
+                        <div class="widget-header">
+                            <div class="widget-title">
+                                <i class="fas fa-compass"></i>
+                                <span>Quick Resources</span>
+                            </div>
+                        </div>
+                        <div class="quick-links-grid">
+                            <a href="Profile.html" class="quick-link-chip">
+                                <i class="fas fa-user-graduate"></i>
+                                <span>Update Info</span>
+                            </a>
+                            <a href="Events.html" class="quick-link-chip">
+                                <i class="fas fa-calendar-days"></i>
+                                <span>Events Calendar</span>
+                            </a>
+                            <a href="Surveys.html" class="quick-link-chip">
+                                <i class="fas fa-poll-h"></i>
+                                <span>Surveys Hub</span>
+                            </a>
+                            <a href="mailto:alumni@ustp.edu.ph" class="quick-link-chip">
+                                <i class="fas fa-envelope"></i>
+                                <span>Email Office</span>
+                            </a>
+                        </div>
+                    </div>
+                </aside>
+            </div>
         </main>
     </div>
+
+    <!-- Image Lightbox Modal for Photo Posts -->
+    <div class="feed-lightbox-modal" id="feedLightboxModal" aria-hidden="true">
+        <div class="lightbox-overlay" id="lightboxOverlay"></div>
+        <div class="lightbox-container">
+            <button type="button" class="lightbox-close" id="lightboxClose" aria-label="Close image"><i class="fas fa-times"></i></button>
+            <img class="lightbox-image" id="lightboxImg" src="" alt="Enlarged news image">
+            <p class="lightbox-caption" id="lightboxCaption"></p>
+        </div>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div class="alumni-toast" id="alumniToast" role="status" aria-live="polite"></div>
 
     <script src="AlumniCommon.js"></script>
 </body>

@@ -88,17 +88,26 @@ html.coordinator-sidebar-preload .coordinator-main {
 }
 
 .brand-mark {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+    background: #ffffff;
     color: #0d2137;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 3px;
     font-size: 15px;
     flex-shrink: 0;
-    box-shadow: 0 4px 16px rgba(255,193,7,0.45), 0 0 0 1px rgba(255,193,7,0.2);
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.25);
+}
+
+.brand-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
 }
 
 .brand-block h1 {
@@ -2658,6 +2667,25 @@ html.coordinator-sidebar-collapsed .coordinator-logout-btn:hover::after {
     pointer-events: none;
     color: #64748b;
     font-size: 11px;
+}
+
+.coord-locked-dept-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 13px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e4a76;
+    font-size: 13px;
+    font-weight: 600;
+    user-select: none;
+}
+
+.coord-locked-dept-pill i {
+    font-size: 11px;
+    color: #2563eb;
 }
 
 /* KPI Cards Grid */

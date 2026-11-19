@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer - Profile</title>
+    <title>Profile - GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="AlumniCommon.css">
 </head>
@@ -12,14 +13,18 @@
         <div class="alumni-sidebar-overlay" id="alumniSidebarOverlay"></div>
         <aside class="alumni-sidebar" id="alumniSidebar">
             <div class="alumni-brand">
-                <h2>Alumni Tracker</h2>
-                <p>Navigation</p>
+                <div class="alumni-brand-mark">
+                    <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="alumni-brand-logo">
+                </div>
+                <div class="alumni-brand-text">
+                    <h2>GradVision</h2>
+                    <p>Alumni Portal</p>
+                </div>
             </div>
             <nav class="alumni-menu">
-                <a class="alumni-menu-item" href="Main.html"><i class="fas fa-house"></i><span>Main Page</span></a>
+                <a class="alumni-menu-item" href="Main.html"><i class="fas fa-newspaper"></i><span>News Feed</span></a>
                 <a class="alumni-menu-item" href="Events.html"><i class="fas fa-calendar-alt"></i><span>Events</span></a>
-                <a class="alumni-menu-item" href="News.html"><i class="fas fa-bullhorn"></i><span>News</span></a>
-                <a class="alumni-menu-item" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Survey</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
+                <a class="alumni-menu-item" href="Surveys.html" data-nav-survey><i class="fas fa-clipboard-list"></i><span>Surveys</span><span class="alumni-menu-dot" id="surveyNavNotificationDot" aria-hidden="true"></span></a>
             </nav>
             <div class="alumni-sidebar-profile" data-profile-menu>
                 <button class="alumni-profile-trigger" data-profile-trigger type="button" aria-expanded="false">
@@ -50,9 +55,11 @@
                         <i class="fas fa-bars"></i>
                         <span class="alumni-menu-dot" id="menuToggleNotificationDot" aria-hidden="true"></span>
                     </button>
-                    <div class="page-title-block">
-                        <h1>My Profile</h1>
-                        <!-- <p>View and manage your personal information</p> -->
+                    <div class="alumni-topbar-brand">
+                        <span class="alumni-topbar-brand-mark">
+                            <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="alumni-brand-logo">
+                        </span>
+                        <span class="alumni-topbar-brand-name">GradVision</span>
                     </div>
                 </div>
                 <div class="alumni-topbar-actions" data-profile-menu>

@@ -222,6 +222,16 @@ class StaffController extends BaseController
                 ->orderBy('q.id', 'ASC')
                 ->get()
                 ->getResultArray();
+        } else {
+            $questionRows = $db->table('questions q')
+                ->select('q.id, q.category_id, q.question_text, q.question_type, q.rating_min, q.rating_max, q.rating_min_label, q.rating_max_label, cat.category_name, cat.order_number as cat_order, cat.description as cat_desc')
+                ->join('categories cat', 'cat.id = q.category_id', 'inner')
+                ->where('cat.survey_id', $surveyId)
+                ->where('q.question_type !=', 'image')
+                ->orderBy('cat.order_number', 'ASC')
+                ->orderBy('q.id', 'ASC')
+                ->get()
+                ->getResultArray();
         }
 
         // Extra defensive filter for questions that accept images
@@ -275,29 +285,94 @@ class StaffController extends BaseController
             $matchingResponses
         );
 
+        $reportType = strtolower(trim((string) ($payload['report_type'] ?? $payload['reportType'] ?? 'alumni_tracer')));
+        if (! in_array($reportType, ['alumni_tracer', 'graphs', 'raw_numbers'], true)) {
+            $reportType = 'alumni_tracer';
+        }
+
         $format = strtolower(trim((string) ($payload['format'] ?? 'pdf')));
         $cleanTitle = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim((string) ($survey['title'] ?? 'survey')));
-        $filename = 'Survey_Report_' . $cleanTitle . '_' . date('Y-m-d_His');
 
-        switch ($format) {
-            case 'csv':
-            case 'excel':
-            case 'xlsx':
-                $file = $this->generateSurveyCsvReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters, $programGroups);
-                $mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                $extension = 'xlsx';
+        $typePrefixMap = [
+            'alumni_tracer' => 'Alumni_Tracer_Report_',
+            'graphs' => 'Survey_Graphs_Report_',
+            'raw_numbers' => 'Survey_Raw_Numbers_Report_',
+        ];
+        $prefix = $typePrefixMap[$reportType] ?? 'Survey_Report_';
+        $filename = $prefix . $cleanTitle . '_' . date('Y-m-d_His');
+
+        switch ($reportType) {
+            case 'graphs':
+                switch ($format) {
+                    case 'csv':
+                    case 'excel':
+                    case 'xlsx':
+                        $file = $this->generateSurveyGraphsSpreadsheetReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters);
+                        $mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                        $extension = 'xlsx';
+                        break;
+                    case 'docx':
+                    case 'word':
+                        $file = $this->generateSurveyGraphsDocxReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters);
+                        $mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        $extension = 'docx';
+                        break;
+                    case 'pdf':
+                    default:
+                        $file = $this->generateSurveyGraphsPdfReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters);
+                        $mimeType = 'application/pdf';
+                        $extension = 'pdf';
+                        break;
+                }
                 break;
-            case 'docx':
-            case 'word':
-                $file = $this->generateSurveyDocxReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters, $programGroups);
-                $mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                $extension = 'docx';
+
+            case 'raw_numbers':
+                switch ($format) {
+                    case 'csv':
+                    case 'excel':
+                    case 'xlsx':
+                        $file = $this->generateSurveyRawNumbersSpreadsheetReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters);
+                        $mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                        $extension = 'xlsx';
+                        break;
+                    case 'docx':
+                    case 'word':
+                        $file = $this->generateSurveyRawNumbersDocxReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters);
+                        $mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        $extension = 'docx';
+                        break;
+                    case 'pdf':
+                    default:
+                        $file = $this->generateSurveyRawNumbersPdfReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters);
+                        $mimeType = 'application/pdf';
+                        $extension = 'pdf';
+                        break;
+                }
                 break;
-            case 'pdf':
+
+            case 'alumni_tracer':
             default:
-                $file = $this->generateSurveyPdfReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters, $programGroups);
-                $mimeType = 'application/pdf';
-                $extension = 'pdf';
+                switch ($format) {
+                    case 'csv':
+                    case 'excel':
+                    case 'xlsx':
+                        $file = $this->generateSurveyCsvReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters, $programGroups);
+                        $mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                        $extension = 'xlsx';
+                        break;
+                    case 'docx':
+                    case 'word':
+                        $file = $this->generateSurveyDocxReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters, $programGroups);
+                        $mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        $extension = 'docx';
+                        break;
+                    case 'pdf':
+                    default:
+                        $file = $this->generateSurveyPdfReport($survey, $selectedCategories, $selectedQuestions, $matchingResponses, $filename, $filters, $programGroups);
+                        $mimeType = 'application/pdf';
+                        $extension = 'pdf';
+                        break;
+                }
                 break;
         }
 
@@ -326,8 +401,13 @@ class StaffController extends BaseController
             return [];
         }
 
-        // 2. Fetch all alumni indexed by lowercase email
-        $alumniRows = $db->table('alumni')->get()->getResultArray();
+        // 2. Fetch all alumni indexed by lowercase email with college and department joins
+        $alumniRows = $db->table('alumni a')
+            ->select('a.*, c.Abbreviation as college_abbr, c.College_Name, d.Department_Name, d.Abbreviation as dept_abbr')
+            ->join('colleges c', 'c.College_ID = a.College_ID', 'left')
+            ->join('departments d', 'd.Department_ID = a.Department_ID', 'left')
+            ->get()
+            ->getResultArray();
         $alumniByEmail = [];
         foreach ($alumniRows as $al) {
             $emailKey = strtolower(trim((string) ($al['Email'] ?? '')));
@@ -394,8 +474,13 @@ class StaffController extends BaseController
                 $alumniName = trim((string) ($resp['user_name'] ?? '')) ?: ($email ?: 'Alumni Respondent');
             }
 
-            $college = is_array($alumni) ? trim((string) ($alumni['College'] ?? '')) : '';
-            $course = is_array($alumni) ? trim((string) ($alumni['Course'] ?? '')) : '';
+            $collegeId = is_array($alumni) && ! empty($alumni['College_ID']) ? (int) $alumni['College_ID'] : 0;
+            $collegeAbbr = is_array($alumni) ? trim((string) ($alumni['college_abbr'] ?? '')) : '';
+            $collegeName = is_array($alumni) ? trim((string) ($alumni['College_Name'] ?? '')) : '';
+            $college = $collegeAbbr ?: ($collegeName ?: 'CET');
+            $deptId = is_array($alumni) && ! empty($alumni['Department_ID']) ? (int) $alumni['Department_ID'] : 0;
+            $course = is_array($alumni) ? trim((string) ($alumni['Department_Name'] ?? '')) : '';
+            $deptAbbr = is_array($alumni) ? trim((string) ($alumni['dept_abbr'] ?? '')) : '';
             $gradYear = is_array($alumni) ? trim((string) ($alumni['GraduationYear'] ?? '')) : '';
             $alumniRecordId = is_array($alumni) ? trim((string) ($alumni['alumni_id'] ?? '')) : '';
             $reviewStatus = strtolower(trim((string) ($resp['review_status'] ?? 'pending')));
@@ -405,10 +490,10 @@ class StaffController extends BaseController
             if ($filterYear !== '' && strcasecmp($gradYear, $filterYear) !== 0) {
                 continue;
             }
-            if ($filterCollege !== '' && strcasecmp($college, $filterCollege) !== 0) {
+            if ($filterCollege !== '' && strcasecmp($college, $filterCollege) !== 0 && strcasecmp($collegeName, $filterCollege) !== 0) {
                 continue;
             }
-            if ($filterCourse !== '' && strcasecmp($course, $filterCourse) !== 0) {
+            if ($filterCourse !== '' && strcasecmp($course, $filterCourse) !== 0 && strcasecmp($deptAbbr, $filterCourse) !== 0) {
                 continue;
             }
             if ($filterReviewStatus !== '' && $filterReviewStatus !== 'all' && $reviewStatus !== $filterReviewStatus) {
@@ -479,8 +564,13 @@ class StaffController extends BaseController
                 'name' => $alumniName,
                 'email' => $email,
                 'alumniId' => $alumniRecordId,
+                'college_id' => $collegeId,
                 'college' => $college ?: '—',
+                'college_abbr' => $collegeAbbr ?: ($college !== '—' ? $college : 'CET'),
+                'college_name' => $collegeName ?: ($college ?: 'CET'),
+                'department_id' => $deptId,
                 'course' => $course ?: '—',
+                'dept_abbr' => $deptAbbr ?: ($course ?: '—'),
                 'graduationYear' => $gradYear ?: '—',
                 'reviewStatus' => $reviewStatus ?: 'pending',
                 'submittedAt' => $submittedAt,
@@ -492,17 +582,231 @@ class StaffController extends BaseController
     }
 
     /**
+     * Fetches the full College -> Department hierarchy from the database.
+     */
+    private function getCollegeDepartmentHierarchy(\CodeIgniter\Database\BaseConnection $db): array
+    {
+        $collegeRows = $db->table('colleges')->orderBy('College_ID', 'ASC')->get()->getResultArray();
+        $deptRows = $db->table('departments')->orderBy('College_ID', 'ASC')->orderBy('Department_ID', 'ASC')->get()->getResultArray();
+
+        $hierarchy = [];
+        $collegeIdToKey = [];
+
+        foreach ($collegeRows as $cRow) {
+            $cId = (int) ($cRow['College_ID'] ?? 0);
+            $abbr = trim((string) ($cRow['Abbreviation'] ?? ''));
+            $name = trim((string) ($cRow['College_Name'] ?? ''));
+            $key = $abbr !== '' ? $abbr : ($name !== '' ? $name : 'COL_' . $cId);
+
+            $hierarchy[$key] = [
+                'id' => $cId,
+                'key' => $key,
+                'abbr' => $abbr !== '' ? $abbr : $key,
+                'name' => $name !== '' ? $name : $key,
+                'departments' => [],
+            ];
+            if ($cId > 0) {
+                $collegeIdToKey[$cId] = $key;
+            }
+        }
+
+        if (empty($hierarchy)) {
+            $hierarchy = [
+                'CET' => [
+                    'id' => 1,
+                    'key' => 'CET',
+                    'abbr' => 'CET',
+                    'name' => 'College of Engineering',
+                    'departments' => [],
+                ],
+                'CA' => [
+                    'id' => 2,
+                    'key' => 'CA',
+                    'abbr' => 'CA',
+                    'name' => 'College of Agriculture',
+                    'departments' => [],
+                ],
+            ];
+        }
+
+        foreach ($deptRows as $dRow) {
+            $dId = (int) ($dRow['Department_ID'] ?? 0);
+            $cId = (int) ($dRow['College_ID'] ?? 0);
+            $dAbbr = trim((string) ($dRow['Abbreviation'] ?? ''));
+            $dName = trim((string) ($dRow['Department_Name'] ?? ''));
+            if ($dName === '' && $dAbbr === '') {
+                continue;
+            }
+
+            $colKey = $collegeIdToKey[$cId] ?? array_key_first($hierarchy);
+            $deptKey = $dId > 0 ? 'dept_' . $dId : ('dept_' . md5($dAbbr . '|' . $dName));
+            $label = ($dAbbr !== '' && $dName !== '' && strcasecmp($dAbbr, $dName) !== 0)
+                ? ($dAbbr . ' — ' . $dName)
+                : ($dName !== '' ? $dName : $dAbbr);
+
+            $hierarchy[$colKey]['departments'][$deptKey] = [
+                'id' => $dId,
+                'key' => $deptKey,
+                'abbr' => $dAbbr !== '' ? $dAbbr : $dName,
+                'name' => $dName !== '' ? $dName : $dAbbr,
+                'label' => $label,
+            ];
+        }
+
+        // Ensure every college has at least one department row
+        foreach ($hierarchy as $colKey => &$colInfo) {
+            if (empty($colInfo['departments'])) {
+                $fallbackKey = 'dept_gen_' . $colKey;
+                $colInfo['departments'][$fallbackKey] = [
+                    'id' => 0,
+                    'key' => $fallbackKey,
+                    'abbr' => $colInfo['abbr'],
+                    'name' => 'All Programs',
+                    'label' => $colInfo['abbr'] . ' — All Programs',
+                ];
+            }
+        }
+        unset($colInfo);
+
+        return $hierarchy;
+    }
+
+    /**
+     * Resolves a record's (collegeKey, deptKey) against the College -> Department hierarchy.
+     */
+    private function resolveCollegeAndDepartmentKeys(
+        array $hierarchy,
+        int $collegeId,
+        string $collegeAbbrOrName,
+        int $deptId,
+        string $deptName,
+        string $deptAbbr = ''
+    ): array {
+        $resolvedColKey = null;
+
+        if ($collegeId > 0) {
+            foreach ($hierarchy as $cKey => $cInfo) {
+                if ((int) ($cInfo['id'] ?? 0) === $collegeId) {
+                    $resolvedColKey = $cKey;
+                    break;
+                }
+            }
+        }
+
+        if ($resolvedColKey === null && $collegeAbbrOrName !== '' && $collegeAbbrOrName !== '—') {
+            if (isset($hierarchy[$collegeAbbrOrName])) {
+                $resolvedColKey = $collegeAbbrOrName;
+            } else {
+                foreach ($hierarchy as $cKey => $cInfo) {
+                    if (
+                        strcasecmp((string) ($cInfo['abbr'] ?? ''), $collegeAbbrOrName) === 0
+                        || strcasecmp((string) ($cInfo['name'] ?? ''), $collegeAbbrOrName) === 0
+                    ) {
+                        $resolvedColKey = $cKey;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Also check if deptId belongs to a known college in the hierarchy
+        if ($deptId > 0) {
+            foreach ($hierarchy as $cKey => $cInfo) {
+                foreach ($cInfo['departments'] as $dKey => $dInfo) {
+                    if ((int) ($dInfo['id'] ?? 0) === $deptId) {
+                        return [$cKey, $dKey];
+                    }
+                }
+            }
+        }
+
+        if ($resolvedColKey === null) {
+            $resolvedColKey = (string) array_key_first($hierarchy);
+        }
+
+        $depts = $hierarchy[$resolvedColKey]['departments'] ?? [];
+        $resolvedDeptKey = null;
+
+        if ($deptId > 0 && isset($depts['dept_' . $deptId])) {
+            $resolvedDeptKey = 'dept_' . $deptId;
+        }
+
+        if ($resolvedDeptKey === null && ($deptName !== '' || $deptAbbr !== '')) {
+            foreach ($depts as $dKey => $dInfo) {
+                if (
+                    ($deptName !== '' && $deptName !== '—' && (
+                        strcasecmp((string) ($dInfo['name'] ?? ''), $deptName) === 0
+                        || strcasecmp((string) ($dInfo['abbr'] ?? ''), $deptName) === 0
+                        || strcasecmp((string) ($dInfo['label'] ?? ''), $deptName) === 0
+                    ))
+                    || ($deptAbbr !== '' && $deptAbbr !== '—' && (
+                        strcasecmp((string) ($dInfo['abbr'] ?? ''), $deptAbbr) === 0
+                        || strcasecmp((string) ($dInfo['name'] ?? ''), $deptAbbr) === 0
+                    ))
+                ) {
+                    $resolvedDeptKey = $dKey;
+                    break;
+                }
+            }
+        }
+
+        if ($resolvedDeptKey === null) {
+            $resolvedDeptKey = (string) array_key_first($depts);
+        }
+
+        return [$resolvedColKey, $resolvedDeptKey];
+    }
+
+    /**
      * Builds Choice and Response Statistics for Category-Question Hierarchy
      * Format:
      * Category
      *    Question
      *      Choices      number of responses
+     *      College -> Department breakdown matrix
      */
     private function buildCategoryQuestionChoiceStatistics(\CodeIgniter\Database\BaseConnection $db, array $selectedCategories, array $selectedQuestions, array $matchingResponses): array
     {
         $selectedQIds = array_values(array_filter(array_map('intval', array_column($selectedQuestions, 'id'))));
         if (empty($selectedQIds)) {
             return $selectedCategories;
+        }
+
+        $hierarchy = $this->getCollegeDepartmentHierarchy($db);
+        $allCollegeAbbrs = [];
+        foreach ($hierarchy as $cKey => $cInfo) {
+            $allCollegeAbbrs[$cKey] = $cInfo['abbr'];
+        }
+
+        $choiceColorPalette = [
+            '#1e4a76', // Navy
+            '#dc2626', // Crimson
+            '#0d9488', // Teal
+            '#d97706', // Amber
+            '#7c3aed', // Purple
+            '#2563eb', // Blue
+            '#db2777', // Pink
+            '#475569', // Slate
+        ];
+
+        // Response to (college, department) mapping
+        $responseCollegeMap = [];
+        $responseLocationMap = [];
+        foreach ($matchingResponses as $mr) {
+            $rId = (int) ($mr['id'] ?? 0);
+            [$colKey, $deptKey] = $this->resolveCollegeAndDepartmentKeys(
+                $hierarchy,
+                (int) ($mr['college_id'] ?? 0),
+                trim((string) ($mr['college_abbr'] ?? $mr['college'] ?? '')),
+                (int) ($mr['department_id'] ?? 0),
+                trim((string) ($mr['course'] ?? '')),
+                trim((string) ($mr['dept_abbr'] ?? ''))
+            );
+            $responseCollegeMap[$rId] = $colKey;
+            $responseLocationMap[$rId] = [
+                'college' => $colKey,
+                'dept' => $deptKey,
+            ];
         }
 
         // 1. Fetch predefined choices for all selected questions
@@ -535,76 +839,127 @@ class StaffController extends BaseController
                 ->getResultArray();
         }
 
+        $defaultColKey = (string) array_key_first($hierarchy);
+        $defaultDeptKey = (string) array_key_first($hierarchy[$defaultColKey]['departments']);
+
         $answersByQId = [];
         foreach ($rawAnswers as $row) {
             $qId = (int) $row['question_id'];
+            $rId = (int) $row['response_id'];
+            $loc = $responseLocationMap[$rId] ?? ['college' => $defaultColKey, 'dept' => $defaultDeptKey];
             $answersByQId[$qId][] = [
                 'choice_id' => $row['choice_id'] !== null ? (int) $row['choice_id'] : null,
                 'choice_text' => trim((string) ($row['choice_text'] ?? '')),
                 'answer_text' => trim((string) ($row['answer_text'] ?? '')),
                 'value' => trim((string) ($row['choice_text'] ?? $row['answer_text'] ?? '')),
+                'college' => $loc['college'],
+                'dept' => $loc['dept'],
             ];
         }
 
-        // 3. For each category and each question, compile choice statistics
+        // 3. For each category and each question, compile choice statistics & College -> Department Matrix
         foreach ($selectedCategories as &$category) {
             foreach ($category['questions'] as &$question) {
                 $qId = (int) $question['id'];
                 $qType = strtolower(trim((string) ($question['type'] ?? 'text')));
                 $qAnswers = $answersByQId[$qId] ?? [];
                 $choicesList = [];
+                $choiceDeptTally = []; // [choiceText][colKey][deptKey] => int
 
                 if ($qType === 'multiple_choice') {
                     $definedChoices = $choicesByQuestion[$qId] ?? [];
                     $choiceCounts = [];
+                    $choiceColleges = [];
                     $choiceIdToText = [];
 
                     foreach ($definedChoices as $dc) {
                         $cText = $dc['text'];
                         $choiceCounts[$cText] = 0;
+                        $choiceColleges[$cText] = array_fill_keys(array_keys($allCollegeAbbrs), 0);
                         $choiceIdToText[$dc['id']] = $cText;
                     }
 
                     foreach ($qAnswers as $ans) {
+                        $col = $ans['college'] ?? $defaultColKey;
+                        $dept = $ans['dept'] ?? $defaultDeptKey;
+                        $targetText = '';
                         if ($ans['choice_id'] !== null && isset($choiceIdToText[$ans['choice_id']])) {
                             $targetText = $choiceIdToText[$ans['choice_id']];
-                            $choiceCounts[$targetText] = ($choiceCounts[$targetText] ?? 0) + 1;
                         } elseif ($ans['choice_text'] !== '' && isset($choiceCounts[$ans['choice_text']])) {
-                            $choiceCounts[$ans['choice_text']]++;
+                            $targetText = $ans['choice_text'];
                         } elseif ($ans['value'] !== '') {
-                            $choiceCounts[$ans['value']] = ($choiceCounts[$ans['value']] ?? 0) + 1;
+                            $targetText = $ans['value'];
+                        }
+
+                        if ($targetText !== '') {
+                            $choiceCounts[$targetText] = ($choiceCounts[$targetText] ?? 0) + 1;
+                            $choiceColleges[$targetText][$col] = ($choiceColleges[$targetText][$col] ?? 0) + 1;
+                            $choiceDeptTally[$targetText][$col][$dept] = ($choiceDeptTally[$targetText][$col][$dept] ?? 0) + 1;
                         }
                     }
 
                     if (empty($choiceCounts)) {
                         $choiceCounts['No choices configured'] = 0;
+                        $choiceColleges['No choices configured'] = array_fill_keys(array_keys($allCollegeAbbrs), 0);
                     }
 
                     foreach ($choiceCounts as $cText => $count) {
+                        $colDetails = [];
+                        foreach ($allCollegeAbbrs as $colAbbr) {
+                            $colCnt = (int) ($choiceColleges[$cText][$colAbbr] ?? 0);
+                            $colPct = $count > 0 ? round(($colCnt / $count) * 100, 1) : 0.0;
+                            $colDetails[$colAbbr] = [
+                                'abbr' => $colAbbr,
+                                'count' => $colCnt,
+                                'percentage' => $colPct,
+                                'formatted' => $colAbbr . ' - ' . number_format($colCnt) . ' - ' . number_format($colPct, 1) . '%',
+                            ];
+                        }
                         $choicesList[] = [
                             'choice' => $cText,
                             'count' => $count,
+                            'colleges' => $colDetails,
                         ];
                     }
                 } elseif ($qType === 'rating') {
                     $definedChoices = $choicesByQuestion[$qId] ?? [];
                     if (! empty($definedChoices)) {
                         $choiceCounts = [];
+                        $choiceColleges = [];
                         foreach ($definedChoices as $dc) {
                             $choiceCounts[$dc['text']] = 0;
+                            $choiceColleges[$dc['text']] = array_fill_keys(array_keys($allCollegeAbbrs), 0);
                         }
                         foreach ($qAnswers as $ans) {
+                            $col = $ans['college'] ?? $defaultColKey;
+                            $dept = $ans['dept'] ?? $defaultDeptKey;
                             $val = $ans['choice_text'] !== '' ? $ans['choice_text'] : $ans['value'];
                             if (isset($choiceCounts[$val])) {
                                 $choiceCounts[$val]++;
+                                $choiceColleges[$val][$col] = ($choiceColleges[$val][$col] ?? 0) + 1;
+                                $choiceDeptTally[$val][$col][$dept] = ($choiceDeptTally[$val][$col][$dept] ?? 0) + 1;
                             } elseif ($val !== '') {
                                 $choiceCounts[$val] = ($choiceCounts[$val] ?? 0) + 1;
+                                $choiceColleges[$val][$col] = ($choiceColleges[$val][$col] ?? 0) + 1;
+                                $choiceDeptTally[$val][$col][$dept] = ($choiceDeptTally[$val][$col][$dept] ?? 0) + 1;
                             }
                         }
                         foreach ($choiceCounts as $cText => $count) {
+                            $colDetails = [];
+                            foreach ($allCollegeAbbrs as $colAbbr) {
+                                $colCnt = (int) ($choiceColleges[$cText][$colAbbr] ?? 0);
+                                $colPct = $count > 0 ? round(($colCnt / $count) * 100, 1) : 0.0;
+                                $colDetails[$colAbbr] = [
+                                    'abbr' => $colAbbr,
+                                    'count' => $colCnt,
+                                    'percentage' => $colPct,
+                                    'formatted' => $colAbbr . ' - ' . number_format($colCnt) . ' - ' . number_format($colPct, 1) . '%',
+                                ];
+                            }
                             $choicesList[] = [
                                 'choice' => $cText,
                                 'count' => $count,
+                                'colleges' => $colDetails,
                             ];
                         }
                     } else {
@@ -614,6 +969,7 @@ class StaffController extends BaseController
                         $maxLabel = trim((string) ($question['rating_max_label'] ?? ''));
 
                         $scaleCounts = [];
+                        $scaleColleges = [];
                         $scoreToLabel = [];
                         for ($s = $min; $s <= $max; $s++) {
                             $label = (string) $s;
@@ -623,23 +979,43 @@ class StaffController extends BaseController
                                 $label .= ' (' . $maxLabel . ')';
                             }
                             $scaleCounts[$label] = 0;
+                            $scaleColleges[$label] = array_fill_keys(array_keys($allCollegeAbbrs), 0);
                             $scoreToLabel[$s] = $label;
                         }
 
                         foreach ($qAnswers as $ans) {
+                            $col = $ans['college'] ?? $defaultColKey;
+                            $dept = $ans['dept'] ?? $defaultDeptKey;
                             $numVal = is_numeric($ans['value']) ? (int) $ans['value'] : null;
                             if ($numVal !== null && isset($scoreToLabel[$numVal])) {
                                 $lbl = $scoreToLabel[$numVal];
                                 $scaleCounts[$lbl] = ($scaleCounts[$lbl] ?? 0) + 1;
+                                $scaleColleges[$lbl][$col] = ($scaleColleges[$lbl][$col] ?? 0) + 1;
+                                $choiceDeptTally[$lbl][$col][$dept] = ($choiceDeptTally[$lbl][$col][$dept] ?? 0) + 1;
                             } elseif ($ans['value'] !== '') {
-                                $scaleCounts[$ans['value']] = ($scaleCounts[$ans['value']] ?? 0) + 1;
+                                $lbl = $ans['value'];
+                                $scaleCounts[$lbl] = ($scaleCounts[$lbl] ?? 0) + 1;
+                                $scaleColleges[$lbl][$col] = ($scaleColleges[$lbl][$col] ?? 0) + 1;
+                                $choiceDeptTally[$lbl][$col][$dept] = ($choiceDeptTally[$lbl][$col][$dept] ?? 0) + 1;
                             }
                         }
 
                         foreach ($scaleCounts as $label => $cnt) {
+                            $colDetails = [];
+                            foreach ($allCollegeAbbrs as $colAbbr) {
+                                $colCnt = (int) ($scaleColleges[$label][$colAbbr] ?? 0);
+                                $colPct = $cnt > 0 ? round(($colCnt / $cnt) * 100, 1) : 0.0;
+                                $colDetails[$colAbbr] = [
+                                    'abbr' => $colAbbr,
+                                    'count' => $colCnt,
+                                    'percentage' => $colPct,
+                                    'formatted' => $colAbbr . ' - ' . number_format($colCnt) . ' - ' . number_format($colPct, 1) . '%',
+                                ];
+                            }
                             $choicesList[] = [
                                 'choice' => $label,
                                 'count' => $cnt,
+                                'colleges' => $colDetails,
                             ];
                         }
                     }
@@ -649,13 +1025,19 @@ class StaffController extends BaseController
                         $choicesList[] = [
                             'choice' => 'No responses submitted',
                             'count' => 0,
+                            'colleges' => [],
                         ];
                     } else {
                         $textCounts = [];
+                        $textColleges = [];
                         foreach ($qAnswers as $ans) {
                             $val = trim((string) $ans['value']);
+                            $col = $ans['college'] ?? $defaultColKey;
+                            $dept = $ans['dept'] ?? $defaultDeptKey;
                             if ($val !== '' && $val !== '—') {
                                 $textCounts[$val] = ($textCounts[$val] ?? 0) + 1;
+                                $textColleges[$val][$col] = ($textColleges[$val][$col] ?? 0) + 1;
+                                $choiceDeptTally[$val][$col][$dept] = ($choiceDeptTally[$val][$col][$dept] ?? 0) + 1;
                             }
                         }
 
@@ -663,13 +1045,26 @@ class StaffController extends BaseController
                             $choicesList[] = [
                                 'choice' => 'No responses submitted',
                                 'count' => 0,
+                                'colleges' => [],
                             ];
                         } else {
                             arsort($textCounts);
                             foreach ($textCounts as $tText => $cnt) {
+                                $colDetails = [];
+                                foreach ($allCollegeAbbrs as $colAbbr) {
+                                    $colCnt = (int) ($textColleges[$tText][$colAbbr] ?? 0);
+                                    $colPct = $cnt > 0 ? round(($colCnt / $cnt) * 100, 1) : 0.0;
+                                    $colDetails[$colAbbr] = [
+                                        'abbr' => $colAbbr,
+                                        'count' => $colCnt,
+                                        'percentage' => $colPct,
+                                        'formatted' => $colAbbr . ' - ' . number_format($colCnt) . ' - ' . number_format($colPct, 1) . '%',
+                                    ];
+                                }
                                 $choicesList[] = [
                                     'choice' => $tText,
                                     'count' => $cnt,
+                                    'colleges' => $colDetails,
                                 ];
                             }
                         }
@@ -677,15 +1072,88 @@ class StaffController extends BaseController
                 }
 
                 $qTotalResponses = array_sum(array_column($choicesList, 'count'));
-                foreach ($choicesList as &$cItem) {
+                foreach ($choicesList as $cIdx => &$cItem) {
                     $cCount = (int) ($cItem['count'] ?? 0);
                     $cItem['percentage'] = $qTotalResponses > 0 ? round(($cCount / $qTotalResponses) * 100, 1) : 0.0;
                     $cItem['percentage_formatted'] = number_format($cItem['percentage'], 1) . '%';
+                    $cItem['color'] = $choiceColorPalette[$cIdx % count($choiceColorPalette)];
                 }
                 unset($cItem);
 
+                // Build College -> Department Breakdown Matrix for this question
+                $collegeMatrix = [];
+                foreach ($hierarchy as $colKey => $colInfo) {
+                    $colTotal = 0;
+                    $colItems = [];
+                    foreach ($choicesList as $cIdx => $cItem) {
+                        $cLabel = (string) ($cItem['choice'] ?? '');
+                        $cColor = (string) ($cItem['color'] ?? $choiceColorPalette[$cIdx % count($choiceColorPalette)]);
+                        $cColCnt = 0;
+                        foreach ($colInfo['departments'] as $dKey => $_dInfo) {
+                            $cColCnt += (int) ($choiceDeptTally[$cLabel][$colKey][$dKey] ?? 0);
+                        }
+                        $colTotal += $cColCnt;
+                        $colItems[$cLabel] = [
+                            'label' => $cLabel,
+                            'count' => $cColCnt,
+                            'percentage' => 0.0,
+                            'color' => $cColor,
+                        ];
+                    }
+                    foreach ($colItems as &$ci) {
+                        $ci['percentage'] = $colTotal > 0 ? round(($ci['count'] / $colTotal) * 100, 1) : 0.0;
+                    }
+                    unset($ci);
+
+                    $deptMatrix = [];
+                    foreach ($colInfo['departments'] as $dKey => $dInfo) {
+                        $dTotal = 0;
+                        $dItems = [];
+                        foreach ($choicesList as $cIdx => $cItem) {
+                            $cLabel = (string) ($cItem['choice'] ?? '');
+                            $cColor = (string) ($cItem['color'] ?? $choiceColorPalette[$cIdx % count($choiceColorPalette)]);
+                            $dCnt = (int) ($choiceDeptTally[$cLabel][$colKey][$dKey] ?? 0);
+                            $dTotal += $dCnt;
+                            $dItems[] = [
+                                'label' => $cLabel,
+                                'count' => $dCnt,
+                                'percentage' => 0.0,
+                                'color' => $cColor,
+                            ];
+                        }
+                        foreach ($dItems as &$di) {
+                            $di['percentage'] = $dTotal > 0 ? round(($di['count'] / $dTotal) * 100, 1) : 0.0;
+                        }
+                        unset($di);
+
+                        $deptMatrix[$dKey] = [
+                            'id' => $dInfo['id'],
+                            'key' => $dKey,
+                            'abbr' => $dInfo['abbr'],
+                            'name' => $dInfo['name'],
+                            'label' => $dInfo['label'],
+                            'total' => $dTotal,
+                            'percentage_of_all' => $qTotalResponses > 0 ? round(($dTotal / $qTotalResponses) * 100, 1) : 0.0,
+                            'percentage_of_college' => $colTotal > 0 ? round(($dTotal / $colTotal) * 100, 1) : 0.0,
+                            'items' => $dItems,
+                        ];
+                    }
+
+                    $collegeMatrix[$colKey] = [
+                        'id' => $colInfo['id'],
+                        'key' => $colKey,
+                        'abbr' => $colInfo['abbr'],
+                        'name' => $colInfo['name'],
+                        'total' => $colTotal,
+                        'percentage' => $qTotalResponses > 0 ? round(($colTotal / $qTotalResponses) * 100, 1) : 0.0,
+                        'items' => array_values($colItems),
+                        'departments' => $deptMatrix,
+                    ];
+                }
+
                 $question['choiceStats'] = $choicesList;
                 $question['totalResponses'] = $qTotalResponses;
+                $question['collegeMatrix'] = $collegeMatrix;
             }
             unset($question);
         }
@@ -834,6 +1302,1910 @@ class StaffController extends BaseController
         $this->addProgramAlumniOutcomeTableToWordSection($phpWord, $section, $programGroups);
 
         $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($filepath);
+        return $filepath;
+    }
+
+    /**
+     * Compiles Graduate Tracer Status Overview & College -> Department Distribution Breakdown
+     * Statuses: Employed, Unemployed, Not Tracked
+     */
+    private function compileTracerStatusOverview(array $survey, array $matchingResponses, array $filters): array
+    {
+        $db = \Config\Database::connect();
+        $hierarchy = $this->getCollegeDepartmentHierarchy($db);
+
+        $collegeList = [];
+        foreach ($hierarchy as $cKey => $cInfo) {
+            $collegeList[$cKey] = $cInfo['name'];
+        }
+
+        // 2. Fetch alumni cohort matching demographic filters
+        $alumniBuilder = $db->table('alumni a')
+            ->select('a.id, a.alumni_id, a.FirstName, a.LastName, a.Email, a.College_ID, a.Department_ID, a.GraduationYear, a.Status, c.Abbreviation as college_abbr, c.College_Name, d.Department_Name, d.Abbreviation as dept_abbr')
+            ->join('colleges c', 'c.College_ID = a.College_ID', 'left')
+            ->join('departments d', 'd.Department_ID = a.Department_ID', 'left');
+
+        $filterYear = trim((string) ($filters['graduation_year'] ?? $filters['graduationYear'] ?? ''));
+        $filterCollege = trim((string) ($filters['college'] ?? ''));
+        $filterCourse = trim((string) ($filters['course'] ?? $filters['department'] ?? ''));
+        $filterReviewStatus = strtolower(trim((string) ($filters['review_status'] ?? $filters['reviewStatus'] ?? 'all')));
+
+        if ($filterYear !== '') {
+            $alumniBuilder->where('a.GraduationYear', $filterYear);
+        }
+        if ($filterCollege !== '') {
+            $alumniBuilder->groupStart()
+                ->where('c.Abbreviation', $filterCollege)
+                ->orWhere('c.College_Name', $filterCollege)
+                ->groupEnd();
+        }
+        if ($filterCourse !== '') {
+            $alumniBuilder->groupStart()
+                ->where('d.Department_Name', $filterCourse)
+                ->orWhere('d.Abbreviation', $filterCourse)
+                ->groupEnd();
+        }
+        if ($filterReviewStatus !== '' && $filterReviewStatus !== 'all') {
+            $alumniBuilder->where('LOWER(a.Status)', $filterReviewStatus);
+        }
+
+        $cohortAlumni = $alumniBuilder->get()->getResultArray();
+        if (empty($cohortAlumni)) {
+            $cohortAlumni = $db->table('alumni a')
+                ->select('a.id, a.alumni_id, a.FirstName, a.LastName, a.Email, a.College_ID, a.Department_ID, a.GraduationYear, a.Status, c.Abbreviation as college_abbr, c.College_Name, d.Department_Name, d.Abbreviation as dept_abbr')
+                ->join('colleges c', 'c.College_ID = a.College_ID', 'left')
+                ->join('departments d', 'd.Department_ID = a.Department_ID', 'left')
+                ->get()
+                ->getResultArray();
+        }
+
+        // 3. Map responses to status (Employed, Unemployed)
+        $matchingResponseIds = array_values(array_filter(array_map('intval', array_column($matchingResponses, 'id'))));
+        $statusByResponseId = [];
+        if (! empty($matchingResponseIds)) {
+            $answers = $db->table('answers a')
+                ->select('a.response_id, a.question_id, a.choice_id, a.answer_text, c.choice_text, q.question_text')
+                ->join('choices c', 'c.id = a.choice_id', 'left')
+                ->join('questions q', 'q.id = a.question_id', 'left')
+                ->whereIn('a.response_id', $matchingResponseIds)
+                ->get()
+                ->getResultArray();
+
+            foreach ($answers as $ans) {
+                $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
+                $qText = strtolower(trim((string) ($ans['question_text'] ?? '')));
+                if (str_contains($qText, 'employ') || str_contains($qText, 'status') || str_contains($qText, 'job') || str_contains($qText, 'work')) {
+                    if (stripos($val, 'unemployed') !== false) {
+                        $statusByResponseId[$ans['response_id']] = 'Unemployed';
+                    } elseif (stripos($val, 'employed') !== false) {
+                        $statusByResponseId[$ans['response_id']] = 'Employed';
+                    }
+                }
+            }
+        }
+
+        $statusByEmail = [];
+        foreach ($matchingResponses as $mr) {
+            $email = strtolower(trim((string) ($mr['email'] ?? '')));
+            if ($email === '') continue;
+            $rId = (int) ($mr['id'] ?? 0);
+            $status = $statusByResponseId[$rId] ?? 'Employed';
+            $statusByEmail[$email] = $status;
+        }
+
+        // 4. Aggregate cohort into breakdown and College -> Department matrix
+        $breakdown = [
+            'Employed' => ['label' => 'Employed', 'total' => 0, 'colleges' => array_fill_keys(array_keys($collegeList), 0)],
+            'Unemployed' => ['label' => 'Unemployed', 'total' => 0, 'colleges' => array_fill_keys(array_keys($collegeList), 0)],
+            'Not Tracked' => ['label' => 'Not Tracked', 'total' => 0, 'colleges' => array_fill_keys(array_keys($collegeList), 0)],
+        ];
+
+        $statusDeptTally = [
+            'Employed' => [],
+            'Unemployed' => [],
+            'Not Tracked' => [],
+        ];
+
+        $matchedCohortEmails = [];
+        foreach ($cohortAlumni as $a) {
+            $email = strtolower(trim((string) ($a['Email'] ?? '')));
+            [$colKey, $deptKey] = $this->resolveCollegeAndDepartmentKeys(
+                $hierarchy,
+                (int) ($a['College_ID'] ?? 0),
+                trim((string) ($a['college_abbr'] ?? $a['College_Name'] ?? '')),
+                (int) ($a['Department_ID'] ?? 0),
+                trim((string) ($a['Department_Name'] ?? '')),
+                trim((string) ($a['dept_abbr'] ?? ''))
+            );
+
+            if ($email !== '' && isset($statusByEmail[$email])) {
+                $st = $statusByEmail[$email];
+                $matchedCohortEmails[$email] = true;
+            } else {
+                $st = 'Not Tracked';
+            }
+
+            $breakdown[$st]['total']++;
+            $breakdown[$st]['colleges'][$colKey] = ($breakdown[$st]['colleges'][$colKey] ?? 0) + 1;
+            $statusDeptTally[$st][$colKey][$deptKey] = ($statusDeptTally[$st][$colKey][$deptKey] ?? 0) + 1;
+        }
+
+        foreach ($statusByEmail as $email => $st) {
+            if (! isset($matchedCohortEmails[$email])) {
+                $respCollege = (string) array_key_first($hierarchy);
+                $respDept = (string) array_key_first($hierarchy[$respCollege]['departments']);
+                foreach ($matchingResponses as $mr) {
+                    if (strtolower(trim((string) ($mr['email'] ?? ''))) === $email) {
+                        [$respCollege, $respDept] = $this->resolveCollegeAndDepartmentKeys(
+                            $hierarchy,
+                            (int) ($mr['college_id'] ?? 0),
+                            trim((string) ($mr['college_abbr'] ?? $mr['college'] ?? '')),
+                            (int) ($mr['department_id'] ?? 0),
+                            trim((string) ($mr['course'] ?? '')),
+                            trim((string) ($mr['dept_abbr'] ?? ''))
+                        );
+                        break;
+                    }
+                }
+                $breakdown[$st]['total']++;
+                $breakdown[$st]['colleges'][$respCollege] = ($breakdown[$st]['colleges'][$respCollege] ?? 0) + 1;
+                $statusDeptTally[$st][$respCollege][$respDept] = ($statusDeptTally[$st][$respCollege][$respDept] ?? 0) + 1;
+            }
+        }
+
+        $totalAlumni = array_sum(array_column($breakdown, 'total'));
+        $slices = [];
+        $statusColors = [
+            'Employed' => '#1e4a76',
+            'Unemployed' => '#dc2626',
+            'Not Tracked' => '#64748b',
+        ];
+
+        foreach ($breakdown as $stKey => &$stInfo) {
+            $stTotal = (int) $stInfo['total'];
+            $stPct = $totalAlumni > 0 ? round(($stTotal / $totalAlumni) * 100, 1) : 0.0;
+            $stInfo['percentage'] = $stPct;
+            $stInfo['color'] = $statusColors[$stKey] ?? '#0284c7';
+
+            $collegeDetails = [];
+            foreach ($stInfo['colleges'] as $colAbbr => $colCount) {
+                $colPct = $stTotal > 0 ? round(($colCount / $stTotal) * 100, 1) : 0.0;
+                $collegeDetails[$colAbbr] = [
+                    'abbr' => $colAbbr,
+                    'name' => $collegeList[$colAbbr] ?? $colAbbr,
+                    'count' => $colCount,
+                    'percentage' => $colPct,
+                    'formatted' => $colAbbr . ' - ' . number_format($colCount) . ' - ' . number_format($colPct, 1) . '%',
+                ];
+            }
+            $stInfo['college_breakdown'] = $collegeDetails;
+
+            $slices[] = [
+                'label' => $stKey,
+                'value' => $stTotal,
+                'percentage' => $stPct,
+                'color' => $statusColors[$stKey] ?? '#0284c7',
+            ];
+        }
+        unset($stInfo);
+
+        // Build College -> Department Breakdown Matrix for Tracer Status Overview
+        $collegeMatrix = [];
+        foreach ($hierarchy as $colKey => $colInfo) {
+            $colTotal = 0;
+            $colItems = [];
+            foreach ($statusColors as $stKey => $stColor) {
+                $stColCnt = 0;
+                foreach ($colInfo['departments'] as $dKey => $_dInfo) {
+                    $stColCnt += (int) ($statusDeptTally[$stKey][$colKey][$dKey] ?? 0);
+                }
+                $colTotal += $stColCnt;
+                $colItems[$stKey] = [
+                    'label' => $stKey,
+                    'count' => $stColCnt,
+                    'percentage' => 0.0,
+                    'color' => $stColor,
+                ];
+            }
+            foreach ($colItems as &$ci) {
+                $ci['percentage'] = $colTotal > 0 ? round(($ci['count'] / $colTotal) * 100, 1) : 0.0;
+            }
+            unset($ci);
+
+            $deptMatrix = [];
+            foreach ($colInfo['departments'] as $dKey => $dInfo) {
+                $dTotal = 0;
+                $dItems = [];
+                foreach ($statusColors as $stKey => $stColor) {
+                    $dCnt = (int) ($statusDeptTally[$stKey][$colKey][$dKey] ?? 0);
+                    $dTotal += $dCnt;
+                    $dItems[] = [
+                        'label' => $stKey,
+                        'count' => $dCnt,
+                        'percentage' => 0.0,
+                        'color' => $stColor,
+                    ];
+                }
+                foreach ($dItems as &$di) {
+                    $di['percentage'] = $dTotal > 0 ? round(($di['count'] / $dTotal) * 100, 1) : 0.0;
+                }
+                unset($di);
+
+                $deptMatrix[$dKey] = [
+                    'id' => $dInfo['id'],
+                    'key' => $dKey,
+                    'abbr' => $dInfo['abbr'],
+                    'name' => $dInfo['name'],
+                    'label' => $dInfo['label'],
+                    'total' => $dTotal,
+                    'percentage_of_all' => $totalAlumni > 0 ? round(($dTotal / $totalAlumni) * 100, 1) : 0.0,
+                    'percentage_of_college' => $colTotal > 0 ? round(($dTotal / $colTotal) * 100, 1) : 0.0,
+                    'items' => $dItems,
+                ];
+            }
+
+            $collegeMatrix[$colKey] = [
+                'id' => $colInfo['id'],
+                'key' => $colKey,
+                'abbr' => $colInfo['abbr'],
+                'name' => $colInfo['name'],
+                'total' => $colTotal,
+                'percentage' => $totalAlumni > 0 ? round(($colTotal / $totalAlumni) * 100, 1) : 0.0,
+                'items' => array_values($colItems),
+                'departments' => $deptMatrix,
+            ];
+        }
+
+        return [
+            'total_alumni' => $totalAlumni,
+            'total_responses' => count($matchingResponses),
+            'colleges' => array_keys($collegeList),
+            'breakdown' => $breakdown,
+            'slices' => $slices,
+            'college_matrix' => $collegeMatrix,
+        ];
+    }
+
+    /**
+     * Generates a high-clarity Donut/Pie Chart PNG file with slices, center total badge, and right-side legend
+     */
+    private function generateGdPieChartFile(array $slices, int $width = 360, int $height = 195): string
+    {
+        $tempPath = WRITEPATH . 'uploads/pie_' . uniqid('', true) . '.png';
+        if (! is_dir(dirname($tempPath))) {
+            mkdir(dirname($tempPath), 0777, true);
+        }
+
+        // Render at 2x resolution for smooth anti-aliased edges
+        $scale = 2;
+        $rw = $width * $scale;
+        $rh = $height * $scale;
+
+        $canvas = imagecreatetruecolor($rw, $rh);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        imagefilledrectangle($canvas, 0, 0, $rw, $rh, $white);
+
+        $total = array_sum(array_column($slices, 'value'));
+        $cx = (int) ($rh * 0.50);
+        $cy = (int) ($rh * 0.50);
+        $diameter = (int) ($rh * 0.80);
+        $innerDiameter = (int) ($diameter * 0.46);
+
+        $defaultPalette = [
+            [30, 74, 118],   // #1e4a76 Navy
+            [220, 38, 38],   // #dc2626 Crimson
+            [13, 148, 136],  // #0d9488 Teal
+            [217, 119, 6],   // #d97706 Amber
+            [124, 58, 237],  // #7c3aed Purple
+            [37, 99, 235],   // #2563eb Blue
+            [219, 39, 119],  // #db2777 Pink
+            [100, 116, 139], // #64748b Slate
+        ];
+
+        $shadowColor = imagecolorallocate($canvas, 226, 232, 240);
+        imagefilledellipse($canvas, $cx, $cy + 4, $diameter + 6, $diameter + 6, $shadowColor);
+
+        if ($total <= 0) {
+            $gray = imagecolorallocate($canvas, 203, 213, 225);
+            imagefilledellipse($canvas, $cx, $cy, $diameter, $diameter, $gray);
+        } else {
+            $startAngle = 0.0;
+            foreach ($slices as $idx => $s) {
+                $val = (float) ($s['value'] ?? 0);
+                if ($val <= 0) continue;
+                $degrees = ($val / $total) * 360.0;
+                $endAngle = $startAngle + $degrees;
+
+                $rgb = $defaultPalette[$idx % count($defaultPalette)];
+                if (! empty($s['color']) && preg_match('/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i', $s['color'], $m)) {
+                    $rgb = [hexdec($m[1]), hexdec($m[2]), hexdec($m[3])];
+                }
+
+                $color = imagecolorallocate($canvas, $rgb[0], $rgb[1], $rgb[2]);
+                $sAng = (int) round($startAngle);
+                $eAng = (int) round($endAngle);
+                if ($eAng > $sAng) {
+                    imagefilledarc($canvas, $cx, $cy, $diameter, $diameter, $sAng, $eAng, $color, IMG_ARC_PIE);
+                }
+                $startAngle = $endAngle;
+            }
+        }
+
+        // Donut center cutout
+        imagefilledellipse($canvas, $cx, $cy, $innerDiameter, $innerDiameter, $white);
+        $ringBorder = imagecolorallocate($canvas, 226, 232, 240);
+        imageellipse($canvas, $cx, $cy, $innerDiameter, $innerDiameter, $ringBorder);
+
+        // Downsample 2x canvas onto final image
+        $img = imagecreatetruecolor($width, $height);
+        $finalWhite = imagecolorallocate($img, 255, 255, 255);
+        imagefilledrectangle($img, 0, 0, $width, $height, $finalWhite);
+        imagecopyresampled($img, $canvas, 0, 0, 0, 0, $width, $height, $rw, $rh);
+        imagedestroy($canvas);
+
+        // Center total text inside donut hole
+        $fcx = (int) ($height * 0.50);
+        $fcy = (int) ($height * 0.50);
+        $navyText = imagecolorallocate($img, 30, 74, 118);
+        $mutedText = imagecolorallocate($img, 100, 116, 139);
+        $totalStr = number_format((int) $total);
+        $lblStr = 'TOTAL';
+        imagestring($img, 1, $fcx - (int) (strlen($lblStr) * 2.5), $fcy - 11, $lblStr, $mutedText);
+        imagestring($img, 4, $fcx - (int) (strlen($totalStr) * 4), $fcy - 1, $totalStr, $navyText);
+
+        // Right-side legend on final image
+        $legendX = (int) ($height * 1.02);
+        $legendY = 16;
+        $textColor = imagecolorallocate($img, 15, 23, 42);
+        $subColor = imagecolorallocate($img, 71, 85, 105);
+
+        foreach ($slices as $idx => $s) {
+            $val = (float) ($s['value'] ?? 0);
+            $label = (string) ($s['label'] ?? '');
+            $pct = $total > 0 ? round(($val / $total) * 100, 1) : 0.0;
+
+            $rgb = $defaultPalette[$idx % count($defaultPalette)];
+            if (! empty($s['color']) && preg_match('/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i', $s['color'], $m)) {
+                $rgb = [hexdec($m[1]), hexdec($m[2]), hexdec($m[3])];
+            }
+
+            $boxColor = imagecolorallocate($img, $rgb[0], $rgb[1], $rgb[2]);
+            imagefilledrectangle($img, $legendX, $legendY + 2, $legendX + 10, $legendY + 12, $boxColor);
+
+            $shortLabel = strlen($label) > 20 ? substr($label, 0, 19) . '.' : $label;
+            imagestring($img, 3, $legendX + 15, $legendY, $shortLabel, $textColor);
+            imagestring($img, 2, $legendX + 15, $legendY + 13, number_format($val) . ' (' . number_format($pct, 1) . '%)', $subColor);
+
+            $legendY += 31;
+            if ($legendY > $height - 22) {
+                break;
+            }
+        }
+
+        imagepng($img, $tempPath);
+        imagedestroy($img);
+        return $tempPath;
+    }
+
+    /**
+     * Reads a file and returns data:image/png;base64,... URI
+     */
+    private function getFileAsBase64Png(string $filePath): string
+    {
+        if (! file_exists($filePath)) {
+            return '';
+        }
+        $data = file_get_contents($filePath);
+        return 'data:image/png;base64,' . base64_encode($data);
+    }
+
+    /**
+     * Renders the Top Centered GRAPH Showcase HTML block (Pie/Donut Chart + Overall Distribution Bars) for PDF
+     */
+    private function renderPdfTopGraphShowcaseHtml(string $pieBase64, array $slices, int $totalCount, string $unitLabel = 'Responses'): string
+    {
+        $html = '<div class="graph-top-showcase">';
+        $html .= '<div class="graph-top-header">GRAPH &mdash; OVERALL VISUAL DISTRIBUTION (' . number_format($totalCount) . ' ' . htmlspecialchars($unitLabel, ENT_QUOTES, 'UTF-8') . ')</div>';
+        $html .= '<table class="graph-top-table"><tr>';
+
+        // Left/Center: Donut / Pie Chart Image
+        $html .= '<td class="graph-top-pie-cell">';
+        if ($pieBase64 !== '') {
+            $html .= '<img src="' . $pieBase64 . '" style="width: 245px; height: auto;" />';
+        }
+        $html .= '</td>';
+
+        // Right: Overall Distribution Progress Bars & Summary
+        $html .= '<td class="graph-top-bars-cell">';
+        $html .= '<div class="graph-bars-heading">Overall Distribution Summary</div>';
+        $html .= '<table class="overall-bars-table">';
+
+        foreach ($slices as $s) {
+            $lbl = htmlspecialchars((string) ($s['label'] ?? 'Option'), ENT_QUOTES, 'UTF-8');
+            $val = (int) ($s['value'] ?? 0);
+            $pct = (float) ($s['percentage'] ?? ($totalCount > 0 ? round(($val / $totalCount) * 100, 1) : 0.0));
+            $color = htmlspecialchars((string) ($s['color'] ?? '#1e4a76'), ENT_QUOTES, 'UTF-8');
+            $barWidth = max(0, min(100, (int) round($pct)));
+
+            $html .= '<tr>';
+            $html .= '<td class="ob-label-cell"><span class="color-dot" style="background-color: ' . $color . ';"></span>' . $lbl . '</td>';
+            $html .= '<td class="ob-bar-cell">';
+            $html .= '<table class="progress-track-table"><tr>';
+            if ($barWidth > 0) {
+                $html .= '<td style="width: ' . $barWidth . '%; background-color: ' . $color . '; height: 7px; padding: 0;"></td>';
+            }
+            if ($barWidth < 100) {
+                $html .= '<td style="width: ' . (100 - $barWidth) . '%; background-color: #e2e8f0; height: 7px; padding: 0;"></td>';
+            }
+            $html .= '</tr></table>';
+            $html .= '</td>';
+            $html .= '<td class="ob-stat-cell"><strong>' . number_format($val) . '</strong> (' . number_format($pct, 1) . '%)</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</table>';
+        $html .= '</td>';
+        $html .= '</tr></table>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    /**
+     * Renders the Bottom Multi-Column College | College | College & Department Breakdown Matrix HTML for PDF
+     * Format:
+     *   College 1       | College 2       | College 3
+     *   Department 1    | Department 1    | Department 1
+     *   Department 2    | Department 2    | Department 2
+     */
+    private function renderPdfCollegeDepartmentMatrixHtml(array $collegeMatrix, int $grandTotal, string $unitLabel = 'Responses'): string
+    {
+        if (empty($collegeMatrix)) {
+            return '';
+        }
+
+        $html = '';
+        // Chunk into at most 3 College columns per table so columns remain wide and readable on A4 portrait
+        $collegeChunks = array_chunk($collegeMatrix, 3, true);
+
+        foreach ($collegeChunks as $chunk) {
+            $colCount = count($chunk);
+            $colWidthPct = round(100 / max(1, $colCount), 2);
+
+            $html .= '<table class="college-dept-matrix">';
+
+            // Row 1: College | College | College Headers
+            $html .= '<tr class="matrix-college-row">';
+            foreach ($chunk as $colKey => $colData) {
+                $cAbbr = htmlspecialchars((string) ($colData['abbr'] ?? $colKey), ENT_QUOTES, 'UTF-8');
+                $cName = htmlspecialchars((string) ($colData['name'] ?? $colKey), ENT_QUOTES, 'UTF-8');
+                $cTotal = (int) ($colData['total'] ?? 0);
+                $cPct = (float) ($colData['percentage'] ?? 0.0);
+
+                // Build compact summary of choices/statuses for this college header
+                $summaryParts = [];
+                foreach (($colData['items'] ?? []) as $cItem) {
+                    $iLbl = htmlspecialchars((string) ($cItem['label'] ?? ''), ENT_QUOTES, 'UTF-8');
+                    $iCnt = (int) ($cItem['count'] ?? 0);
+                    $iPct = (float) ($cItem['percentage'] ?? 0.0);
+                    $summaryParts[] = $iLbl . ': <strong>' . number_format($iCnt) . '</strong> (' . number_format($iPct, 1) . '%)';
+                }
+
+                $html .= '<td class="matrix-college-cell" style="width: ' . $colWidthPct . '%;">';
+                $html .= '<div class="mc-title">' . $cAbbr . ' &mdash; ' . $cName . '</div>';
+                $html .= '<div class="mc-sub">College Total: <strong>' . number_format($cTotal) . ' ' . htmlspecialchars($unitLabel, ENT_QUOTES, 'UTF-8') . '</strong> (' . number_format($cPct, 1) . '% of Overall)</div>';
+                if (! empty($summaryParts)) {
+                    $html .= '<div class="mc-summary-strip">' . implode(' &nbsp;&bull;&nbsp; ', $summaryParts) . '</div>';
+                }
+                $html .= '</td>';
+            }
+            $html .= '</tr>';
+
+            // Prepare aligned Department rows underneath each College column
+            $deptLists = [];
+            $maxDeptRows = 1;
+            foreach ($chunk as $colKey => $colData) {
+                $depts = array_values($colData['departments'] ?? []);
+                $deptLists[$colKey] = $depts;
+                if (count($depts) > $maxDeptRows) {
+                    $maxDeptRows = count($depts);
+                }
+            }
+
+            // Rows 2..N: Department | Department | Department
+            for ($r = 0; $r < $maxDeptRows; $r++) {
+                $html .= '<tr class="matrix-dept-row">';
+                foreach ($chunk as $colKey => $colData) {
+                    $dept = $deptLists[$colKey][$r] ?? null;
+                    if ($dept !== null) {
+                        $dAbbr = htmlspecialchars((string) ($dept['abbr'] ?? ''), ENT_QUOTES, 'UTF-8');
+                        $dName = htmlspecialchars((string) ($dept['name'] ?? ''), ENT_QUOTES, 'UTF-8');
+                        $dTitle = ($dAbbr !== '' && $dName !== '' && strcasecmp($dAbbr, $dName) !== 0)
+                            ? ('<strong>' . $dAbbr . '</strong> &mdash; ' . $dName)
+                            : ('<strong>' . ($dName ?: $dAbbr) . '</strong>');
+                        $dTotal = (int) ($dept['total'] ?? 0);
+                        $dPctAll = (float) ($dept['percentage_of_all'] ?? 0.0);
+                        $dPctCol = (float) ($dept['percentage_of_college'] ?? 0.0);
+                        $items = $dept['items'] ?? [];
+
+                        $html .= '<td class="matrix-dept-cell" style="width: ' . $colWidthPct . '%;">';
+
+                        // Department header line
+                        $html .= '<table class="dept-hdr-line"><tr>';
+                        $html .= '<td class="dh-name">' . $dTitle . '</td>';
+                        $html .= '<td class="dh-badge"><span>' . number_format($dTotal) . ' (' . number_format($dPctAll, 1) . '%)</span></td>';
+                        $html .= '</tr></table>';
+                        $html .= '<div class="dept-share-meta">College Share: <strong>' . number_format($dPctCol, 1) . '%</strong> &nbsp;|&nbsp; Overall Share: <strong>' . number_format($dPctAll, 1) . '%</strong></div>';
+
+                        // Stacked proportional bar for department items
+                        $html .= '<table class="dept-stacked-bar"><tr>';
+                        if ($dTotal > 0) {
+                            $usedPct = 0;
+                            foreach ($items as $it) {
+                                $itCnt = (int) ($it['count'] ?? 0);
+                                if ($itCnt <= 0) continue;
+                                $itPct = max(1, (int) round(($itCnt / $dTotal) * 100));
+                                if ($usedPct + $itPct > 100) {
+                                    $itPct = max(1, 100 - $usedPct);
+                                }
+                                $usedPct += $itPct;
+                                $itColor = htmlspecialchars((string) ($it['color'] ?? '#1e4a76'), ENT_QUOTES, 'UTF-8');
+                                $html .= '<td style="width: ' . $itPct . '%; background-color: ' . $itColor . '; height: 5px; padding: 0;"></td>';
+                            }
+                            if ($usedPct < 100) {
+                                $html .= '<td style="width: ' . (100 - $usedPct) . '%; background-color: #e2e8f0; height: 5px; padding: 0;"></td>';
+                            }
+                        } else {
+                            $html .= '<td style="width: 100%; background-color: #e2e8f0; height: 5px; padding: 0;"></td>';
+                        }
+                        $html .= '</tr></table>';
+
+                        // Item breakdown rows inside department cell
+                        $html .= '<table class="dept-items-table">';
+                        foreach ($items as $it) {
+                            $itLbl = htmlspecialchars((string) ($it['label'] ?? ''), ENT_QUOTES, 'UTF-8');
+                            $itCnt = (int) ($it['count'] ?? 0);
+                            $itPct = (float) ($it['percentage'] ?? 0.0);
+                            $itColor = htmlspecialchars((string) ($it['color'] ?? '#1e4a76'), ENT_QUOTES, 'UTF-8');
+
+                            $html .= '<tr>';
+                            $html .= '<td class="di-lbl"><span class="color-dot" style="background-color: ' . $itColor . ';"></span>' . $itLbl . '</td>';
+                            $html .= '<td class="di-val"><strong>' . number_format($itCnt) . '</strong> (' . number_format($itPct, 1) . '%)</td>';
+                            $html .= '</tr>';
+                        }
+                        $html .= '</table>';
+
+                        $html .= '</td>';
+                    } else {
+                        $html .= '<td class="matrix-dept-cell is-empty" style="width: ' . $colWidthPct . '%;">';
+                        $html .= '<div class="dept-empty-dash">&mdash;</div>';
+                        $html .= '</td>';
+                    }
+                }
+                $html .= '</tr>';
+            }
+
+            $html .= '</table>';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Generates PDF Export for Survey Graphs Report using the Top GRAPH + Multi-Column College & Department Breakdown format
+     */
+    private function generateSurveyGraphsPdfReport(array $survey, array $selectedCategories, array $selectedQuestions, array $matchingResponses, string $filename, array $filters): string
+    {
+        $filepath = WRITEPATH . 'uploads/' . $filename . '.pdf';
+        if (! is_dir(dirname($filepath))) {
+            mkdir(dirname($filepath), 0777, true);
+        }
+
+        $tempFilesToClean = [];
+
+        // 1. Compile Graduate Tracer Overview
+        $tracerOverview = $this->compileTracerStatusOverview($survey, $matchingResponses, $filters);
+        $overviewPieFile = $this->generateGdPieChartFile($tracerOverview['slices'], 360, 195);
+        $tempFilesToClean[] = $overviewPieFile;
+        $overviewPieBase64 = $this->getFileAsBase64Png($overviewPieFile);
+
+        $institutionName = htmlspecialchars($this->getInstitutionHeaderName(), ENT_QUOTES, 'UTF-8');
+        $surveyTitle = htmlspecialchars((string) ($survey['title'] ?? 'Survey Report'), ENT_QUOTES, 'UTF-8');
+        $filterSummary = htmlspecialchars($this->buildFilterSummaryString($filters) ?: 'All survey respondents (No filters applied)', ENT_QUOTES, 'UTF-8');
+        $totalRespondents = count($matchingResponses);
+        $totalQuestions = count($selectedQuestions);
+        $totalCohortAlumni = (int) ($tracerOverview['total_alumni'] ?? $totalRespondents);
+        $generatedAt = date('F d, Y h:i A');
+
+        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+        $html .= '<style>
+            @page { margin: 9mm 9mm; }
+            body { font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #1e293b; line-height: 1.32; margin: 0; padding: 0; }
+            .header-banner { border-bottom: 2px solid #1e4a76; padding-bottom: 6px; margin-bottom: 8px; }
+            .inst-name { font-size: 12.5pt; font-weight: bold; color: #1e4a76; text-transform: uppercase; margin-bottom: 2px; }
+            .doc-title { font-size: 10.5pt; font-weight: bold; color: #0f172a; margin-bottom: 2px; letter-spacing: 0.02em; }
+            .survey-title { font-size: 8.5pt; color: #475569; font-weight: 600; }
+
+            .meta-kpi-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+            .kpi-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 6px; text-align: center; }
+            .kpi-value { font-size: 11pt; font-weight: bold; color: #1e4a76; margin-bottom: 1px; }
+            .kpi-label { font-size: 6.5pt; font-weight: bold; color: #64748b; text-transform: uppercase; }
+
+            .meta-info-box { background: #f1f5f9; border-left: 3px solid #1e4a76; padding: 4px 8px; font-size: 7.5pt; margin-bottom: 10px; }
+
+            /* Unified Card Container */
+            .report-graph-card { border: 1px solid #cbd5e1; border-radius: 5px; margin-bottom: 14px; background: #ffffff; page-break-inside: avoid; }
+            .card-main-banner { background: #1e4a76; color: #ffffff; padding: 6px 10px; font-size: 9pt; font-weight: bold; }
+
+            .category-banner { background: #0f172a; color: #ffffff; padding: 5px 10px; font-size: 9pt; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 12px; margin-bottom: 8px; letter-spacing: 0.03em; }
+
+            .q-card-header { background: #f8fafc; border-bottom: 1px solid #cbd5e1; padding: 6px 10px; }
+            .q-num { font-weight: bold; color: #1e4a76; font-size: 9pt; margin-right: 4px; }
+            .q-text { font-weight: bold; color: #0f172a; font-size: 8.5pt; }
+            .q-badge { display: inline-block; background: #e0e7ff; color: #3730a3; font-size: 6.5pt; font-weight: bold; padding: 1px 5px; border-radius: 4px; margin-left: 5px; text-transform: uppercase; }
+            .q-meta-line { font-size: 7pt; color: #64748b; margin-top: 2px; }
+
+            /* Top Centered GRAPH Showcase Block */
+            .graph-top-showcase { background: #ffffff; border-bottom: 2px solid #cbd5e1; }
+            .graph-top-header { background: #eff6ff; color: #1e4a76; text-align: center; font-weight: bold; font-size: 7.5pt; letter-spacing: 0.06em; padding: 4px 8px; border-bottom: 1px solid #dbeafe; text-transform: uppercase; }
+            .graph-top-table { width: 100%; border-collapse: collapse; }
+            .graph-top-pie-cell { width: 46%; padding: 8px 10px; text-align: center; vertical-align: middle; border-right: 1px dashed #e2e8f0; }
+            .graph-top-bars-cell { width: 54%; padding: 8px 12px; vertical-align: middle; }
+            .graph-bars-heading { font-size: 7.5pt; font-weight: bold; color: #334155; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.03em; }
+
+            .overall-bars-table { width: 100%; border-collapse: collapse; }
+            .overall-bars-table td { padding: 2.5px 3px; vertical-align: middle; font-size: 7.5pt; }
+            .ob-label-cell { width: 38%; color: #0f172a; font-weight: 600; }
+            .ob-bar-cell { width: 36%; }
+            .ob-stat-cell { width: 26%; text-align: right; color: #1e4a76; white-space: nowrap; }
+            .progress-track-table { width: 100%; border-collapse: collapse; border-radius: 3px; overflow: hidden; }
+
+            .color-dot { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+            /* Bottom Multi-Column College | College | College & Department Matrix */
+            .college-dept-matrix { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            .matrix-college-row td.matrix-college-cell { background: #1e3a5f; color: #ffffff; padding: 6px 8px; vertical-align: top; border-right: 1px solid #335c85; border-bottom: 2px solid #0f172a; text-align: center; }
+            .matrix-college-row td.matrix-college-cell:last-child { border-right: none; }
+            .mc-title { font-size: 8.5pt; font-weight: bold; color: #ffffff; margin-bottom: 2px; }
+            .mc-sub { font-size: 7pt; color: #bae6fd; margin-bottom: 3px; }
+            .mc-summary-strip { font-size: 6.5pt; color: #f8fafc; background: #152c4a; padding: 2px 5px; border-radius: 3px; display: inline-block; }
+
+            .matrix-dept-row td.matrix-dept-cell { padding: 6px 8px; vertical-align: top; border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; background: #ffffff; }
+            .matrix-dept-row td.matrix-dept-cell:last-child { border-right: none; }
+            .matrix-dept-row td.matrix-dept-cell.is-empty { background: #f8fafc; text-align: center; vertical-align: middle; }
+            .dept-empty-dash { color: #cbd5e1; font-size: 11pt; font-weight: bold; padding: 12px 0; }
+
+            .dept-hdr-line { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+            .dept-hdr-line td { padding: 0; vertical-align: top; }
+            .dh-name { font-size: 7.5pt; color: #0f172a; padding-right: 4px; }
+            .dh-badge { text-align: right; white-space: nowrap; }
+            .dh-badge span { display: inline-block; background: #eff6ff; color: #1e4a76; border: 1px solid #bfdbfe; font-size: 6.5pt; font-weight: bold; padding: 1px 4px; border-radius: 3px; }
+            .dept-share-meta { font-size: 6.5pt; color: #64748b; margin-bottom: 4px; }
+
+            .dept-stacked-bar { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+
+            .dept-items-table { width: 100%; border-collapse: collapse; }
+            .dept-items-table td { padding: 1.5px 0; font-size: 7pt; border-bottom: 1px dotted #f1f5f9; }
+            .dept-items-table tr:last-child td { border-bottom: none; }
+            .di-lbl { color: #334155; }
+            .di-val { text-align: right; color: #0f172a; white-space: nowrap; }
+
+            .mean-pill { margin: 5px 8px 6px 8px; padding: 4px 8px; background: #eff6ff; border-left: 3px solid #2563eb; font-size: 7.5pt; color: #1e40af; }
+            .footer-note { font-size: 7pt; color: #94a3b8; text-align: center; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+        </style></head><body>';
+
+        $html .= '<div class="header-banner">
+            <div class="inst-name">' . $institutionName . '</div>
+            <div class="doc-title">SURVEY RESULTS &amp; GRAPHICAL ANALYSIS REPORT</div>
+            <div class="survey-title">Survey: ' . $surveyTitle . '</div>
+        </div>';
+
+        $html .= '<table class="meta-kpi-table"><tr>
+            <td style="width: 25%; padding-right: 4px;"><div class="kpi-box"><div class="kpi-value">' . number_format($totalCohortAlumni) . '</div><div class="kpi-label">Total Alumni Cohort</div></div></td>
+            <td style="width: 25%; padding: 0 2px;"><div class="kpi-box"><div class="kpi-value">' . number_format($totalRespondents) . '</div><div class="kpi-label">Total Survey Responses</div></div></td>
+            <td style="width: 25%; padding: 0 2px;"><div class="kpi-box"><div class="kpi-value">' . number_format($totalQuestions) . '</div><div class="kpi-label">Questions Analyzed</div></div></td>
+            <td style="width: 25%; padding-left: 4px;"><div class="kpi-box"><div class="kpi-value">Visual</div><div class="kpi-label">Report Type: Graphs</div></div></td>
+        </tr></table>';
+
+        $html .= '<div class="meta-info-box">
+            <strong>Generated On:</strong> ' . $generatedAt . ' &nbsp;|&nbsp;
+            <strong>Filter Scope:</strong> ' . $filterSummary . '
+        </div>';
+
+        // 1. Graduate Tracer Status Overview Card: Top GRAPH + Bottom College | College -> Department Matrix
+        $html .= '<div class="report-graph-card">';
+        $html .= '<div class="card-main-banner">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="color: #ffffff; font-weight: bold; font-size: 8.5pt; text-transform: uppercase;">Graduate Tracer Status &amp; College / Department Breakdown</td>
+                    <td style="color: #cbd5e1; font-size: 7pt; text-align: right; font-weight: normal;">Cohort Denominator: ' . number_format($totalCohortAlumni) . ' Alumni</td>
+                </tr>
+            </table>
+        </div>';
+
+        $html .= $this->renderPdfTopGraphShowcaseHtml($overviewPieBase64, $tracerOverview['slices'], $totalCohortAlumni, 'Alumni');
+        $html .= $this->renderPdfCollegeDepartmentMatrixHtml($tracerOverview['college_matrix'] ?? [], $totalCohortAlumni, 'Alumni');
+        $html .= '</div>';
+
+        // 2. Categorical Question Hierarchy: Top GRAPH + Bottom College | College -> Department Matrix
+        $globalQIdx = 1;
+
+        foreach ($selectedCategories as $cat) {
+            $catName = htmlspecialchars((string) ($cat['name'] ?? 'Category'), ENT_QUOTES, 'UTF-8');
+            $questions = $cat['questions'] ?? [];
+            if (empty($questions)) continue;
+
+            $html .= '<div class="category-banner">' . $catName . '</div>';
+
+            foreach ($questions as $q) {
+                $qText = htmlspecialchars((string) ($q['text'] ?? 'Question'), ENT_QUOTES, 'UTF-8');
+                $qType = strtolower(trim((string) ($q['type'] ?? 'text')));
+                $choiceStats = $q['choiceStats'] ?? [];
+                $collegeMatrix = $q['collegeMatrix'] ?? [];
+                $qTotalResponses = (int) ($q['totalResponses'] ?? 0);
+                $respRate = $totalRespondents > 0 ? round(($qTotalResponses / $totalRespondents) * 100, 1) : 0.0;
+
+                $typeBadge = match ($qType) {
+                    'multiple_choice' => 'Multiple Choice',
+                    'rating' => 'Rating Scale',
+                    default => 'Open Response',
+                };
+
+                $html .= '<div class="report-graph-card">';
+                $html .= '<div class="q-card-header">';
+                $html .= '<span class="q-num">Q' . $globalQIdx . '.</span> <span class="q-text">' . $qText . '</span> <span class="q-badge">' . $typeBadge . '</span>';
+                $html .= '<div class="q-meta-line">Total Answers Gathered: <strong>' . number_format($qTotalResponses) . '</strong> (' . number_format($respRate, 1) . '% Response Rate)</div>';
+                $html .= '</div>';
+
+                if (! empty($choiceStats)) {
+                    $qSlices = [];
+                    $sumWeighted = 0;
+                    $sumCount = 0;
+
+                    foreach ($choiceStats as $cs) {
+                        $qSlices[] = [
+                            'label' => $cs['choice'],
+                            'value' => $cs['count'],
+                            'percentage' => $cs['percentage'] ?? 0.0,
+                            'color' => $cs['color'] ?? '#1e4a76',
+                        ];
+
+                        if ($qType === 'rating') {
+                            if (preg_match('/^\s*(\d+)/', (string) ($cs['choice'] ?? ''), $m)) {
+                                $sumWeighted += ((int) $m[1] * (int) $cs['count']);
+                                $sumCount += (int) $cs['count'];
+                            }
+                        }
+                    }
+
+                    $qPieFile = $this->generateGdPieChartFile($qSlices, 360, 185);
+                    $tempFilesToClean[] = $qPieFile;
+                    $qPieBase64 = $this->getFileAsBase64Png($qPieFile);
+
+                    // Top GRAPH section
+                    $html .= $this->renderPdfTopGraphShowcaseHtml($qPieBase64, $qSlices, $qTotalResponses, 'Responses');
+
+                    // Bottom College | College | College -> Department Matrix
+                    $html .= $this->renderPdfCollegeDepartmentMatrixHtml($collegeMatrix, $qTotalResponses, 'Responses');
+
+                    if ($qType === 'rating' && $sumCount > 0) {
+                        $meanRating = round($sumWeighted / $sumCount, 2);
+                        $maxRating = ! empty($q['rating_max']) ? (int) $q['rating_max'] : 5;
+                        $html .= '<div class="mean-pill"><strong>Rating Mean Score:</strong> ' . number_format($meanRating, 2) . ' / ' . $maxRating . ' &nbsp;|&nbsp; <em>Total Rated Responses: ' . number_format($sumCount) . '</em></div>';
+                    }
+                } else {
+                    $html .= '<div style="padding: 10px; font-style: italic; color: #94a3b8;">No response choices recorded for this question.</div>';
+                }
+
+                $html .= '</div>';
+                $globalQIdx++;
+            }
+        }
+
+        $html .= '<div class="footer-note">Confidential — System Generated Survey Graphical Analysis Report — ' . $institutionName . '</div>';
+        $html .= '</body></html>';
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        file_put_contents($filepath, $dompdf->output());
+
+        // Clean up temporary generated PNG files
+        foreach ($tempFilesToClean as $tf) {
+            if (file_exists($tf)) {
+                @unlink($tf);
+            }
+        }
+
+        return $filepath;
+    }
+
+    /**
+     * Helper to add the Top GRAPH + Multi-Column College & Department Breakdown table to a Word section
+     */
+    private function addWordGraphAndCollegeDeptMatrix(
+        \PhpOffice\PhpWord\Element\Section $section,
+        string $pieFile,
+        array $slices,
+        array $collegeMatrix,
+        int $grandTotal,
+        string $unitLabel = 'Responses'
+    ): void {
+        // 1. Top Centered GRAPH Table (Pie Chart + Overall Summary)
+        $graphTable = $section->addTable(['borderSize' => 6, 'borderColor' => 'CBD5E1', 'cellMargin' => 80]);
+        $graphTable->addRow();
+        $topBannerCell = $graphTable->addCell(9600, ['gridSpan' => 2, 'bgColor' => 'EFF6FF']);
+        $topBannerCell->addText(
+            'GRAPH — OVERALL VISUAL DISTRIBUTION (' . number_format($grandTotal) . ' ' . strtoupper($unitLabel) . ')',
+            ['bold' => true, 'size' => 8.5, 'color' => '1E4A76'],
+            ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 20]
+        );
+
+        $graphTable->addRow();
+        $pieCell = $graphTable->addCell(4600, ['bgColor' => 'FFFFFF', 'valign' => 'center']);
+        if (file_exists($pieFile)) {
+            $pieCell->addImage($pieFile, [
+                'width' => 225,
+                'height' => 122,
+                'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER,
+            ]);
+        }
+
+        $summaryCell = $graphTable->addCell(5000, ['bgColor' => 'F8FAFC', 'valign' => 'center']);
+        $summaryCell->addText('Overall Distribution Summary', ['bold' => true, 'size' => 8.5, 'color' => '1E4A76'], ['spaceAfter' => 40]);
+        foreach ($slices as $s) {
+            $lbl = (string) ($s['label'] ?? 'Option');
+            $val = (int) ($s['value'] ?? 0);
+            $pct = (float) ($s['percentage'] ?? ($grandTotal > 0 ? round(($val / $grandTotal) * 100, 1) : 0.0));
+            $summaryCell->addText(
+                '• ' . $lbl . ': ' . number_format($val) . ' (' . number_format($pct, 1) . '%)',
+                ['bold' => true, 'size' => 8.5, 'color' => '0F172A'],
+                ['spaceAfter' => 25]
+            );
+        }
+
+        // 2. Bottom Multi-Column College | College | College -> Department Breakdown Table
+        if (empty($collegeMatrix)) {
+            return;
+        }
+
+        $collegeChunks = array_chunk($collegeMatrix, 3, true);
+        foreach ($collegeChunks as $chunk) {
+            $colCount = count($chunk);
+            $cellWidth = (int) floor(9600 / max(1, $colCount));
+
+            $matrixTable = $section->addTable(['borderSize' => 6, 'borderColor' => 'CBD5E1', 'cellMargin' => 70]);
+
+            // Row 1: College Headers (College | College | College)
+            $matrixTable->addRow();
+            foreach ($chunk as $colKey => $colData) {
+                $cAbbr = (string) ($colData['abbr'] ?? $colKey);
+                $cName = (string) ($colData['name'] ?? $colKey);
+                $cTotal = (int) ($colData['total'] ?? 0);
+                $cPct = (float) ($colData['percentage'] ?? 0.0);
+
+                $colHdrCell = $matrixTable->addCell($cellWidth, ['bgColor' => '1E3A5F']);
+                $colHdrCell->addText(
+                    $cAbbr . ' — ' . $cName,
+                    ['bold' => true, 'size' => 9, 'color' => 'FFFFFF'],
+                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 20]
+                );
+                $colHdrCell->addText(
+                    'College Total: ' . number_format($cTotal) . ' (' . number_format($cPct, 1) . '%)',
+                    ['size' => 8, 'color' => 'BAE6FD'],
+                    ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER, 'spaceAfter' => 10]
+                );
+            }
+
+            // Prepare aligned Department rows under each College column
+            $deptLists = [];
+            $maxDeptRows = 1;
+            foreach ($chunk as $colKey => $colData) {
+                $depts = array_values($colData['departments'] ?? []);
+                $deptLists[$colKey] = $depts;
+                if (count($depts) > $maxDeptRows) {
+                    $maxDeptRows = count($depts);
+                }
+            }
+
+            // Rows 2..N: Department | Department | Department
+            for ($r = 0; $r < $maxDeptRows; $r++) {
+                $matrixTable->addRow();
+                foreach ($chunk as $colKey => $colData) {
+                    $dept = $deptLists[$colKey][$r] ?? null;
+                    if ($dept !== null) {
+                        $dAbbr = (string) ($dept['abbr'] ?? '');
+                        $dName = (string) ($dept['name'] ?? '');
+                        $dTitle = ($dAbbr !== '' && $dName !== '' && strcasecmp($dAbbr, $dName) !== 0)
+                            ? ($dAbbr . ' — ' . $dName)
+                            : ($dName ?: $dAbbr);
+                        $dTotal = (int) ($dept['total'] ?? 0);
+                        $dPctAll = (float) ($dept['percentage_of_all'] ?? 0.0);
+                        $dPctCol = (float) ($dept['percentage_of_college'] ?? 0.0);
+
+                        $dCell = $matrixTable->addCell($cellWidth, ['bgColor' => 'FFFFFF']);
+                        $dCell->addText($dTitle, ['bold' => true, 'size' => 8.5, 'color' => '0F172A'], ['spaceAfter' => 15]);
+                        $dCell->addText(
+                            'Total: ' . number_format($dTotal) . ' (' . number_format($dPctAll, 1) . '% Overall | ' . number_format($dPctCol, 1) . '% of College)',
+                            ['italic' => true, 'size' => 7.5, 'color' => '1E4A76'],
+                            ['spaceAfter' => 30]
+                        );
+
+                        foreach (($dept['items'] ?? []) as $it) {
+                            $itLbl = (string) ($it['label'] ?? '');
+                            $itCnt = (int) ($it['count'] ?? 0);
+                            $itPct = (float) ($it['percentage'] ?? 0.0);
+                            $dCell->addText(
+                                '  • ' . $itLbl . ': ' . number_format($itCnt) . ' (' . number_format($itPct, 1) . '%)',
+                                ['size' => 8, 'color' => '334155'],
+                                ['spaceAfter' => 10]
+                            );
+                        }
+                    } else {
+                        $emptyCell = $matrixTable->addCell($cellWidth, ['bgColor' => 'F8FAFC', 'valign' => 'center']);
+                        $emptyCell->addText('—', ['bold' => true, 'size' => 9, 'color' => 'CBD5E1'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Generates Word DOCX Export for Survey Graphs Report with Top GRAPH and Multi-Column College & Department Breakdown
+     */
+    private function generateSurveyGraphsDocxReport(array $survey, array $selectedCategories, array $selectedQuestions, array $matchingResponses, string $filename, array $filters): string
+    {
+        $filepath = WRITEPATH . 'uploads/' . $filename . '.docx';
+        if (! is_dir(dirname($filepath))) {
+            mkdir(dirname($filepath), 0777, true);
+        }
+
+        $tempFilesToClean = [];
+
+        // 1. Compile Graduate Tracer Overview
+        $tracerOverview = $this->compileTracerStatusOverview($survey, $matchingResponses, $filters);
+        $overviewPieFile = $this->generateGdPieChartFile($tracerOverview['slices'], 360, 195);
+        $tempFilesToClean[] = $overviewPieFile;
+
+        \PhpOffice\PhpWord\Settings::setZipClass(\PhpOffice\PhpWord\Settings::PCLZIP);
+
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Tahoma');
+        $phpWord->setDefaultFontSize(9.5);
+
+        $section = $phpWord->addSection([
+            'orientation' => 'portrait',
+            'marginTop' => 640,
+            'marginRight' => 640,
+            'marginBottom' => 640,
+            'marginLeft' => 640,
+        ]);
+
+        $institutionName = $this->getInstitutionHeaderName();
+        $surveyTitle = (string) ($survey['title'] ?? 'Survey Report');
+        $filterSummary = $this->buildFilterSummaryString($filters) ?: 'All survey respondents (No filters applied)';
+        $totalRespondents = count($matchingResponses);
+        $totalCohortAlumni = (int) ($tracerOverview['total_alumni'] ?? $totalRespondents);
+
+        // Document Title
+        $section->addText($institutionName, ['bold' => true, 'size' => 13, 'color' => '1E4A76'], ['spaceAfter' => 40]);
+        $section->addText('SURVEY RESULTS & GRAPHICAL ANALYSIS REPORT', ['bold' => true, 'size' => 11.5, 'color' => '0F172A'], ['spaceAfter' => 40]);
+        $section->addText('Survey: ' . $surveyTitle, ['bold' => true, 'size' => 9.5, 'color' => '475569'], ['spaceAfter' => 100]);
+
+        // Metadata box
+        $metaTable = $section->addTable(['borderSize' => 6, 'borderColor' => 'CBD5E1', 'cellMargin' => 70]);
+        $metaTable->addRow();
+        $metaTable->addCell(4800, ['bgColor' => 'F8FAFC'])->addText('Total Alumni Cohort: ' . number_format($totalCohortAlumni), ['bold' => true, 'size' => 9]);
+        $metaTable->addCell(4800, ['bgColor' => 'F8FAFC'])->addText('Total Responses: ' . number_format($totalRespondents) . ' | Graphs Report', ['bold' => true, 'size' => 9]);
+        $metaTable->addRow();
+        $metaCell = $metaTable->addCell(9600, ['gridSpan' => 2, 'bgColor' => 'F1F5F9']);
+        $metaCell->addText('Filters: ' . $filterSummary, ['size' => 8.5, 'color' => '475569']);
+        $section->addTextBreak(1);
+
+        // 1. Graduate Tracer Status Overview: Top GRAPH + College | College -> Department Matrix
+        $section->addText(
+            'GRADUATE TRACER STATUS & COLLEGE / DEPARTMENT BREAKDOWN',
+            ['bold' => true, 'size' => 10, 'color' => 'FFFFFF'],
+            ['shading' => ['fill' => '1E4A76'], 'spaceBefore' => 80, 'spaceAfter' => 40]
+        );
+        $this->addWordGraphAndCollegeDeptMatrix(
+            $section,
+            $overviewPieFile,
+            $tracerOverview['slices'],
+            $tracerOverview['college_matrix'] ?? [],
+            $totalCohortAlumni,
+            'Alumni'
+        );
+        $section->addTextBreak(1);
+
+        // 2. Questions: Top GRAPH + College | College -> Department Matrix
+        $globalQIdx = 1;
+
+        foreach ($selectedCategories as $cat) {
+            $catName = (string) ($cat['name'] ?? 'Category');
+            $questions = $cat['questions'] ?? [];
+            if (empty($questions)) continue;
+
+            $section->addText(
+                strtoupper($catName),
+                ['bold' => true, 'size' => 10.5, 'color' => 'FFFFFF'],
+                ['shading' => ['fill' => '0F172A'], 'spaceBefore' => 140, 'spaceAfter' => 80]
+            );
+
+            foreach ($questions as $q) {
+                $qText = (string) ($q['text'] ?? 'Question');
+                $choiceStats = $q['choiceStats'] ?? [];
+                $collegeMatrix = $q['collegeMatrix'] ?? [];
+                $qTotalResponses = (int) ($q['totalResponses'] ?? 0);
+                $respRate = $totalRespondents > 0 ? round(($qTotalResponses / $totalRespondents) * 100, 1) : 0.0;
+
+                $section->addText('Q' . $globalQIdx . '. ' . $qText, ['bold' => true, 'size' => 9.5, 'color' => '0F172A'], ['spaceBefore' => 100, 'spaceAfter' => 20]);
+                $section->addText(
+                    'Total Answers Gathered: ' . number_format($qTotalResponses) . ' (' . number_format($respRate, 1) . '% Response Rate)',
+                    ['italic' => true, 'size' => 8, 'color' => '64748B'],
+                    ['spaceAfter' => 40]
+                );
+
+                if (! empty($choiceStats)) {
+                    $qSlices = [];
+                    foreach ($choiceStats as $cs) {
+                        $qSlices[] = [
+                            'label' => $cs['choice'],
+                            'value' => $cs['count'],
+                            'percentage' => $cs['percentage'] ?? 0.0,
+                            'color' => $cs['color'] ?? '#1e4a76',
+                        ];
+                    }
+                    $qPieFile = $this->generateGdPieChartFile($qSlices, 360, 185);
+                    $tempFilesToClean[] = $qPieFile;
+
+                    $this->addWordGraphAndCollegeDeptMatrix(
+                        $section,
+                        $qPieFile,
+                        $qSlices,
+                        $collegeMatrix,
+                        $qTotalResponses,
+                        'Responses'
+                    );
+                }
+                $globalQIdx++;
+            }
+        }
+
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($filepath);
+
+        // Clean up temporary generated PNG files
+        foreach ($tempFilesToClean as $tf) {
+            if (file_exists($tf)) {
+                @unlink($tf);
+            }
+        }
+
+        return $filepath;
+    }
+
+    /**
+     * Helper to write a Top GRAPH + Multi-Column College | College -> Department Breakdown block into an Excel Worksheet
+     */
+    private function writeExcelGraphAndCollegeDeptBlock(
+        \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet,
+        int &$row,
+        string $blockTitle,
+        string $pieFile,
+        array $slices,
+        array $collegeMatrix,
+        int $grandTotal,
+        string $unitLabel = 'Responses'
+    ): void {
+        $collegeList = array_values($collegeMatrix);
+        $colCount = max(2, count($collegeList));
+        // Each College column occupies 2 spreadsheet columns (e.g. A:B for College 1, C:D for College 2, E:F for College 3)
+        $totalSheetCols = max(4, $colCount * 2);
+        $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalSheetCols);
+
+        // 1. Section Title Banner
+        $sheet->mergeCells("A{$row}:{$lastColLetter}{$row}");
+        $sheet->setCellValue("A{$row}", $blockTitle . ' (Total: ' . number_format($grandTotal) . ' ' . $unitLabel . ')');
+        $sheet->getStyle("A{$row}:{$lastColLetter}{$row}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1E4A76'],
+            ],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        // 2. Top GRAPH Sub-banner
+        $sheet->mergeCells("A{$row}:{$lastColLetter}{$row}");
+        $sheet->setCellValue("A{$row}", 'GRAPH — OVERALL VISUAL DISTRIBUTION');
+        $sheet->getStyle("A{$row}:{$lastColLetter}{$row}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => '1E4A76'], 'size' => 9],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'EFF6FF'],
+            ],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+        $row++;
+
+        // Embed Pie Chart on Left (Col A-B) and Overall Choice Summary Table on Right (Col C-D)
+        $graphStartRow = $row;
+        if (file_exists($pieFile)) {
+            $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+            $drawing->setName($blockTitle);
+            $drawing->setPath($pieFile);
+            $drawing->setCoordinates("A{$graphStartRow}");
+            $drawing->setOffsetX(10);
+            $drawing->setOffsetY(4);
+            $drawing->setWidth(240);
+            $drawing->setHeight(130);
+            $drawing->setWorksheet($sheet);
+        }
+
+        $sheet->setCellValue("C{$row}", 'Option / Status');
+        $sheet->setCellValue("D{$row}", 'Overall Count & Share');
+        $sheet->getStyle("C{$row}:D{$row}")->getFont()->setBold(true)->getColor()->setRGB('1E4A76');
+        $sRow = $row + 1;
+        foreach ($slices as $s) {
+            $lbl = (string) ($s['label'] ?? 'Option');
+            $val = (int) ($s['value'] ?? 0);
+            $pct = (float) ($s['percentage'] ?? ($grandTotal > 0 ? round(($val / $grandTotal) * 100, 1) : 0.0));
+            $sheet->setCellValue("C{$sRow}", $lbl);
+            $sheet->setCellValue("D{$sRow}", number_format($val) . ' (' . number_format($pct, 1) . '%)');
+            $sRow++;
+        }
+
+        $row = max($graphStartRow + 7, $sRow + 1);
+
+        // 3. Bottom College | College | College Header Row
+        if (empty($collegeList)) {
+            return;
+        }
+
+        foreach ($collegeList as $cIdx => $colData) {
+            $startColIdx = ($cIdx * 2) + 1;
+            $endColIdx = $startColIdx + 1;
+            $c1 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColIdx);
+            $c2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($endColIdx);
+
+            $cAbbr = (string) ($colData['abbr'] ?? '');
+            $cName = (string) ($colData['name'] ?? '');
+            $cTotal = (int) ($colData['total'] ?? 0);
+            $cPct = (float) ($colData['percentage'] ?? 0.0);
+
+            $sheet->mergeCells("{$c1}{$row}:{$c2}{$row}");
+            $sheet->setCellValue("{$c1}{$row}", "{$cAbbr} — {$cName}\nCollege Total: " . number_format($cTotal) . ' (' . number_format($cPct, 1) . '%)');
+            $sheet->getStyle("{$c1}{$row}:{$c2}{$row}")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 9],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '1E3A5F'],
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => 'CBD5E1'],
+                    ],
+                ],
+            ]);
+        }
+        $sheet->getRowDimension($row)->setRowHeight(30);
+        $row++;
+
+        // 4. Department | Department | Department Rows Underneath Each College Column
+        $deptLists = [];
+        $maxDeptRows = 1;
+        foreach ($collegeList as $cIdx => $colData) {
+            $depts = array_values($colData['departments'] ?? []);
+            $deptLists[$cIdx] = $depts;
+            if (count($depts) > $maxDeptRows) {
+                $maxDeptRows = count($depts);
+            }
+        }
+
+        for ($r = 0; $r < $maxDeptRows; $r++) {
+            $maxLinesInRow = 2;
+            foreach ($collegeList as $cIdx => $colData) {
+                $startColIdx = ($cIdx * 2) + 1;
+                $endColIdx = $startColIdx + 1;
+                $c1 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColIdx);
+                $c2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($endColIdx);
+
+                $dept = $deptLists[$cIdx][$r] ?? null;
+                $sheet->mergeCells("{$c1}{$row}:{$c2}{$row}");
+
+                if ($dept !== null) {
+                    $dAbbr = (string) ($dept['abbr'] ?? '');
+                    $dName = (string) ($dept['name'] ?? '');
+                    $dTitle = ($dAbbr !== '' && $dName !== '' && strcasecmp($dAbbr, $dName) !== 0)
+                        ? ($dAbbr . ' — ' . $dName)
+                        : ($dName ?: $dAbbr);
+                    $dTotal = (int) ($dept['total'] ?? 0);
+                    $dPctAll = (float) ($dept['percentage_of_all'] ?? 0.0);
+                    $dPctCol = (float) ($dept['percentage_of_college'] ?? 0.0);
+
+                    $lines = [
+                        $dTitle,
+                        'Total: ' . number_format($dTotal) . ' (' . number_format($dPctAll, 1) . '% Overall | ' . number_format($dPctCol, 1) . '% College)',
+                    ];
+                    foreach (($dept['items'] ?? []) as $it) {
+                        $itLbl = (string) ($it['label'] ?? '');
+                        $itCnt = (int) ($it['count'] ?? 0);
+                        $itPct = (float) ($it['percentage'] ?? 0.0);
+                        $lines[] = '• ' . $itLbl . ': ' . number_format($itCnt) . ' (' . number_format($itPct, 1) . '%)';
+                    }
+                    if (count($lines) > $maxLinesInRow) {
+                        $maxLinesInRow = count($lines);
+                    }
+
+                    $sheet->setCellValue("{$c1}{$row}", implode("\n", $lines));
+                    $sheet->getStyle("{$c1}{$row}:{$c2}{$row}")->applyFromArray([
+                        'font' => ['size' => 8.5, 'color' => ['rgb' => '0F172A']],
+                        'alignment' => [
+                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+                            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
+                            'wrapText' => true,
+                        ],
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                                'color' => ['rgb' => 'CBD5E1'],
+                            ],
+                        ],
+                    ]);
+                } else {
+                    $sheet->setCellValue("{$c1}{$row}", '—');
+                    $sheet->getStyle("{$c1}{$row}:{$c2}{$row}")->applyFromArray([
+                        'font' => ['bold' => true, 'size' => 9, 'color' => ['rgb' => 'CBD5E1']],
+                        'fill' => [
+                            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => 'F8FAFC'],
+                        ],
+                        'alignment' => [
+                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                        ],
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                                'color' => ['rgb' => 'CBD5E1'],
+                            ],
+                        ],
+                    ]);
+                }
+            }
+            $sheet->getRowDimension($row)->setRowHeight(max(36, $maxLinesInRow * 14));
+            $row++;
+        }
+
+        $row += 2;
+    }
+
+    /**
+     * Generates Excel Spreadsheet Export for Survey Graphs Report with Top GRAPH and Multi-Column College & Department Breakdown
+     */
+    private function generateSurveyGraphsSpreadsheetReport(array $survey, array $selectedCategories, array $selectedQuestions, array $matchingResponses, string $filename, array $filters): string
+    {
+        $filepath = WRITEPATH . 'uploads/' . $filename . '.xlsx';
+        if (! is_dir(dirname($filepath))) {
+            mkdir(dirname($filepath), 0777, true);
+        }
+
+        $tempFilesToClean = [];
+
+        // 1. Compile Graduate Tracer Overview
+        $tracerOverview = $this->compileTracerStatusOverview($survey, $matchingResponses, $filters);
+        $overviewPieFile = $this->generateGdPieChartFile($tracerOverview['slices'], 360, 195);
+        $tempFilesToClean[] = $overviewPieFile;
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Tahoma')->setSize(9.5);
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Graphical Analysis');
+
+        $institutionName = $this->getInstitutionHeaderName();
+        $surveyTitle = (string) ($survey['title'] ?? 'Survey Report');
+        $filterSummary = $this->buildFilterSummaryString($filters) ?: 'All survey respondents (No filters applied)';
+        $totalRespondents = count($matchingResponses);
+        $totalCohortAlumni = (int) ($tracerOverview['total_alumni'] ?? $totalRespondents);
+
+        // Title Block
+        $sheet->setCellValue('A1', $institutionName);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('1E4A76');
+
+        $sheet->setCellValue('A2', 'SURVEY RESULTS & GRAPHICAL ANALYSIS REPORT');
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11);
+
+        $sheet->setCellValue('A3', 'Survey: ' . $surveyTitle . ' | Total Alumni Cohort: ' . number_format($totalCohortAlumni) . ' | Total Responses: ' . number_format($totalRespondents) . ' | Generated: ' . date('Y-m-d H:i'));
+        $sheet->getStyle('A3')->getFont()->setSize(9)->setItalic(true)->getColor()->setRGB('475569');
+
+        $sheet->setCellValue('A4', 'Filters: ' . $filterSummary);
+        $sheet->getStyle('A4')->getFont()->setSize(8.5)->getColor()->setRGB('64748B');
+
+        $row = 6;
+
+        // 1. Graduate Tracer Status Overview Block (Top GRAPH + College | College -> Department Matrix)
+        $this->writeExcelGraphAndCollegeDeptBlock(
+            $sheet,
+            $row,
+            'GRADUATE TRACER STATUS & COLLEGE / DEPARTMENT BREAKDOWN',
+            $overviewPieFile,
+            $tracerOverview['slices'],
+            $tracerOverview['college_matrix'] ?? [],
+            $totalCohortAlumni,
+            'Alumni'
+        );
+
+        // 2. Questions Blocks (Top GRAPH + College | College -> Department Matrix)
+        $globalQIdx = 1;
+        foreach ($selectedCategories as $cat) {
+            $catName = (string) ($cat['name'] ?? 'Category');
+            $questions = $cat['questions'] ?? [];
+            if (empty($questions)) continue;
+
+            foreach ($questions as $q) {
+                $qText = (string) ($q['text'] ?? 'Question');
+                $choiceStats = $q['choiceStats'] ?? [];
+                $collegeMatrix = $q['collegeMatrix'] ?? [];
+                $qTotalResponses = (int) ($q['totalResponses'] ?? 0);
+
+                $qSlices = [];
+                foreach ($choiceStats as $cs) {
+                    $qSlices[] = [
+                        'label' => $cs['choice'],
+                        'value' => $cs['count'],
+                        'percentage' => $cs['percentage'] ?? 0.0,
+                        'color' => $cs['color'] ?? '#1e4a76',
+                    ];
+                }
+
+                $qPieFile = $this->generateGdPieChartFile($qSlices, 360, 185);
+                $tempFilesToClean[] = $qPieFile;
+
+                $this->writeExcelGraphAndCollegeDeptBlock(
+                    $sheet,
+                    $row,
+                    "[{$catName}] Q{$globalQIdx}. {$qText}",
+                    $qPieFile,
+                    $qSlices,
+                    $collegeMatrix,
+                    $qTotalResponses,
+                    'Responses'
+                );
+
+                $globalQIdx++;
+            }
+        }
+
+        $totalCols = max(4, count($tracerOverview['college_matrix'] ?? []) * 2);
+        for ($c = 1; $c <= $totalCols; $c++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->getColumnDimension($colLetter)->setWidth(24);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($filepath);
+
+        // Clean up temporary generated PNG files
+        foreach ($tempFilesToClean as $tf) {
+            if (file_exists($tf)) {
+                @unlink($tf);
+            }
+        }
+
+        return $filepath;
+    }
+
+    /**
+     * Generates PDF Export for Survey Raw Response Counts & Frequency Report
+     */
+    private function generateSurveyRawNumbersPdfReport(array $survey, array $selectedCategories, array $selectedQuestions, array $matchingResponses, string $filename, array $filters): string
+    {
+        $filepath = WRITEPATH . 'uploads/' . $filename . '.pdf';
+        if (! is_dir(dirname($filepath))) {
+            mkdir(dirname($filepath), 0777, true);
+        }
+
+        $institutionName = htmlspecialchars($this->getInstitutionHeaderName(), ENT_QUOTES, 'UTF-8');
+        $surveyTitle = htmlspecialchars((string) ($survey['title'] ?? 'Survey Report'), ENT_QUOTES, 'UTF-8');
+        $filterSummary = htmlspecialchars($this->buildFilterSummaryString($filters) ?: 'All survey respondents (No filters applied)', ENT_QUOTES, 'UTF-8');
+        $totalRespondents = count($matchingResponses);
+        $totalQuestions = count($selectedQuestions);
+        $totalCategories = count($selectedCategories);
+        $generatedAt = date('F d, Y h:i A');
+
+        // Calculate grand total raw answers across all questions
+        $grandTotalRawAnswers = 0;
+        foreach ($selectedCategories as $cat) {
+            foreach (($cat['questions'] ?? []) as $q) {
+                $grandTotalRawAnswers += (int) ($q['totalResponses'] ?? 0);
+            }
+        }
+
+        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+        $html .= '<style>
+            @page { margin: 12mm 10mm; }
+            body { font-family: Helvetica, Arial, sans-serif; font-size: 9pt; color: #1e293b; line-height: 1.35; margin: 0; padding: 0; }
+            .header-banner { border-bottom: 2px solid #1e4a76; padding-bottom: 8px; margin-bottom: 12px; }
+            .inst-name { font-size: 13pt; font-weight: bold; color: #1e4a76; text-transform: uppercase; margin-bottom: 2px; }
+            .doc-title { font-size: 11pt; font-weight: bold; color: #0f172a; margin-bottom: 2px; }
+            .doc-sub { font-size: 8.5pt; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+            .survey-title { font-size: 9.5pt; color: #475569; font-weight: 600; }
+            
+            .meta-kpi-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+            .kpi-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; text-align: center; }
+            .kpi-value { font-size: 13pt; font-weight: bold; color: #1e4a76; margin-bottom: 1px; }
+            .kpi-label { font-size: 7.5pt; font-weight: bold; color: #64748b; text-transform: uppercase; }
+
+            .meta-info-box { background: #f1f5f9; border-left: 3px solid #1e4a76; padding: 5px 8px; font-size: 8pt; margin-bottom: 14px; }
+
+            .category-banner { background: #1e4a76; color: #ffffff; padding: 5px 8px; font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 14px; margin-bottom: 10px; }
+            
+            .q-card { border: 1px solid #cbd5e1; border-radius: 5px; margin-bottom: 14px; page-break-inside: avoid; background: #ffffff; }
+            .q-card-header { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 6px 8px; }
+            .q-num { font-weight: bold; color: #1e4a76; margin-right: 4px; }
+            .q-text { font-weight: bold; color: #0f172a; font-size: 9pt; }
+            .q-badge { display: inline-block; background: #fef3c7; color: #92400e; font-size: 7pt; font-weight: bold; padding: 1px 5px; border-radius: 6px; margin-left: 4px; text-transform: uppercase; }
+
+            .raw-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+            .raw-table th { background: #f1f5f9; color: #334155; font-size: 7.5pt; font-weight: bold; text-transform: uppercase; padding: 5px 6px; border-bottom: 1.5px solid #cbd5e1; border-top: 1px solid #e2e8f0; }
+            .raw-table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+            .raw-table tr.total-row td { background-color: #f8fafc; font-weight: bold; border-top: 1.5px solid #1e4a76; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
+            
+            .td-opt-num { width: 8%; text-align: center; color: #64748b; font-weight: bold; }
+            .td-choice-text { width: 44%; color: #1e293b; }
+            .td-raw-count { width: 16%; text-align: center; font-weight: bold; font-size: 9pt; color: #1e4a76; }
+            .td-pct-share { width: 16%; text-align: right; font-weight: bold; color: #0f172a; padding-right: 6px; }
+            .td-resp-rate { width: 16%; text-align: right; color: #475569; padding-right: 6px; }
+
+            .summary-matrix-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-top: 16px; margin-bottom: 16px; page-break-inside: avoid; }
+            .summary-matrix-table th { background: #1e4a76; color: #ffffff; font-size: 8pt; font-weight: bold; text-transform: uppercase; padding: 5px 6px; border: 1px solid #1e4a76; text-align: left; }
+            .summary-matrix-table td { padding: 4px 6px; border: 1px solid #cbd5e1; vertical-align: middle; }
+            .summary-matrix-table tr:nth-child(even) td { background-color: #f8fafc; }
+            .summary-matrix-table tr.grand-total-row td { background-color: #e0f2fe; font-weight: bold; border-top: 2px solid #1e4a76; color: #0f172a; }
+
+            .footer-note { font-size: 7.5pt; color: #94a3b8; text-align: center; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+        </style></head><body>';
+
+        $html .= '<div class="header-banner">
+            <div class="inst-name">' . $institutionName . '</div>
+            <div class="doc-title">SURVEY RAW RESPONSE FREQUENCY &amp; TOTALS REPORT</div>
+            <div class="doc-sub">Detailed Count of Every Answer Choice Gathered per Survey Question</div>
+            <div class="survey-title">Survey: ' . $surveyTitle . '</div>
+        </div>';
+
+        $html .= '<table class="meta-kpi-table"><tr>
+            <td style="width: 25%; padding-right: 6px;"><div class="kpi-box"><div class="kpi-value">' . number_format($totalRespondents) . '</div><div class="kpi-label">Survey Respondents</div></div></td>
+            <td style="width: 25%; padding: 0 3px;"><div class="kpi-box"><div class="kpi-value">' . number_format($totalQuestions) . '</div><div class="kpi-label">Questions Evaluated</div></div></td>
+            <td style="width: 25%; padding: 0 3px;"><div class="kpi-box"><div class="kpi-value">' . number_format($grandTotalRawAnswers) . '</div><div class="kpi-label">Total Answers Gathered</div></div></td>
+            <td style="width: 25%; padding-left: 6px;"><div class="kpi-box"><div class="kpi-value">Raw Counts</div><div class="kpi-label">Report Type: Raw Numbers</div></div></td>
+        </tr></table>';
+
+        $html .= '<div class="meta-info-box">
+            <strong>Generated On:</strong> ' . $generatedAt . ' &nbsp;|&nbsp; 
+            <strong>Filter Scope:</strong> ' . $filterSummary . '
+        </div>';
+
+        $globalQIdx = 1;
+        $summaryMatrixRows = [];
+
+        foreach ($selectedCategories as $cat) {
+            $catName = htmlspecialchars((string) ($cat['name'] ?? 'Category'), ENT_QUOTES, 'UTF-8');
+            $questions = $cat['questions'] ?? [];
+            if (empty($questions)) continue;
+
+            $html .= '<div class="category-banner">' . $catName . '</div>';
+
+            foreach ($questions as $q) {
+                $qText = htmlspecialchars((string) ($q['text'] ?? 'Question'), ENT_QUOTES, 'UTF-8');
+                $qType = strtolower(trim((string) ($q['type'] ?? 'text')));
+                $choiceStats = $q['choiceStats'] ?? [];
+                $qTotalResponses = (int) ($q['totalResponses'] ?? 0);
+                $respRate = $totalRespondents > 0 ? round(($qTotalResponses / $totalRespondents) * 100, 1) : 0.0;
+
+                $typeBadge = match ($qType) {
+                    'multiple_choice' => 'Multiple Choice',
+                    'rating' => 'Rating Scale',
+                    default => 'Open Response',
+                };
+
+                $summaryMatrixRows[] = [
+                    'qNum' => 'Q' . $globalQIdx,
+                    'catName' => $catName,
+                    'qText' => $qText,
+                    'type' => $typeBadge,
+                    'choicesCount' => count($choiceStats),
+                    'totalAnswers' => $qTotalResponses,
+                    'respRate' => $respRate,
+                ];
+
+                $html .= '<div class="q-card">';
+                $html .= '<div class="q-card-header">';
+                $html .= '<span class="q-num">Q' . $globalQIdx . '.</span> <span class="q-text">' . $qText . '</span> <span class="q-badge">' . $typeBadge . '</span>';
+                $html .= '</div>';
+
+                if (! empty($choiceStats)) {
+                    $html .= '<table class="raw-table">';
+                    $html .= '<thead><tr>
+                        <th class="td-opt-num">Opt #</th>
+                        <th class="td-choice-text">Answer Choice / Response Value</th>
+                        <th class="td-raw-count">Raw Total Answers Gathered</th>
+                        <th class="td-pct-share">Share of Question (%)</th>
+                        <th class="td-resp-rate">Response Rate vs Alumni (%)</th>
+                    </tr></thead>';
+                    $html .= '<tbody>';
+
+                    $optIdx = 1;
+                    $sumCount = 0;
+
+                    foreach ($choiceStats as $cItem) {
+                        $cText = htmlspecialchars((string) ($cItem['choice'] ?? 'Option'), ENT_QUOTES, 'UTF-8');
+                        $count = (int) ($cItem['count'] ?? 0);
+                        $pct = (float) ($cItem['percentage'] ?? 0.0);
+                        $rateVsAlumni = $totalRespondents > 0 ? round(($count / $totalRespondents) * 100, 1) : 0.0;
+                        $sumCount += $count;
+
+                        $html .= '<tr>';
+                        $html .= '<td class="td-opt-num">' . $optIdx . '</td>';
+                        $html .= '<td class="td-choice-text">' . $cText . '</td>';
+                        $html .= '<td class="td-raw-count">' . number_format($count) . '</td>';
+                        $html .= '<td class="td-pct-share">' . number_format($pct, 1) . '%</td>';
+                        $html .= '<td class="td-resp-rate">' . number_format($rateVsAlumni, 1) . '%</td>';
+                        $html .= '</tr>';
+
+                        $optIdx++;
+                    }
+
+                    $totalCoverageRate = $totalRespondents > 0 ? round(($sumCount / $totalRespondents) * 100, 1) : 0.0;
+
+                    $html .= '<tr class="total-row">';
+                    $html .= '<td class="td-opt-num">Σ</td>';
+                    $html .= '<td class="td-choice-text">TOTAL ANSWERS GATHERED FOR THIS QUESTION</td>';
+                    $html .= '<td class="td-raw-count">' . number_format($sumCount) . '</td>';
+                    $html .= '<td class="td-pct-share">100.0%</td>';
+                    $html .= '<td class="td-resp-rate">' . number_format($totalCoverageRate, 1) . '%</td>';
+                    $html .= '</tr>';
+
+                    $html .= '</tbody></table>';
+                } else {
+                    $html .= '<div style="padding: 10px; font-style: italic; color: #94a3b8;">No response choices recorded for this question.</div>';
+                }
+
+                $html .= '</div>';
+                $globalQIdx++;
+            }
+        }
+
+        // Questions Grand Summary Matrix
+        if (! empty($summaryMatrixRows)) {
+            $html .= '<div class="category-banner" style="background:#0f172a; margin-top:20px;">SURVEY QUESTIONS RAW TOTALS SUMMARY</div>';
+            $html .= '<table class="summary-matrix-table">';
+            $html .= '<thead><tr>
+                <th style="width:7%; text-align:center;">Q#</th>
+                <th style="width:20%;">Category</th>
+                <th style="width:38%;">Question Text</th>
+                <th style="width:13%;">Type</th>
+                <th style="width:11%; text-align:center;">Raw Total Answers</th>
+                <th style="width:11%; text-align:right;">Response Rate</th>
+            </tr></thead><tbody>';
+
+            $totalChoicesAll = 0;
+            $totalAnswersAll = 0;
+
+            foreach ($summaryMatrixRows as $sm) {
+                $totalChoicesAll += (int) $sm['choicesCount'];
+                $totalAnswersAll += (int) $sm['totalAnswers'];
+
+                $html .= '<tr>';
+                $html .= '<td style="text-align:center; font-weight:bold; color:#1e4a76;">' . $sm['qNum'] . '</td>';
+                $html .= '<td>' . $sm['catName'] . '</td>';
+                $html .= '<td>' . $sm['qText'] . '</td>';
+                $html .= '<td>' . $sm['type'] . '</td>';
+                $html .= '<td style="text-align:center; font-weight:bold;">' . number_format($sm['totalAnswers']) . '</td>';
+                $html .= '<td style="text-align:right; font-weight:bold; color:#1e4a76;">' . number_format($sm['respRate'], 1) . '%</td>';
+                $html .= '</tr>';
+            }
+
+            $overallAvgRate = count($summaryMatrixRows) > 0 ? round(array_sum(array_column($summaryMatrixRows, 'respRate')) / count($summaryMatrixRows), 1) : 0.0;
+
+            $html .= '<tr class="grand-total-row">';
+            $html .= '<td colspan="4" style="text-align:right; text-transform:uppercase;">GRAND TOTAL ANSWERS GATHERED ACROSS ALL QUESTIONS:</td>';
+            $html .= '<td style="text-align:center; font-size:10pt; color:#1e4a76;">' . number_format($totalAnswersAll) . '</td>';
+            $html .= '<td style="text-align:right; font-size:9.5pt; color:#1e4a76;">' . number_format($overallAvgRate, 1) . '% (Avg)</td>';
+            $html .= '</tr>';
+
+            $html .= '</tbody></table>';
+        }
+
+        $html .= '<div class="footer-note">Confidential — System Generated Survey Raw Frequency &amp; Totals Report — ' . $institutionName . '</div>';
+        $html .= '</body></html>';
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        file_put_contents($filepath, $dompdf->output());
+        return $filepath;
+    }
+
+    /**
+     * Generates Word DOCX Export for Survey Raw Response Counts & Frequency Report
+     */
+    private function generateSurveyRawNumbersDocxReport(array $survey, array $selectedCategories, array $selectedQuestions, array $matchingResponses, string $filename, array $filters): string
+    {
+        $filepath = WRITEPATH . 'uploads/' . $filename . '.docx';
+        if (! is_dir(dirname($filepath))) {
+            mkdir(dirname($filepath), 0777, true);
+        }
+
+        \PhpOffice\PhpWord\Settings::setZipClass(\PhpOffice\PhpWord\Settings::PCLZIP);
+
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Tahoma');
+        $phpWord->setDefaultFontSize(10);
+
+        $section = $phpWord->addSection([
+            'orientation' => 'portrait',
+            'marginTop' => 720,
+            'marginRight' => 720,
+            'marginBottom' => 720,
+            'marginLeft' => 720,
+        ]);
+
+        $institutionName = $this->getInstitutionHeaderName();
+        $surveyTitle = (string) ($survey['title'] ?? 'Survey Report');
+        $filterSummary = $this->buildFilterSummaryString($filters) ?: 'All survey respondents (No filters applied)';
+        $totalRespondents = count($matchingResponses);
+
+        // Document Title
+        $section->addText($institutionName, ['bold' => true, 'size' => 13, 'color' => '1E4A76'], ['spaceAfter' => 60]);
+        $section->addText('SURVEY RAW RESPONSE FREQUENCY & TOTALS REPORT', ['bold' => true, 'size' => 12, 'color' => '0F172A'], ['spaceAfter' => 40]);
+        $section->addText('Detailed Count of Every Answer Choice Gathered per Survey Question', ['italic' => true, 'size' => 9.5, 'color' => '64748B'], ['spaceAfter' => 60]);
+        $section->addText('Survey: ' . $surveyTitle, ['bold' => true, 'size' => 10, 'color' => '475569'], ['spaceAfter' => 120]);
+
+        // Metadata box
+        $metaTable = $section->addTable(['borderSize' => 6, 'borderColor' => 'CBD5E1', 'cellMargin' => 80]);
+        $metaTable->addRow();
+        $metaTable->addCell(4500, ['bgColor' => 'F8FAFC'])->addText('Total Survey Respondents: ' . number_format($totalRespondents), ['bold' => true, 'size' => 9.5]);
+        $metaTable->addCell(4500, ['bgColor' => 'F8FAFC'])->addText('Report Type: Raw Numbers & Totals', ['bold' => true, 'size' => 9.5]);
+        $metaTable->addRow();
+        $metaCell = $metaTable->addCell(9000, ['gridSpan' => 2, 'bgColor' => 'F1F5F9']);
+        $metaCell->addText('Filters: ' . $filterSummary, ['size' => 8.5, 'color' => '475569']);
+        $section->addTextBreak(1);
+
+        $globalQIdx = 1;
+
+        foreach ($selectedCategories as $cat) {
+            $catName = (string) ($cat['name'] ?? 'Category');
+            $questions = $cat['questions'] ?? [];
+            if (empty($questions)) continue;
+
+            $section->addText(strtoupper($catName), ['bold' => true, 'size' => 11, 'color' => 'FFFFFF'], ['shading' => ['fill' => '1E4A76'], 'spaceBefore' => 180, 'spaceAfter' => 100]);
+
+            foreach ($questions as $q) {
+                $qText = (string) ($q['text'] ?? 'Question');
+                $choiceStats = $q['choiceStats'] ?? [];
+                $qTotalResponses = (int) ($q['totalResponses'] ?? 0);
+
+                $section->addText('Q' . $globalQIdx . '. ' . $qText, ['bold' => true, 'size' => 10, 'color' => '0F172A'], ['spaceBefore' => 120, 'spaceAfter' => 40]);
+
+                if (! empty($choiceStats)) {
+                    $table = $section->addTable(['borderSize' => 6, 'borderColor' => 'E2E8F0', 'cellMargin' => 60]);
+                    
+                    // Table Header
+                    $table->addRow();
+                    $table->addCell(800, ['bgColor' => 'F1F5F9'])->addText('Opt #', ['bold' => true, 'size' => 8.5, 'color' => '334155'], ['alignment' => Jc::CENTER]);
+                    $table->addCell(3800, ['bgColor' => 'F1F5F9'])->addText('Answer Choice / Response', ['bold' => true, 'size' => 8.5, 'color' => '334155']);
+                    $table->addCell(1600, ['bgColor' => 'F1F5F9'])->addText('Raw Answers Gathered', ['bold' => true, 'size' => 8.5, 'color' => '334155'], ['alignment' => Jc::CENTER]);
+                    $table->addCell(1400, ['bgColor' => 'F1F5F9'])->addText('Share (%)', ['bold' => true, 'size' => 8.5, 'color' => '334155'], ['alignment' => Jc::CENTER]);
+                    $table->addCell(1400, ['bgColor' => 'F1F5F9'])->addText('Response Rate (%)', ['bold' => true, 'size' => 8.5, 'color' => '334155'], ['alignment' => Jc::CENTER]);
+
+                    $optIdx = 1;
+                    $sumCount = 0;
+
+                    foreach ($choiceStats as $cItem) {
+                        $cText = (string) ($cItem['choice'] ?? '');
+                        $cnt = (int) ($cItem['count'] ?? 0);
+                        $pct = (float) ($cItem['percentage'] ?? 0.0);
+                        $rateVsAlumni = $totalRespondents > 0 ? round(($cnt / $totalRespondents) * 100, 1) : 0.0;
+                        $sumCount += $cnt;
+
+                        $table->addRow();
+                        $table->addCell(800)->addText((string) $optIdx, ['size' => 8.5], ['alignment' => Jc::CENTER]);
+                        $table->addCell(3800)->addText($cText, ['size' => 8.5]);
+                        $table->addCell(1600)->addText(number_format($cnt), ['bold' => true, 'size' => 8.5, 'color' => '1E4A76'], ['alignment' => Jc::CENTER]);
+                        $table->addCell(1400)->addText(number_format($pct, 1) . '%', ['bold' => true, 'size' => 8.5], ['alignment' => Jc::CENTER]);
+                        $table->addCell(1400)->addText(number_format($rateVsAlumni, 1) . '%', ['size' => 8.5], ['alignment' => Jc::CENTER]);
+
+                        $optIdx++;
+                    }
+
+                    // Total Row
+                    $totalCoverage = $totalRespondents > 0 ? round(($sumCount / $totalRespondents) * 100, 1) : 0.0;
+                    $table->addRow();
+                    $table->addCell(800, ['bgColor' => 'F8FAFC'])->addText('Σ', ['bold' => true, 'size' => 8.5], ['alignment' => Jc::CENTER]);
+                    $table->addCell(3800, ['bgColor' => 'F8FAFC'])->addText('TOTAL ANSWERS GATHERED FOR QUESTION', ['bold' => true, 'size' => 8.5]);
+                    $table->addCell(1600, ['bgColor' => 'F8FAFC'])->addText(number_format($sumCount), ['bold' => true, 'size' => 9, 'color' => '1E4A76'], ['alignment' => Jc::CENTER]);
+                    $table->addCell(1400, ['bgColor' => 'F8FAFC'])->addText('100.0%', ['bold' => true, 'size' => 8.5], ['alignment' => Jc::CENTER]);
+                    $table->addCell(1400, ['bgColor' => 'F8FAFC'])->addText(number_format($totalCoverage, 1) . '%', ['bold' => true, 'size' => 8.5], ['alignment' => Jc::CENTER]);
+                }
+                $globalQIdx++;
+            }
+        }
+
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($filepath);
+        return $filepath;
+    }
+
+    /**
+     * Generates Excel Spreadsheet Export for Survey Raw Response Counts & Frequency Report
+     */
+    private function generateSurveyRawNumbersSpreadsheetReport(array $survey, array $selectedCategories, array $selectedQuestions, array $matchingResponses, string $filename, array $filters): string
+    {
+        $filepath = WRITEPATH . 'uploads/' . $filename . '.xlsx';
+        if (! is_dir(dirname($filepath))) {
+            mkdir(dirname($filepath), 0777, true);
+        }
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Tahoma')->setSize(10);
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Raw Frequency Counts');
+
+        $institutionName = $this->getInstitutionHeaderName();
+        $surveyTitle = (string) ($survey['title'] ?? 'Survey Report');
+        $filterSummary = $this->buildFilterSummaryString($filters) ?: 'All survey respondents (No filters applied)';
+        $totalRespondents = count($matchingResponses);
+
+        // Title Block
+        $sheet->setCellValue('A1', $institutionName);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setRGB('1E4A76');
+
+        $sheet->setCellValue('A2', 'SURVEY RAW RESPONSE FREQUENCY & TOTALS REPORT');
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11);
+
+        $sheet->setCellValue('A3', 'Detailed Count of Every Answer Choice Gathered per Survey Question');
+        $sheet->getStyle('A3')->getFont()->setSize(9.5)->setItalic(true)->getColor()->setRGB('475569');
+
+        $sheet->setCellValue('A4', 'Survey: ' . $surveyTitle . ' | Total Respondents: ' . number_format($totalRespondents) . ' | Generated: ' . date('Y-m-d H:i'));
+        $sheet->getStyle('A4')->getFont()->setSize(9)->getColor()->setRGB('475569');
+
+        $sheet->setCellValue('A5', 'Filters: ' . $filterSummary);
+        $sheet->getStyle('A5')->getFont()->setSize(8.5)->getColor()->setRGB('64748B');
+
+        // Header Row
+        $headerRow = 7;
+        $headers = ['Category', 'Q#', 'Question Text', 'Question Type', 'Opt #', 'Answer Choice / Option', 'Raw Answers Gathered (Count)', 'Question Total Answers', 'Share of Question (%)', 'Response Rate vs All Alumni (%)'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        foreach ($headers as $idx => $hdr) {
+            $sheet->setCellValue($cols[$idx] . $headerRow, $hdr);
+        }
+
+        $sheet->getStyle("A{$headerRow}:J{$headerRow}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 9.5],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1E4A76'],
+            ],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        $row = 8;
+        $globalQIdx = 1;
+
+        foreach ($selectedCategories as $cat) {
+            $catName = (string) ($cat['name'] ?? 'Category');
+            $questions = $cat['questions'] ?? [];
+            if (empty($questions)) continue;
+
+            foreach ($questions as $q) {
+                $qText = (string) ($q['text'] ?? 'Question');
+                $qType = strtolower(trim((string) ($q['type'] ?? 'text')));
+                $choiceStats = $q['choiceStats'] ?? [];
+                $qTotalResponses = (int) ($q['totalResponses'] ?? 0);
+
+                $optIdx = 1;
+                foreach ($choiceStats as $cItem) {
+                    $cText = (string) ($cItem['choice'] ?? '');
+                    $cnt = (int) ($cItem['count'] ?? 0);
+                    $pct = (float) ($cItem['percentage'] ?? 0.0);
+                    $rateVsAlumni = $totalRespondents > 0 ? ($cnt / $totalRespondents) : 0.0;
+
+                    $sheet->setCellValue("A{$row}", $catName);
+                    $sheet->setCellValue("B{$row}", 'Q' . $globalQIdx);
+                    $sheet->setCellValue("C{$row}", $qText);
+                    $sheet->setCellValue("D{$row}", ucfirst(str_replace('_', ' ', $qType)));
+                    $sheet->setCellValue("E{$row}", $optIdx);
+                    $sheet->setCellValue("F{$row}", $cText);
+                    $sheet->setCellValue("G{$row}", $cnt);
+                    $sheet->setCellValue("H{$row}", $qTotalResponses);
+                    $sheet->setCellValue("I{$row}", $pct / 100);
+                    $sheet->setCellValue("J{$row}", $rateVsAlumni);
+
+                    $sheet->getStyle("B{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle("D{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle("E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle("G{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle("G{$row}")->getFont()->setBold(true)->getColor()->setRGB('1E4A76');
+                    $sheet->getStyle("H{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle("I{$row}")->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE_00);
+                    $sheet->getStyle("I{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+                    $sheet->getStyle("J{$row}")->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE_00);
+                    $sheet->getStyle("J{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+                    $row++;
+                    $optIdx++;
+                }
+
+                // Question Subtotal Row
+                $sheet->setCellValue("A{$row}", $catName);
+                $sheet->setCellValue("B{$row}", 'Q' . $globalQIdx);
+                $sheet->setCellValue("C{$row}", $qText);
+                $sheet->setCellValue("D{$row}", 'Total');
+                $sheet->setCellValue("E{$row}", 'Σ');
+                $sheet->setCellValue("F{$row}", 'TOTAL RAW ANSWERS GATHERED');
+                $sheet->setCellValue("G{$row}", $qTotalResponses);
+                $sheet->setCellValue("H{$row}", $qTotalResponses);
+                $sheet->setCellValue("I{$row}", 1.0);
+                $sheet->setCellValue("J{$row}", $totalRespondents > 0 ? ($qTotalResponses / $totalRespondents) : 0.0);
+
+                $sheet->getStyle("A{$row}:J{$row}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 9],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'E0F2FE'],
+                    ],
+                ]);
+                $sheet->getStyle("B{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("D{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("G{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("H{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("I{$row}")->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE_00);
+                $sheet->getStyle("I{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("J{$row}")->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE_00);
+                $sheet->getStyle("J{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+                $row += 2; // Spacing
+                $globalQIdx++;
+            }
+        }
+
+        foreach ($cols as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $writer->save($filepath);
         return $filepath;
     }
@@ -2200,20 +4572,14 @@ class StaffController extends BaseController
         }
 
         $campusModel = new \App\Models\CampusModel();
-        $values = [$campusId];
+        $values = [];
 
         if (is_numeric($campusId)) {
             $values[] = (int) $campusId;
-            $values[] = (string) $campusId;
-            $campusRow = $campusModel->where('Campus_ID', (int) $campusId)->first();
-            if ($campusRow && !empty($campusRow['Campus'])) {
-                $values[] = $campusRow['Campus'];
-            }
         } else {
             $campusRow = $campusModel->where('Campus', (string) $campusId)->first();
             if ($campusRow && !empty($campusRow['Campus_ID'])) {
-                $values[] = $campusRow['Campus_ID'];
-                $values[] = (string) $campusRow['Campus_ID'];
+                $values[] = (int) $campusRow['Campus_ID'];
             }
         }
 
@@ -2493,7 +4859,6 @@ class StaffController extends BaseController
 
         $collegeModel = new \App\Models\CollegeModel();
         $campusModel = new \App\Models\CampusModel();
-        $departmentModel = new \App\Models\DepartmentModel();
         
         // Get head admin's campus ID from account or session
         $campusId = $this->getHeadAdminCampusId() ?? session('auth_user.campus') ?? session('auth_user.Campus') ?? '';
@@ -2505,49 +4870,113 @@ class StaffController extends BaseController
             ]);
         }
         
-        $campus = $campusModel->where('Campus_ID', $campusId)->first();
+        $campus = $campusModel->where('Campus_ID', (int) $campusId)->first();
         $headAdminCampus = $campus['Campus'] ?? '';
         
         // Get colleges for this campus
-        $colleges = $collegeModel->where('Campus_ID', $campusId)->findAll();
+        $colleges = $collegeModel->where('Campus_ID', (int) $campusId)->findAll();
+        if ($colleges === []) {
+            return $this->response->setJSON([
+                'success' => true,
+                'colleges' => [],
+            ]);
+        }
 
-        $collegeData = [];
-        foreach ($colleges as $collegeRow) {
-            $collegeName = $collegeRow['College_Name'];
-            $collegeId = $collegeRow['College_ID'];
-            
-            $db = \Config\Database::connect();
-            $staffCoordinators = $db->table('staffs')
-                ->where('Campus_ID', $campusId)
-                ->where('College_ID', $collegeId)
+        $collegeIds = array_values(array_unique(array_map(
+            static fn (array $row): int => (int) ($row['College_ID'] ?? 0),
+            $colleges
+        )));
+
+        $db = \Config\Database::connect();
+
+        // 1. Batch-load staff coordinators for all colleges on this campus
+        $staffCoordinatorsByCollegeId = [];
+        if ($collegeIds !== []) {
+            $staffRows = $db->table('staffs')
+                ->where('Campus_ID', (int) $campusId)
+                ->whereIn('College_ID', $collegeIds)
                 ->where('Role', 'Coordinator')
                 ->get()
                 ->getResultArray();
 
-            $accountCoordinators = $this->getCoordinatorAccountsForCollege($collegeName, (string) $campusId, (string) $headAdminCampus);
+            foreach ($staffRows as $staffRow) {
+                $cid = (int) ($staffRow['College_ID'] ?? 0);
+                $staffCoordinatorsByCollegeId[$cid][] = $staffRow;
+            }
+        }
+
+        // 2. Batch-load coordinator user_accounts for this campus once
+        $allAccountCoordinators = $this->getCampusCoordinatorAccounts((string) $campusId, (string) $headAdminCampus);
+        $accountCoordinatorsByCollege = [];
+        foreach ($allAccountCoordinators as $coordinator) {
+            $normCollege = $this->normalizeCollegeName((string) ($coordinator['College'] ?? ''));
+            if ($normCollege !== '') {
+                $accountCoordinatorsByCollege[$normCollege][] = $coordinator;
+            }
+        }
+
+        // 3. Batch-load department counts per college
+        $deptCountsByCollegeId = [];
+        if ($collegeIds !== []) {
+            $deptCountRows = $db->table('departments')
+                ->select('College_ID, COUNT(*) AS dept_count')
+                ->where('Campus_ID', (int) $campusId)
+                ->whereIn('College_ID', $collegeIds)
+                ->groupBy('College_ID')
+                ->get()
+                ->getResultArray();
+
+            foreach ($deptCountRows as $countRow) {
+                $deptCountsByCollegeId[(int) ($countRow['College_ID'] ?? 0)] = (int) ($countRow['dept_count'] ?? 0);
+            }
+        }
+
+        // 4. Batch-load alumni counts per college
+        $alumniCountsByCollegeId = [];
+        $activeCountsByCollegeId = [];
+        if ($collegeIds !== []) {
+            try {
+                $alumniCountRows = $db->table('alumni')
+                    ->select('"College_ID", COUNT(*) AS alumni_count')
+                    ->select("SUM(CASE WHEN LOWER(\"Status\"::text) = 'active' THEN 1 ELSE 0 END) AS active_count", false)
+                    ->whereIn('College_ID', $collegeIds)
+                    ->groupBy('College_ID')
+                    ->get()
+                    ->getResultArray();
+
+                foreach ($alumniCountRows as $acRow) {
+                    $cid = (int) ($acRow['College_ID'] ?? 0);
+                    $alumniCountsByCollegeId[$cid] = (int) ($acRow['alumni_count'] ?? 0);
+                    $activeCountsByCollegeId[$cid] = (int) ($acRow['active_count'] ?? 0);
+                }
+            } catch (\Throwable $e) {
+                log_message('error', 'Error batch-counting alumni per college: ' . $e->getMessage());
+            }
+        }
+
+        $collegeData = [];
+        foreach ($colleges as $collegeRow) {
+            $collegeName = (string) $collegeRow['College_Name'];
+            $collegeId = (int) $collegeRow['College_ID'];
+            $normCollege = $this->normalizeCollegeName($collegeName);
+
+            $staffCoordinators = $staffCoordinatorsByCollegeId[$collegeId] ?? [];
+            $accountCoordinators = $accountCoordinatorsByCollege[$normCollege] ?? [];
             $collegeCoordinators = $this->mergeCoordinatorRows($staffCoordinators, $accountCoordinators);
 
-            log_message('error', 'getCollegesData: College=' . $collegeName . ', College_ID=' . $collegeId . ', Campus_ID=' . $campusId . ', Found coordinators: ' . count($collegeCoordinators));
-
-            // Get total alumni for this college
-            $totalAlumni = 0; // Will need to update when alumni table structure is known
-
-            // Get active alumni for this college
-            $activeAlumni = 0; // Will need to update when alumni table structure is known
-
-            $totalDepartments = $departmentModel
-                ->where('Campus_ID', $campusId)
-                ->where('College_ID', $collegeId)
-                ->countAllResults();
+            $totalAlumni = $alumniCountsByCollegeId[$collegeId] ?? 0;
+            $activeAlumni = $activeCountsByCollegeId[$collegeId] ?? 0;
+            $totalDepartments = $deptCountsByCollegeId[$collegeId] ?? 0;
 
             $collegeData[] = [
                 'college_id' => $collegeRow['College_ID'],
                 'college' => $collegeName,
+                'abbreviation' => (string) ($collegeRow['Abbreviation'] ?? ''),
                 'totalCourses' => $totalDepartments,
                 'totalDepartments' => $totalDepartments,
                 'totalAlumni' => $totalAlumni,
                 'activeAlumni' => $activeAlumni,
-                'coordinators' => $collegeCoordinators
+                'coordinators' => $collegeCoordinators,
             ];
         }
 
@@ -2557,20 +4986,39 @@ class StaffController extends BaseController
         ]);
     }
 
-    private function getCoordinatorAccountsForCollege(string $collegeName, string $campusId, string $campusName): array
+    /**
+     * Load all coordinator user_accounts for a campus in a single query.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function getCampusCoordinatorAccounts(string $campusId, string $campusName): array
     {
-        $campusValues = array_values(array_unique(array_filter([$campusId, $campusName], fn (string $value): bool => trim($value) !== '')));
+        $campusValues = [];
+        if (is_numeric($campusId)) {
+            $campusValues[] = (int) $campusId;
+        } elseif ($campusName !== '') {
+            $campusModel = new \App\Models\CampusModel();
+            $campusRow = $campusModel->where('Campus', $campusName)->first();
+            if ($campusRow && !empty($campusRow['Campus_ID'])) {
+                $campusValues[] = (int) $campusRow['Campus_ID'];
+            }
+        }
 
         if ($campusValues === []) {
             return [];
         }
 
         $userAccountModel = new \App\Models\UserAccountModel();
-        $coordinators = $userAccountModel
+
+        return $userAccountModel
             ->where('Role', 'coordinator')
             ->whereIn('Campus', $campusValues)
             ->findAll();
+    }
 
+    private function getCoordinatorAccountsForCollege(string $collegeName, string $campusId, string $campusName): array
+    {
+        $coordinators = $this->getCampusCoordinatorAccounts($campusId, $campusName);
         $normalizedCollegeName = $this->normalizeCollegeName($collegeName);
 
         return array_values(array_filter($coordinators, function (array $coordinator) use ($normalizedCollegeName): bool {
@@ -2608,18 +5056,7 @@ class StaffController extends BaseController
 
     private function getCoordinatorAccountsForDepartment(string $departmentName, string $collegeName, string $campusId, string $campusName): array
     {
-        $campusValues = array_values(array_unique(array_filter([$campusId, $campusName], fn (string $value): bool => trim($value) !== '')));
-
-        if ($campusValues === []) {
-            return [];
-        }
-
-        $userAccountModel = new \App\Models\UserAccountModel();
-        $coordinators = $userAccountModel
-            ->where('Role', 'coordinator')
-            ->whereIn('Campus', $campusValues)
-            ->findAll();
-
+        $coordinators = $this->getCampusCoordinatorAccounts($campusId, $campusName);
         $normalizedDepartmentName = $this->normalizeCollegeName($departmentName);
         $normalizedCollegeName = $this->normalizeCollegeName($collegeName);
 
@@ -2664,37 +5101,77 @@ class StaffController extends BaseController
             ]);
         }
         
-        $campus = $campusModel->where('Campus_ID', $campusId)->first();
+        $campus = $campusModel->where('Campus_ID', (int) $campusId)->first();
         $headAdminCampus = $campus['Campus'] ?? '';
         
         // Get departments for this campus
-        $departments = $departmentModel->where('Campus_ID', $campusId)->findAll();
+        $departments = $departmentModel->where('Campus_ID', (int) $campusId)->findAll();
+        if ($departments === []) {
+            return $this->response->setJSON([
+                'success' => true,
+                'departments' => [],
+            ]);
+        }
 
-        $departmentData = [];
-        foreach ($departments as $deptRow) {
-            $departmentName = $deptRow['Department_Name'];
-            $collegeId = $deptRow['College_ID'];
-            $departmentId = $deptRow['Department_ID'];
-            
-            // Get college name
-            $college = $collegeModel->where('College_ID', $collegeId)->first();
-            $collegeName = $college['College_Name'] ?? 'Unknown College';
-            
-            $db = \Config\Database::connect();
-            $staffCoordinators = $db->table('staffs')
-                ->where('Campus_ID', $campusId)
-                ->where('Department_ID', $departmentId)
+        $collegeIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): int => (int) ($row['College_ID'] ?? 0),
+            $departments
+        ))));
+        $departmentIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): int => (int) ($row['Department_ID'] ?? 0),
+            $departments
+        ))));
+
+        // 1. Batch-load colleges by ID
+        $collegeNameById = [];
+        if ($collegeIds !== []) {
+            $collegeRows = $collegeModel->whereIn('College_ID', $collegeIds)->findAll();
+            foreach ($collegeRows as $collegeRow) {
+                $collegeNameById[(int) $collegeRow['College_ID']] = (string) ($collegeRow['College_Name'] ?? 'Unknown College');
+            }
+        }
+
+        // 2. Batch-load staff coordinators for all departments on this campus
+        $db = \Config\Database::connect();
+        $staffCoordinatorsByDeptId = [];
+        if ($departmentIds !== []) {
+            $staffRows = $db->table('staffs')
+                ->where('Campus_ID', (int) $campusId)
+                ->whereIn('Department_ID', $departmentIds)
                 ->where('Role', 'Coordinator')
                 ->get()
                 ->getResultArray();
 
-            $accountCoordinators = $this->getCoordinatorAccountsForDepartment($departmentName, $collegeName, (string) $campusId, (string) $headAdminCampus);
+            foreach ($staffRows as $staffRow) {
+                $did = (int) ($staffRow['Department_ID'] ?? 0);
+                $staffCoordinatorsByDeptId[$did][] = $staffRow;
+            }
+        }
+
+        // 3. Batch-load coordinator user_accounts for this campus once
+        $allAccountCoordinators = $this->getCampusCoordinatorAccounts((string) $campusId, (string) $headAdminCampus);
+        $accountCoordinatorsByCollegeAndDept = [];
+        foreach ($allAccountCoordinators as $coordinator) {
+            $normCollege = $this->normalizeCollegeName((string) ($coordinator['College'] ?? ''));
+            $normDept = $this->normalizeCollegeName((string) ($coordinator['Department'] ?? ''));
+            if ($normCollege !== '' && $normDept !== '') {
+                $accountCoordinatorsByCollegeAndDept[$normCollege . '|' . $normDept][] = $coordinator;
+            }
+        }
+
+        $departmentData = [];
+        foreach ($departments as $deptRow) {
+            $departmentName = (string) $deptRow['Department_Name'];
+            $collegeId = (int) $deptRow['College_ID'];
+            $departmentId = (int) $deptRow['Department_ID'];
+            $collegeName = $collegeNameById[$collegeId] ?? 'Unknown College';
+
+            $normKey = $this->normalizeCollegeName($collegeName) . '|' . $this->normalizeCollegeName($departmentName);
+            $staffCoordinators = $staffCoordinatorsByDeptId[$departmentId] ?? [];
+            $accountCoordinators = $accountCoordinatorsByCollegeAndDept[$normKey] ?? [];
             $deptCoordinators = $this->mergeCoordinatorRows($staffCoordinators, $accountCoordinators);
 
-            log_message('error', 'getDepartmentsData: Department=' . $departmentName . ', Department_ID=' . $departmentId . ', Campus_ID=' . $campusId . ', Found coordinators: ' . count($deptCoordinators));
-
-            // Get total users for this department
-            $totalUsers = 0; // Will need to update when alumni table structure is known
+            $totalUsers = 0;
 
             $departmentData[] = [
                 'department_id' => $deptRow['Department_ID'],
@@ -2920,14 +5397,64 @@ class StaffController extends BaseController
             $alumniModel = new \App\Models\AlumniModel();
             $purposeModel = new \App\Models\PaymentPurposeModel();
 
+            $userRole = strtolower(trim((string) (session('auth_user.role') ?? '')));
+            $isCoordinator = ($userRole === 'coordinator');
             $campusId = $this->getHeadAdminCampusId();
+            $db = \Config\Database::connect();
+
+            $coordDeptName = '';
+            $coordDeptId = 0;
+            $coordCollegeId = 0;
+            $coordUserId = (int) (session('auth_user.id') ?? session('auth_user.ID') ?? 0);
+
+            if ($isCoordinator) {
+                $coordEmail = strtolower(trim((string) (session('auth_user.email') ?? '')));
+                $accModel = new \App\Models\UserAccountModel();
+                $coordAcc = $coordEmail !== '' ? $accModel->findByEmail($coordEmail) : null;
+                $coordDeptName = trim((string) ($coordAcc['Department'] ?? session('auth_user.department') ?? ''));
+                if (! empty($coordAcc['id'])) {
+                    $coordUserId = (int) $coordAcc['id'];
+                }
+                if ($coordDeptName !== '') {
+                    $deptRow = $db->table('departments')
+                        ->where('LOWER("Department_Name")', strtolower($coordDeptName))
+                        ->get()
+                        ->getRowArray();
+                    if (is_array($deptRow)) {
+                        $coordDeptId = (int) ($deptRow['Department_ID'] ?? 0);
+                        $coordCollegeId = (int) ($deptRow['College_ID'] ?? 0);
+                        $coordDeptName = trim((string) ($deptRow['Department_Name'] ?? $coordDeptName));
+                    }
+                }
+
+                // A coordinator without an assigned department must not receive campus-wide payment or alumni records
+                if ($coordDeptName === '' && $coordDeptId <= 0) {
+                    return $this->response->setJSON([
+                        'success'    => true,
+                        'payments'   => [],
+                        'purposes'   => $purposeModel->getActivePurposes(),
+                        'statistics' => [
+                            'total_revenue' => 0,
+                            'pending_revenue' => 0,
+                            'total_transactions' => 0,
+                            'verified_count' => 0,
+                            'pending_count' => 0,
+                            'rejected_count' => 0,
+                            'alumni_id_count' => 0,
+                        ],
+                        'colleges'   => [],
+                        'campuses'   => [],
+                        'alumni'     => [],
+                    ]);
+                }
+            }
 
             $filters = [
                 'status' => $this->request->getGet('status') ?? 'all',
                 'payment_purpose_id' => $this->request->getGet('payment_purpose_id') ?? 'all',
                 'payment_type' => $this->request->getGet('payment_type') ?? 'all',
                 'payment_method' => $this->request->getGet('payment_method') ?? 'all',
-                'college_id' => $this->request->getGet('college_id') ?? 'all',
+                'college_id' => $isCoordinator ? 'all' : ($this->request->getGet('college_id') ?? 'all'),
                 'search' => $this->request->getGet('search') ?? '',
                 'date_from' => $this->request->getGet('date_from') ?? '',
                 'date_to' => $this->request->getGet('date_to') ?? '',
@@ -2937,8 +5464,20 @@ class StaffController extends BaseController
                 $filters['campus_id'] = (int) $campusId;
             }
 
+            $departmentScope = [];
+            if ($isCoordinator) {
+                $departmentScope = [
+                    'department_id'       => $coordDeptId,
+                    'department_name'     => $coordDeptName,
+                    'coordinator_user_id' => $coordUserId,
+                ];
+                $filters['department_id'] = $coordDeptId;
+                $filters['department_name'] = $coordDeptName;
+                $filters['coordinator_user_id'] = $coordUserId;
+            }
+
             $payments = $paymentModel->getFilteredPayments($filters);
-            $statistics = $paymentModel->getPaymentStatistics($campusId !== null && is_numeric($campusId) ? (int) $campusId : null);
+            $statistics = $paymentModel->getPaymentStatistics($campusId !== null && is_numeric($campusId) ? (int) $campusId : null, $departmentScope);
             $purposes = $purposeModel->getActivePurposes();
 
             // Colleges list for filter
@@ -2946,17 +5485,38 @@ class StaffController extends BaseController
             if ($campusId !== null && is_numeric($campusId)) {
                 $collegeBuilder = $collegeBuilder->where('Campus_ID', (int) $campusId);
             }
+            if ($isCoordinator && $coordCollegeId > 0) {
+                $collegeBuilder = $collegeBuilder->where('College_ID', $coordCollegeId);
+            }
             $colleges = $collegeBuilder->orderBy('College_Name', 'ASC')->findAll();
 
             // Campuses list for filter
             $campusModel = new \App\Models\CampusModel();
             $campuses = $campusModel->orderBy('Campus', 'ASC')->findAll();
 
-            // Recent alumni list for autocomplete in modal
-            $recentAlumni = $alumniModel->select('id, alumni_id, FirstName, LastName, Email, College_ID')
-                ->orderBy('LastName', 'ASC')
-                ->limit(100)
-                ->findAll();
+            // Alumni list strictly from user_accounts (Role = 'alumni') for modal selection
+            $alumniQuery = $db->table('user_accounts ua')
+                ->select('a.id AS id, ua.id AS user_account_id, COALESCE(NULLIF(ua.account_id, \'\'), a.alumni_id) AS alumni_id, ua."First_Name" AS "FirstName", ua."Last_Name" AS "LastName", ua."Email", COALESCE(a."College_ID", c."College_ID") AS "College_ID", ua."College", ua."Department"')
+                ->join('alumni a', 'LOWER(a."Email") = LOWER(ua."Email")', 'left')
+                ->join('colleges c', 'LOWER(c."College_Name") = LOWER(ua."College")', 'left')
+                ->where('LOWER(ua."Role"::text)', 'alumni');
+
+            if ($isCoordinator) {
+                $alumniQuery->groupStart();
+                if ($coordDeptId > 0) {
+                    $alumniQuery->where('a."Department_ID"', $coordDeptId);
+                }
+                if ($coordDeptName !== '') {
+                    $alumniQuery->orWhere('LOWER(ua."Department")', strtolower($coordDeptName));
+                }
+                $alumniQuery->groupEnd();
+            }
+
+            $recentAlumni = $alumniQuery
+                ->orderBy('ua."Last_Name"', 'ASC')
+                ->orderBy('ua."First_Name"', 'ASC')
+                ->get()
+                ->getResultArray();
 
             return $this->response->setJSON([
                 'success' => true,
@@ -3053,6 +5613,53 @@ class StaffController extends BaseController
             $submittedByRole = $isCoordinator ? 'coordinator' : 'head_admin';
             $coordinatorId = $isCoordinator ? (int) $currentUserId : null;
 
+            $forcedCollegeId = !empty($input['college_id']) ? (int) $input['college_id'] : null;
+            if ($isCoordinator) {
+                $db = \Config\Database::connect();
+                $coordEmail = strtolower(trim((string) (session('auth_user.email') ?? '')));
+                $accModel = new \App\Models\UserAccountModel();
+                $coordAcc = $coordEmail !== '' ? $accModel->findByEmail($coordEmail) : null;
+                $coordDeptName = trim((string) ($coordAcc['Department'] ?? session('auth_user.department') ?? ''));
+                $coordDeptId = 0;
+
+                if ($coordDeptName !== '') {
+                    $deptRow = $db->table('departments')
+                        ->where('LOWER("Department_Name")', strtolower($coordDeptName))
+                        ->get()
+                        ->getRowArray();
+                    if (is_array($deptRow)) {
+                        $coordDeptId = (int) ($deptRow['Department_ID'] ?? 0);
+                        $forcedCollegeId = (int) ($deptRow['College_ID'] ?? 0) ?: $forcedCollegeId;
+                    }
+                }
+
+                if ($coordDeptName === '' && $coordDeptId <= 0) {
+                    return $this->response->setStatusCode(403)->setJSON([
+                        'success' => false,
+                        'message' => 'Your coordinator account is not assigned to a department.',
+                    ]);
+                }
+
+                if (! empty($input['alumni_id'])) {
+                    $targetAlum = $db->table('alumni a')
+                        ->select('a.id, a."Department_ID", d."Department_Name"')
+                        ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
+                        ->where('a.id', (int) $input['alumni_id'])
+                        ->get()
+                        ->getRowArray();
+                    $targetDeptId = (int) ($targetAlum['Department_ID'] ?? 0);
+                    $targetDeptName = trim((string) ($targetAlum['Department_Name'] ?? ''));
+                    $sameDept = ($coordDeptId > 0 && $targetDeptId === $coordDeptId)
+                        || ($coordDeptName !== '' && strcasecmp($targetDeptName, $coordDeptName) === 0);
+                    if (! $targetAlum || ! $sameDept) {
+                        return $this->response->setStatusCode(403)->setJSON([
+                            'success' => false,
+                            'message' => 'You can only record payments for alumni in your assigned department.',
+                        ]);
+                    }
+                }
+            }
+
             $data = [
                 'transaction_ref'    => $ref,
                 'alumni_id'          => !empty($input['alumni_id']) ? (int) $input['alumni_id'] : null,
@@ -3061,7 +5668,7 @@ class StaffController extends BaseController
                 'payer_email'        => !empty($input['payer_email']) ? trim((string) $input['payer_email']) : null,
                 'payer_contact'      => !empty($input['payer_contact']) ? trim((string) $input['payer_contact']) : null,
                 'campus_id'          => !empty($input['campus_id']) ? (int) $input['campus_id'] : ($campusId !== null && is_numeric($campusId) ? (int) $campusId : 1),
-                'college_id'         => !empty($input['college_id']) ? (int) $input['college_id'] : null,
+                'college_id'         => $forcedCollegeId,
                 'payment_purpose_id' => $paymentPurposeId,
                 'payment_type'       => $paymentType,
                 'description'        => !empty($input['description']) ? trim((string) $input['description']) : null,
@@ -3455,7 +6062,42 @@ class StaffController extends BaseController
         }
 
         if (!$alumni) {
-            return null;
+            // Fallback: check user_accounts (Role = 'alumni') if no row exists in alumni table yet
+            $db = \Config\Database::connect();
+            $uaBuilder = $db->table('user_accounts')->where('LOWER("Role"::text)', 'alumni');
+            if (!empty($payment['payer_email'])) {
+                $uaBuilder->where('LOWER("Email")', strtolower(trim((string) $payment['payer_email'])));
+            } elseif (!empty($payment['payer_name'])) {
+                $payerName = strtolower(trim((string) $payment['payer_name']));
+                $uaBuilder->where("LOWER(CONCAT(TRIM(\"First_Name\"), ' ', TRIM(\"Last_Name\")))", $payerName);
+            } else {
+                return null;
+            }
+            $uaRow = $uaBuilder->get()->getRowArray();
+            if (!$uaRow) {
+                return null;
+            }
+
+            $currentAccId = trim((string) ($uaRow['account_id'] ?? ''));
+            $generatedAlumniId = $currentAccId !== '' ? $currentAccId : $alumniModel->generateUniqueAlumniId();
+
+            if ($currentAccId === '') {
+                $db->table('user_accounts')
+                    ->where('id', $uaRow['id'])
+                    ->update(['account_id' => $generatedAlumniId]);
+            }
+
+            if (!empty($payment['id'])) {
+                $paymentModel = new \App\Models\PaymentModel();
+                $paymentUpdates = ['student_number' => $generatedAlumniId];
+                $notes = (string) ($payment['notes'] ?? '');
+                if (!str_contains($notes, "Alumni ID: {$generatedAlumniId}")) {
+                    $paymentUpdates['notes'] = ($notes !== '' ? ($notes . "\n") : '') . "[System]: Verified Alumni ID Fee payment. Automatically generated and assigned Alumni ID: {$generatedAlumniId}.";
+                }
+                $paymentModel->update((int) $payment['id'], $paymentUpdates);
+            }
+
+            return $generatedAlumniId;
         }
 
         $alumniDbId = (int) $alumni['id'];
@@ -3534,47 +6176,55 @@ class StaffController extends BaseController
         $filename = 'payments_report_' . date('Ymd_His') . '.csv';
         $output = fopen('php://temp', 'r+');
 
-        // CSV Headers
-        fputcsv($output, [
-            'Transaction Ref',
-            'Payer Name',
-            'Student Number',
-            'Email',
-            'Contact',
-            'College',
-            'Purpose / Type',
-            'Description',
-            'Amount (PHP)',
-            'Payment Method',
-            'Channel Reference',
-            'Status',
-            'Date Created',
-            'Verified At',
-            'Notes'
-        ]);
+        // Report Header
+        fputcsv($output, ['UNIVERSITY OF SCIENCE AND TECHNOLOGY OF SOUTHERN PHILIPPINES']);
+        fputcsv($output, ['Payment Transactions Report']);
+        $dateFrom = trim((string) ($filters['date_from'] ?? ''));
+        $dateTo = trim((string) ($filters['date_to'] ?? ''));
+        if ($dateFrom !== '' && $dateTo !== '') {
+            fputcsv($output, ["Reporting Period: {$dateFrom} to {$dateTo}"]);
+        }
+        fputcsv($output, ['Generated on: ' . date('F d, Y h:i:s A')]);
+        fputcsv($output, []);
 
+        // Group payments by College
+        $paymentsByCollege = [];
         foreach ($payments as $p) {
-            $purposeDisplay = !empty($p['payment_purpose_name'])
-                ? $p['payment_purpose_name']
-                : ucwords(str_replace('_', ' ', (string) ($p['payment_type'] ?? '')));
+            $collegeName = trim((string) ($p['college_name'] ?? ($p['college_abbr'] ?? '')));
+            if ($collegeName === '') {
+                $collegeName = 'Unassigned / General';
+            }
+            $paymentsByCollege[$collegeName][] = $p;
+        }
+        ksort($paymentsByCollege);
 
+        foreach ($paymentsByCollege as $collegeName => $collegePayments) {
+            fputcsv($output, [strtoupper($collegeName)]);
             fputcsv($output, [
-                $p['transaction_ref'] ?? '',
-                $p['payer_name'] ?? '',
-                $p['student_number'] ?? '',
-                $p['payer_email'] ?? '',
-                $p['payer_contact'] ?? '',
-                $p['college_name'] ?? ($p['college_abbr'] ?? ''),
-                $purposeDisplay,
-                $p['description'] ?? '',
-                number_format((float) ($p['amount'] ?? 0), 2, '.', ''),
-                strtoupper(str_replace('_', ' ', (string) ($p['payment_method'] ?? ''))),
-                $p['channel_reference'] ?? '',
-                ucfirst((string) ($p['status'] ?? '')),
-                $p['created_at'] ?? '',
-                $p['verified_at'] ?? '',
-                $p['notes'] ?? ''
+                'Alumni ID',
+                'Full Name',
+                'Payment Purpose',
+                'Payment Method',
+                'Amount',
             ]);
+
+            foreach ($collegePayments as $p) {
+                $purposeDisplay = !empty($p['payment_purpose_name'])
+                    ? $p['payment_purpose_name']
+                    : ucwords(str_replace('_', ' ', (string) ($p['payment_type'] ?? '')));
+
+                $alumniIdDisplay = trim((string) ($p['resolved_student_number'] ?? ($p['student_number'] ?? ($p['alumni_id'] ?? ''))));
+
+                fputcsv($output, [
+                    $alumniIdDisplay !== '' ? $alumniIdDisplay : 'N/A',
+                    $p['payer_name'] ?? 'N/A',
+                    $purposeDisplay,
+                    strtoupper(str_replace('_', ' ', (string) ($p['payment_method'] ?? ''))),
+                    number_format((float) ($p['amount'] ?? 0), 2, '.', ''),
+                ]);
+            }
+
+            fputcsv($output, []);
         }
 
         rewind($output);
@@ -3602,6 +6252,14 @@ class StaffController extends BaseController
 
         $filters = $this->extractAndSanitizePaymentFilters();
 
+        if (empty($filters['date_from']) || empty($filters['date_to'])) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'count' => 0,
+                'message' => 'Please select both "From Date" and "To Date" before exporting.',
+            ]);
+        }
+
         $paymentModel = new \App\Models\PaymentModel();
         $payments = $paymentModel->getPaymentsForExcelReport($filters);
         $count = count($payments);
@@ -3610,7 +6268,7 @@ class StaffController extends BaseController
             return $this->response->setJSON([
                 'success' => false,
                 'count' => 0,
-                'message' => 'No payment records were found for the selected filters.',
+                'message' => 'No payment records were found for the selected date range and filters.',
             ]);
         }
 
@@ -3631,6 +6289,13 @@ class StaffController extends BaseController
         }
 
         $filters = $this->extractAndSanitizePaymentFilters();
+
+        if (empty($filters['date_from']) || empty($filters['date_to'])) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Please select both "From Date" and "To Date" before exporting.',
+            ]);
+        }
 
         $paymentModel = new \App\Models\PaymentModel();
         $payments = $paymentModel->getPaymentsForExcelReport($filters);
@@ -3718,19 +6383,14 @@ class StaffController extends BaseController
 
         $dateFrom = trim((string) ($input['date_from'] ?? ''));
         $dateTo = trim((string) ($input['date_to'] ?? ''));
-        $campusId = trim((string) ($input['campus_id'] ?? 'all'));
         $collegeId = trim((string) ($input['college_id'] ?? 'all'));
         $paymentPurposeId = trim((string) ($input['payment_purpose_id'] ?? 'all'));
         $paymentType = trim((string) ($input['payment_type'] ?? 'all'));
         $paymentMethod = trim((string) ($input['payment_method'] ?? 'all'));
         $status = trim((string) ($input['status'] ?? 'all'));
-        $role = trim((string) ($input['submitted_by_role'] ?? 'all'));
 
-        // Enforce Head Admin campus restriction
+        // Automatically use the campus of the logged-in account
         $scopedCampusId = $this->getHeadAdminCampusId();
-        if ($scopedCampusId !== null && is_numeric($scopedCampusId)) {
-            $campusId = (string) $scopedCampusId;
-        }
 
         $filters = [];
 
@@ -3742,8 +6402,8 @@ class StaffController extends BaseController
             $filters['date_to'] = $dateTo;
         }
 
-        if ($campusId !== 'all' && is_numeric($campusId) && (int) $campusId > 0) {
-            $filters['campus_id'] = (int) $campusId;
+        if ($scopedCampusId !== null && is_numeric($scopedCampusId) && (int) $scopedCampusId > 0) {
+            $filters['campus_id'] = (int) $scopedCampusId;
         }
 
         if ($collegeId !== 'all' && is_numeric($collegeId) && (int) $collegeId > 0) {
@@ -3771,11 +6431,6 @@ class StaffController extends BaseController
         $allowedStatuses = ['pending', 'verified', 'rejected', 'refunded'];
         if ($status !== 'all' && in_array($status, $allowedStatuses, true)) {
             $filters['status'] = $status;
-        }
-
-        $allowedRoles = ['head_admin', 'coordinator', 'alumni'];
-        if ($role !== 'all' && in_array($role, $allowedRoles, true)) {
-            $filters['submitted_by_role'] = $role;
         }
 
         return $filters;

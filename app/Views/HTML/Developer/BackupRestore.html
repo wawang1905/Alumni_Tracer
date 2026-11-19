@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer - Backup & Restore</title>
+    <title>GradVision - Backup & Restore</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="DeveloperCommon.css">
 </head>
@@ -12,11 +13,11 @@
         <aside class="developer-sidebar">
             <div class="developer-brand">
                 <div class="developer-brand-mark">
-                    <i class="fas fa-shield-alt"></i>
+                    <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="developer-brand-logo">
                 </div>
                 <div>
-                    <h1>Developer</h1>
-                    <p>System Administrator</p>
+                    <h1>GradVision</h1>
+                    <p>Developer Console</p>
                 </div>
             </div>
 
@@ -67,7 +68,7 @@
         <main class="developer-main">
             <header class="developer-topbar">
                 <div>
-                    <p class="eyebrow">Application Maintenance</p>
+                    <p class="eyebrow">GradVision &middot; Developer Console</p>
                     <h2 id="developerPageTitle">Backup & Restore</h2>
                 </div>
                 <div class="developer-user">
@@ -89,33 +90,38 @@
                     <article class="section-card">
                         <div class="section-heading">
                             <div>
-                                <p class="eyebrow">Database</p>
-                                <h3>Backup</h3>
+                                <p class="eyebrow">Supabase PostgreSQL</p>
+                                <h3>Create Database Backup</h3>
                             </div>
+                            <span class="status-pill status-active">Supabase Ready (.sql)</span>
                         </div>
                         <div class="database-action">
                             <i class="fas fa-download"></i>
-                            <p>Create a new database backup record for administrator handoff.</p>
+                            <p>Exports all public schema tables, rows, primary keys, identity sequences (<code>setval</code>), and RLS flags into a self-contained PostgreSQL <code>.sql</code> file ready to import directly into the <strong>Supabase SQL Editor</strong> or via <code>psql</code>.</p>
+                            <label class="toggle-row" style="width: 100%; max-width: 420px; padding: 10px 14px;">
+                                <span>Download <code>.sql</code> file automatically</span>
+                                <input type="checkbox" id="autoDownloadBackupSql" checked>
+                            </label>
                             <button class="btn-primary" type="button" id="createBackup">
                                 <i class="fas fa-database"></i>
-                                Create Backup
+                                Create Supabase Backup (.sql)
                             </button>
                         </div>
                     </article>
                     <article class="section-card">
                         <div class="section-heading">
                             <div>
-                                <p class="eyebrow">Database</p>
-                                <h3>Restore</h3>
+                                <p class="eyebrow">Database Recovery</p>
+                                <h3>Restore to Supabase</h3>
                             </div>
                         </div>
                         <div class="database-action caution">
                             <i class="fas fa-upload"></i>
-                            <p>Select a backup entry and prepare it for restore review.</p>
+                            <p>Select a saved Supabase <code>.sql</code> snapshot to execute and restore directly into your connected Supabase PostgreSQL database.</p>
                             <select class="form-control" id="restorePointSelect"></select>
                             <button class="btn-secondary" type="button" id="queueRestore">
                                 <i class="fas fa-clock-rotate-left"></i>
-                                Queue Restore
+                                Restore Selected Snapshot
                             </button>
                         </div>
                     </article>
@@ -124,7 +130,7 @@
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">Backup History</p>
-                            <h3>Database Snapshots</h3>
+                            <h3>Supabase SQL Snapshots</h3>
                         </div>
                     </div>
                     <div class="table-wrap">
@@ -132,10 +138,12 @@
                             <thead>
                                 <tr>
                                     <th>Backup Name</th>
+                                    <th>Format</th>
                                     <th>Date</th>
                                     <th>Size</th>
                                     <th>Status</th>
                                     <th>Created By</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="backupTableBody"></tbody>

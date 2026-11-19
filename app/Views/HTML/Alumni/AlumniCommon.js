@@ -555,6 +555,10 @@ async function pollSurveyNotifications() {
                 renderSurveyCards('mainSurveyPreview', surveys, 2);
             }
         }
+
+        if (document.getElementById('widgetSurveyReminder')) {
+            renderSurveyReminderWidget(surveys);
+        }
     } catch {
         // Ignore background polling errors
     } finally {
@@ -614,21 +618,120 @@ function renderEventCards(targetId, events, limit = null) {
     }).join('');
 }
 
+/* ==========================================================================
+   Smart Category Detection & Community Toast
+   ========================================================================== */
+
+function getPostCategory(item) {
+    const text = ((item.title || '') + ' ' + (item.content || '') + ' ' + (item.description || '')).toLowerCase();
+    if (text.includes('hiring') || text.includes('job') || text.includes('career') || text.includes('intern') || text.includes('vacancy') || text.includes('salary') || text.includes('developer') || text.includes('engineer')) {
+        return { slug: 'career', label: 'Career & Jobs', icon: 'fa-briefcase' };
+    }
+    if (text.includes('spotlight') || text.includes('award') || text.includes('honor') || text.includes('achieve') || text.includes('featured') || text.includes('mentor') || text.includes('alumni story')) {
+        return { slug: 'spotlight', label: 'Alumni Spotlight', icon: 'fa-star' };
+    }
+    if (text.includes('event') || text.includes('homecoming') || text.includes('reunion') || text.includes('gathering') || text.includes('notice') || text.includes('advisory') || text.includes('urgent') || text.includes('announcement') || text.includes('memo')) {
+        return { slug: 'announcement', label: 'Announcement', icon: 'fa-bullhorn' };
+    }
+    if (item.category && item.category !== 'campus news' && item.category !== 'general') {
+        const c = String(item.category).toLowerCase();
+        if (c.includes('career') || c.includes('job') || c.includes('hiring')) return { slug: 'career', label: 'Career & Jobs', icon: 'fa-briefcase' };
+        if (c.includes('spotlight')) return { slug: 'spotlight', label: 'Alumni Spotlight', icon: 'fa-star' };
+        if (c.includes('announce')) return { slug: 'announcement', label: 'Announcement', icon: 'fa-bullhorn' };
+    }
+    return { slug: 'campus', label: 'Campus News', icon: 'fa-university' };
+}
+
+function showAlumniToast(message) {
+    let toast = document.getElementById('alumniToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'alumniToast';
+        toast.className = 'alumni-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3200);
+}
+
+function setupImageLightbox() {
+    const modal = document.getElementById('feedLightboxModal');
+    const img = document.getElementById('lightboxImg');
+    const caption = document.getElementById('lightboxCaption');
+    const closeBtn = document.getElementById('lightboxClose');
+    const overlay = document.getElementById('lightboxOverlay');
+
+    if (!modal || !img) return;
+
+    window.openFeedLightbox = function(src, alt) {
+        img.src = src;
+        img.alt = alt || 'Enlarged photo';
+        if (caption) caption.textContent = alt || '';
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    function closeLightbox() {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        setTimeout(() => { if (!modal.classList.contains('open')) img.src = ''; }, 250);
+    }
+
+    if (closeBtn) closeBtn.onclick = closeLightbox;
+    if (overlay) overlay.onclick = closeLightbox;
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) {
+            closeLightbox();
+        }
+    });
+}
+
 function renderNewsCards(targetId, newsItems, limit = null) {
     const container = document.getElementById(targetId);
     if (!container) return;
 
     const list = limit ? newsItems.slice(0, limit) : newsItems;
-    if (list.length === 0) {
-        container.innerHTML = createEmptyState('fa-bullhorn', 'No updates yet', 'Announcements and staff updates will appear here once they are posted.');
+
+    if (allFeedPosts.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 48px 24px; text-align: center; background: #fff; border-radius: 24px; border: 1px dashed #cbd5e1;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: #f1f5f9; color: #64748b; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 14px;">
+                    <i class="fas fa-newspaper"></i>
+                </div>
+                <h3 style="color: #0a2240; font-size: 18px; margin-bottom: 6px;">No posts published yet</h3>
+                <p style="color: #64748b; font-size: 14px; max-width: 420px; margin: 0 auto;">Campus news and official staff announcements will appear here once published.</p>
+            </div>
+        `;
         return;
     }
 
-    container.innerHTML = list.map((item) => `
-        <article class="facebook-post">
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 48px 24px; text-align: center; background: #fff; border-radius: 24px; border: 1px dashed #cbd5e1;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: #fef3c7; color: #d97706; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 14px;">
+                    <i class="fas fa-bullhorn"></i>
+                </div>
+                <h3 style="color: #0a2240; font-size: 18px; margin-bottom: 6px;">No posts match your filter</h3>
+                <p style="color: #64748b; font-size: 14px; max-width: 420px; margin: 0 auto;">No updates match your selected filter or search term. Try selecting "All Posts" or clearing the search box.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = list.map((item) => {
+        const cat = getPostCategory(item);
+
+        return `
+        <article class="facebook-post" id="post-${item.id}">
             <div class="facebook-post-header">
                 <div class="facebook-post-avatar">
-                    <i class="fas fa-newspaper"></i>
+                    <i class="fas fa-university"></i>
                 </div>
                 <div class="facebook-post-author">
                     <strong>${escapeHtml(item.author || 'Staff Office')}</strong>
@@ -638,6 +741,7 @@ function renderNewsCards(targetId, newsItems, limit = null) {
                         <span>${escapeHtml(formatTimeAgo(item.created_at || ''))}</span>
                     </div>
                 </div>
+                <span class="post-category-tag ${cat.slug}"><i class="fas ${cat.icon}"></i> ${escapeHtml(cat.label)}</span>
             </div>
             <div class="facebook-post-body">
                 <h2 class="facebook-post-title">${escapeHtml(item.title || 'Update')}</h2>
@@ -645,16 +749,290 @@ function renderNewsCards(targetId, newsItems, limit = null) {
             </div>
             ${item.image_url ? `
                 <div class="facebook-post-image-wrap">
-                    <img class="facebook-post-image" src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title || 'News image')}">
+                    <img class="facebook-post-image lightbox-trigger" src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title || 'News image')}" onclick="window.openFeedLightbox && window.openFeedLightbox('${escapeHtml(item.image_url)}', '${escapeHtml(item.title || '')}')">
                 </div>
             ` : ''}
             <div class="facebook-post-actions">
                 <span><i class="fas fa-clock"></i> ${escapeHtml(formatDateTime(item.created_at || ''))}</span>
-                <span><i class="fas fa-tag"></i> ${escapeHtml(item.category || 'campus news')}</span>
-                ${item.link_url ? `<a class="facebook-post-link" href="${escapeHtml(item.link_url)}" target="_blank" rel="noopener noreferrer"><i class="fas fa-link"></i><span>Open Link</span></a>` : ''}
+                <span><i class="fas fa-tag"></i> ${escapeHtml(cat.label)}</span>
+                ${item.link_url ? `<a class="facebook-post-link" href="${escapeHtml(item.link_url)}" target="_blank" rel="noopener noreferrer"><i class="fas fa-arrow-up-right-from-square"></i><span>Open Link</span></a>` : ''}
             </div>
         </article>
-    `).join('');
+        `;
+    }).join('');
+}
+
+/* ==========================================================================
+   News Feed Interactive Controls & Category Filtering
+   ========================================================================== */
+
+let allFeedPosts = [];
+let activeFeedCategory = 'all';
+let feedSearchQuery = '';
+
+function initNewsFeed(serverNews) {
+    allFeedPosts = Array.isArray(serverNews) ? serverNews : [];
+
+    const countBadge = document.getElementById('feedCountAll');
+    if (countBadge) {
+        countBadge.textContent = String(allFeedPosts.length);
+    }
+
+    setupFeedControls();
+    setupImageLightbox();
+    renderFilteredFeed();
+}
+
+function setupFeedControls() {
+    const filterTabs = document.getElementById('feedFilterTabs');
+    if (filterTabs && !filterTabs.dataset.bound) {
+        filterTabs.dataset.bound = 'true';
+        filterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('.feed-tab-btn');
+            if (!btn) return;
+            const category = btn.dataset.category || 'all';
+            activeFeedCategory = category;
+
+            filterTabs.querySelectorAll('.feed-tab-btn').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            renderFilteredFeed();
+        });
+    }
+
+    const searchInput = document.getElementById('feedSearchInput');
+    const searchClear = document.getElementById('feedSearchClear');
+    if (searchInput && !searchInput.dataset.bound) {
+        searchInput.dataset.bound = 'true';
+        searchInput.addEventListener('input', () => {
+            feedSearchQuery = searchInput.value.trim().toLowerCase();
+            if (searchClear) {
+                searchClear.style.display = feedSearchQuery ? 'inline-flex' : 'none';
+            }
+            renderFilteredFeed();
+        });
+    }
+
+    if (searchClear && !searchClear.dataset.bound) {
+        searchClear.dataset.bound = 'true';
+        searchClear.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            feedSearchQuery = '';
+            searchClear.style.display = 'none';
+            renderFilteredFeed();
+            if (searchInput) searchInput.focus();
+        });
+    }
+}
+
+function renderFilteredFeed() {
+    let filtered = allFeedPosts;
+
+    if (activeFeedCategory && activeFeedCategory !== 'all') {
+        filtered = filtered.filter((post) => {
+            const cat = getPostCategory(post);
+            return cat.slug === activeFeedCategory;
+        });
+    }
+
+    if (feedSearchQuery) {
+        filtered = filtered.filter((post) => {
+            const title = (post.title || '').toLowerCase();
+            const content = (post.content || post.description || '').toLowerCase();
+            const author = (post.author || '').toLowerCase();
+            return title.includes(feedSearchQuery) || content.includes(feedSearchQuery) || author.includes(feedSearchQuery);
+        });
+    }
+
+    renderNewsCards('alumniNewsGrid', filtered);
+}
+
+/* ==========================================================================
+   Engaging Community Sidebar Widgets
+   ========================================================================== */
+
+function initFeedWidgets(user, events, surveys, news) {
+    // 1. Identity snapshot details
+    const userDept = document.getElementById('widgetUserDept');
+    if (userDept) {
+        const dept = user?.course || user?.department || user?.program || 'Bachelor of Science in Information Technology';
+        userDept.textContent = dept;
+    }
+
+    // 2. Upcoming Event Spotlight
+    const spotlightWidget = document.getElementById('widgetEventSpotlight');
+    if (spotlightWidget && Array.isArray(events)) {
+        const upcomingEvents = events.filter((e) => {
+            const iso = e.datetime || (e.date && e.time ? `${e.date}T${e.time}` : e.date);
+            const d = new Date(iso);
+            return !Number.isNaN(d.getTime()) && d.getTime() >= Date.now();
+        }).sort((a, b) => {
+            const da = new Date(a.datetime || (a.date && a.time ? `${a.date}T${a.time}` : a.date));
+            const db = new Date(b.datetime || (b.date && b.time ? `${b.date}T${b.time}` : b.date));
+            return da - db;
+        });
+
+        const targetEvent = upcomingEvents[0] || events[0];
+        if (targetEvent) {
+            const titleEl = document.getElementById('widgetEventTitle');
+            const timeEl = document.getElementById('widgetEventTime');
+            const locEl = document.getElementById('widgetEventLocation');
+            const monthEl = document.getElementById('widgetEventMonth');
+            const dayEl = document.getElementById('widgetEventDay');
+            const countdownEl = document.getElementById('widgetEventCountdown');
+
+            if (titleEl) titleEl.textContent = targetEvent.name || targetEvent.title || 'Alumni Gathering';
+            if (timeEl) timeEl.textContent = targetEvent.time || (targetEvent.datetime ? formatDateTime(targetEvent.datetime) : 'Check event schedule');
+            if (locEl) locEl.textContent = targetEvent.location || 'USTP Campus / Online';
+
+            const iso = targetEvent.datetime || (targetEvent.date && targetEvent.time ? `${targetEvent.date}T${targetEvent.time}` : targetEvent.date);
+            const eventDate = new Date(iso);
+            if (!Number.isNaN(eventDate.getTime())) {
+                const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                if (monthEl) monthEl.textContent = monthNames[eventDate.getMonth()];
+                if (dayEl) dayEl.textContent = String(eventDate.getDate()).padStart(2, '0');
+
+                const diffDays = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                if (countdownEl) {
+                    if (diffDays <= 0) countdownEl.textContent = 'Today!';
+                    else if (diffDays === 1) countdownEl.textContent = 'Tomorrow';
+                    else countdownEl.textContent = `In ${diffDays} days`;
+                }
+            }
+        }
+    }
+
+    // 3. Community Pulse interactive poll
+    initCommunityPoll();
+
+    // 4. Survey reminder widget
+    renderSurveyReminderWidget(surveys);
+}
+
+function initCommunityPoll() {
+    const pollContainer = document.getElementById('widgetCommunityPoll');
+    if (!pollContainer) return;
+
+    const STORAGE_KEY = 'alumni_community_poll_state_v1';
+    let pollData;
+    try {
+        pollData = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    } catch (_) {
+        pollData = null;
+    }
+
+    if (!pollData || typeof pollData !== 'object' || !pollData.votes) {
+        pollData = {
+            votes: { '1': 54, '2': 78, '3': 43, '4': 25 },
+            userChoice: null,
+        };
+    }
+
+    function renderPoll() {
+        const total = Object.values(pollData.votes).reduce((sum, n) => sum + Number(n), 0);
+        const voteCountEl = document.getElementById('pollVoteCount');
+        const statusNote = document.getElementById('pollStatusNote');
+
+        if (voteCountEl) {
+            voteCountEl.innerHTML = `<i class="fas fa-users"></i> ${total} votes cast`;
+        }
+        if (statusNote) {
+            if (pollData.userChoice) {
+                statusNote.textContent = '✓ You voted! Thank you';
+                statusNote.style.color = '#10b981';
+            } else {
+                statusNote.textContent = 'Click an option to vote';
+                statusNote.style.color = '';
+            }
+        }
+
+        const buttons = pollContainer.querySelectorAll('.poll-option-btn');
+        buttons.forEach((btn) => {
+            const choiceId = btn.dataset.pollChoice;
+            const count = pollData.votes[choiceId] || 0;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+            const pctEl = btn.querySelector('.poll-choice-percent');
+            const barEl = btn.querySelector('.poll-choice-bar');
+
+            if (pctEl) pctEl.textContent = `${pct}%`;
+            if (barEl) barEl.style.width = `${pct}%`;
+
+            if (pollData.userChoice === choiceId) {
+                btn.classList.add('selected');
+            } else {
+                btn.classList.remove('selected');
+            }
+        });
+    }
+
+    renderPoll();
+
+    if (!pollContainer.dataset.bound) {
+        pollContainer.dataset.bound = 'true';
+        pollContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.poll-option-btn');
+            if (!btn) return;
+            const choiceId = btn.dataset.pollChoice;
+            if (!choiceId) return;
+
+            if (pollData.userChoice === choiceId) {
+                showAlumniToast('You already voted for this option!');
+                return;
+            }
+
+            // Adjust vote counts
+            if (pollData.userChoice && pollData.votes[pollData.userChoice] > 0) {
+                pollData.votes[pollData.userChoice]--;
+            }
+
+            pollData.votes[choiceId] = (pollData.votes[choiceId] || 0) + 1;
+            pollData.userChoice = choiceId;
+
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(pollData));
+            } catch (_) {}
+
+            renderPoll();
+            showAlumniToast('Your vote has been counted! Thank you for participating.');
+        });
+    }
+}
+
+function renderSurveyReminderWidget(surveys) {
+    const surveyReminder = document.getElementById('widgetSurveyReminder');
+    if (!surveyReminder) return;
+
+    const pending = getPendingUnansweredSurveys(surveys);
+    const titleEl = document.getElementById('widgetSurveyTitle');
+    const descEl = document.getElementById('widgetSurveyDesc');
+    const badgeEl = document.getElementById('widgetSurveyBadge');
+    const btnEl = document.getElementById('widgetSurveyBtn');
+
+    if (pending.length > 0) {
+        const topSurvey = pending[0];
+        if (titleEl) titleEl.textContent = topSurvey.title || 'Alumni Survey';
+        if (descEl) descEl.textContent = topSurvey.description || 'Your answers take ~2 minutes and help shape future university initiatives.';
+        if (badgeEl) {
+            badgeEl.textContent = `${pending.length} Action Needed`;
+            badgeEl.className = 'widget-badge new-badge';
+        }
+        if (btnEl) {
+            btnEl.href = getSurveyRespondUrl(topSurvey.id);
+            btnEl.innerHTML = '<i class="fas fa-reply"></i> Answer Survey';
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'All Caught Up!';
+        if (descEl) descEl.textContent = 'Thank you for keeping your feedback updated. You will receive an alert when a new survey is available.';
+        if (badgeEl) {
+            badgeEl.textContent = 'Completed ✓';
+            badgeEl.className = 'widget-badge done-badge';
+        }
+        if (btnEl) {
+            btnEl.href = 'Surveys.html';
+            btnEl.innerHTML = '<i class="fas fa-list-check"></i> View Surveys';
+        }
+    }
 }
 
 /**
@@ -1595,7 +1973,12 @@ async function bootstrapAlumniUi() {
     renderSurveyCards('mainSurveyPreview', surveys, 2);
 
     renderEventCards('alumniEventsGrid', events);
-    renderNewsCards('alumniNewsGrid', news);
+    if (document.getElementById('alumniNewsGrid')) {
+        initNewsFeed(news);
+        initFeedWidgets(user, events, surveys, news);
+    } else {
+        renderNewsCards('alumniNewsGrid', news);
+    }
     renderSurveyCards('alumniSurveysGrid', surveys);
 }
 

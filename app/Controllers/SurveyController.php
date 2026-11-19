@@ -96,7 +96,7 @@ class SurveyController extends BaseController
             'title' => $title,
             'description' => $description,
             'status' => 'open',
-            'allow_multiple_responses' => 0,
+            'allow_multiple_responses' => false,
             'current_batch' => 1,
             'open_datetime' => $openDatetime,
             'close_datetime' => $closeDatetime,
@@ -127,7 +127,7 @@ class SurveyController extends BaseController
                     'description' => $description,
                     'created_at' => date('Y-m-d H:i:s'),
                     'status' => 'open',
-                    'allow_multiple_responses' => 1,
+                    'allow_multiple_responses' => false,
                     'current_batch' => 1,
                     'open_datetime' => $openDatetime,
                     'close_datetime' => $closeDatetime,
@@ -348,7 +348,7 @@ class SurveyController extends BaseController
         }
 
         $this->surveyModel->update($surveyId, [
-            'allow_multiple_responses' => $allowed ? 1 : 0,
+            'allow_multiple_responses' => (bool) $allowed,
         ]);
 
         $updated = $this->surveyModel->find($surveyId);
@@ -542,7 +542,7 @@ class SurveyController extends BaseController
             'category_id' => $categoryId,
             'question_text' => $text,
             'question_type' => $type,
-            'required' => !empty($this->request->getPost('required')) ? 1 : 0,
+            'required' => filter_var($this->request->getPost('required'), FILTER_VALIDATE_BOOLEAN),
         ]);
         $questionId = (int) $this->questionModel->getInsertID();
 
@@ -631,7 +631,7 @@ class SurveyController extends BaseController
             'category_id' => $categoryId,
             'question_text' => $text,
             'question_type' => $type,
-            'required' => !empty($this->request->getPost('required')) ? 1 : 0,
+            'required' => filter_var($this->request->getPost('required'), FILTER_VALIDATE_BOOLEAN),
         ]);
 
         $this->choiceModel->where('question_id', $questionId)->delete();
@@ -672,6 +672,19 @@ class SurveyController extends BaseController
             return $this->response->setStatusCode(404)->setJSON([
                 'success' => false,
                 'message' => 'Question not found.',
+            ]);
+        }
+
+        $normalizedText = strtolower(trim((string) (preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/i', '', (string) ($question['question_text'] ?? '')) ?? '') ?? '')));
+        $preMadeQuestionTexts = [
+            'what is your employment status',
+            'how long did it take you to find your first job after graduation',
+            'is your job related to your degree',
+        ];
+        if (in_array($normalizedText, $preMadeQuestionTexts, true)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Pre-made employment questions cannot be deleted.',
             ]);
         }
 
@@ -1344,12 +1357,11 @@ class SurveyController extends BaseController
             }
         }
 
-        // Total alumni per batch
+        // Total alumni per batch via SQL aggregation instead of loading all alumni rows
         $batchTotals = [];
-        $allAlumni = $this->alumniModel->findAll();
-        foreach ($allAlumni as $alumni) {
-            $batch = $alumni['GraduationYear'] ?? 'Unknown';
-            $batchTotals[$batch] = ($batchTotals[$batch] ?? 0) + 1;
+        foreach ($this->alumniModel->getBatchSummaries() as $batchSummary) {
+            $batch = (string) ($batchSummary['GraduationYear'] ?? 'Unknown');
+            $batchTotals[$batch] = (int) ($batchSummary['alumni_count'] ?? 0);
         }
 
         // Get all registered batches from alumni_batches table (including those with 0 alumni)
@@ -1733,7 +1745,7 @@ class SurveyController extends BaseController
                 'id' => $questionId,
                 'text' => (string) $question['question_text'],
                 'type' => (string) $question['question_type'],
-                'required' => (bool) ((int) ($question['required'] ?? 0)),
+                'required' => filter_var($question['required'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'categoryId' => (int) $question['category_id'],
                 'options' => array_map(static fn (array $choice): string => $choice['text'], $choices),
                 'choices' => $choices,
@@ -1799,7 +1811,7 @@ class SurveyController extends BaseController
             ->orderBy('submitted_at', 'DESC')
             ->findAll();
 
-        $formattedResponses = array_map(fn (array $response): array => $this->formatResponseRecord($response), $responses);
+        $formattedResponses = $this->formatResponseRecords($responses);
 
         return $this->scopeResponsesForCurrentCoordinator($formattedResponses);
     }
@@ -1839,107 +1851,178 @@ class SurveyController extends BaseController
     }
 
     /**
+     * @param array<int, array<string, mixed>> $responses
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatResponseRecords(array $responses): array
+    {
+        if ($responses === []) {
+            return [];
+        }
+
+        $responseIds = [];
+        $normalizedEmails = [];
+        foreach ($responses as $response) {
+            $responseId = (int) ($response['id'] ?? 0);
+            if ($responseId > 0) {
+                $responseIds[] = $responseId;
+            }
+
+            $userEmailRaw = isset($response['user_email']) ? trim((string) $response['user_email']) : '';
+            if ($userEmailRaw !== '') {
+                $normalizedEmails[$this->normalizeSurveyEmail($userEmailRaw)] = true;
+            }
+        }
+
+        $responseIds = array_values(array_unique($responseIds));
+        $emailKeys = array_keys($normalizedEmails);
+
+        // 1. Batch-load alumni records by email
+        $alumniByEmail = [];
+        if ($emailKeys !== []) {
+            $alumniRows = $this->alumniModel->builder()
+                ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, alumni.Province, alumni.Municipality, alumni.Barangay, alumni.Contact_Number, c.College_Name AS College, d.Department_Name AS Course')
+                ->join('colleges c', 'c.College_ID = alumni.College_ID', 'left')
+                ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left')
+                ->whereIn('LOWER(alumni."Email")', $emailKeys)
+                ->get()
+                ->getResultArray();
+
+            foreach ($alumniRows as $alumniRow) {
+                $emailKey = $this->normalizeSurveyEmail((string) ($alumniRow['Email'] ?? ''));
+                if ($emailKey !== '' && ! isset($alumniByEmail[$emailKey])) {
+                    $alumniByEmail[$emailKey] = $alumniRow;
+                }
+            }
+        }
+
+        // 2. Batch-load answers for all responses
+        $answersByResponseId = [];
+        if ($responseIds !== []) {
+            $answerRows = $this->db->table('answers a')
+                ->select('a.id, a.response_id, a.question_id, a.choice_id, a.answer_text, a.answer_image_path, q.question_text, q.question_type, c.choice_text, cat.category_name')
+                ->join('questions q', 'q.id = a.question_id', 'left')
+                ->join('categories cat', 'cat.id = q.category_id', 'left')
+                ->join('choices c', 'c.id = a.choice_id', 'left')
+                ->whereIn('a.response_id', $responseIds)
+                ->orderBy('a.id', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            foreach ($answerRows as $answerRow) {
+                $answersByResponseId[(int) $answerRow['response_id']][] = $answerRow;
+            }
+        }
+
+        // 3. Batch-load latest review for all responses
+        $latestReviewByResponseId = [];
+        if ($responseIds !== []) {
+            $reviewRows = $this->db->table('response_reviews rr')
+                ->select('rr.response_id, rr.review_status, rr.review_comment, rr.reviewed_at, s.First_Name, s.Last_Name, u.First_Name as user_first_name, u.Last_Name as user_last_name')
+                ->join('staffs s', 's.Staff_ID = rr.reviewer_id', 'left')
+                ->join('user_accounts u', 'u.Email = s.Email', 'left')
+                ->whereIn('rr.response_id', $responseIds)
+                ->orderBy('rr.reviewed_at', 'DESC')
+                ->get()
+                ->getResultArray();
+
+            foreach ($reviewRows as $reviewRow) {
+                $rid = (int) $reviewRow['response_id'];
+                if (! isset($latestReviewByResponseId[$rid])) {
+                    $latestReviewByResponseId[$rid] = $reviewRow;
+                }
+            }
+        }
+
+        return array_map(function (array $response) use ($alumniByEmail, $answersByResponseId, $latestReviewByResponseId): array {
+            $responseId = (int) $response['id'];
+            $userEmailRaw = isset($response['user_email']) ? trim((string) $response['user_email']) : '';
+            $userEmail = $userEmailRaw !== '' ? $userEmailRaw : null;
+            $respondentEmail = $userEmail !== null ? $this->normalizeSurveyEmail($userEmail) : null;
+            $alumni = $respondentEmail !== null ? ($alumniByEmail[$respondentEmail] ?? null) : null;
+            $alumniId = is_array($alumni) && isset($alumni['id']) ? (int) $alumni['id'] : null;
+
+            $storedName = isset($response['user_name']) ? trim((string) $response['user_name']) : '';
+            $resolvedName = $storedName !== ''
+                ? $storedName
+                : (is_array($alumni) ? $this->formatAlumniName($alumni) : '');
+            if ($resolvedName === '') {
+                $resolvedName = $respondentEmail ?? 'Alumni User';
+            }
+
+            $firstName = is_array($alumni) ? trim((string) ($alumni['FirstName'] ?? '')) : '';
+            $lastName = is_array($alumni) ? trim((string) ($alumni['LastName'] ?? '')) : '';
+            if ($firstName === '' && $lastName === '') {
+                $nameParts = preg_split('/\s+/', trim($resolvedName)) ?: [];
+                $firstName = (string) array_shift($nameParts);
+                $lastName = implode(' ', $nameParts);
+            }
+
+            $answers = $answersByResponseId[$responseId] ?? [];
+
+            $surveyNum = isset($response['survey_number']) && $response['survey_number'] !== null && $response['survey_number'] !== ''
+                ? (int) $response['survey_number']
+                : null;
+
+            $reviewStatus = (string) ($response['review_status'] ?? 'pending');
+            $latestReview = $latestReviewByResponseId[$responseId] ?? null;
+
+            $latestReviewFormatted = null;
+            if (is_array($latestReview)) {
+                $reviewerName = trim(($latestReview['First_Name'] ?? $latestReview['user_first_name'] ?? '') . ' ' . ($latestReview['Last_Name'] ?? $latestReview['user_last_name'] ?? ''));
+                $latestReviewFormatted = [
+                    'reviewStatus'   => (string) ($latestReview['review_status'] ?? ''),
+                    'reviewComment'  => (string) ($latestReview['review_comment'] ?? ''),
+                    'reviewedAt'     => (string) ($latestReview['reviewed_at'] ?? ''),
+                    'reviewerName'   => $reviewerName !== '' ? $reviewerName : 'Coordinator',
+                ];
+            }
+
+            return [
+                'id' => $responseId,
+                'surveyId' => (int) $response['survey_id'],
+                'surveyNumber' => $surveyNum,
+                'alumniId' => $alumniId,
+                'alumniRecordId' => is_array($alumni) ? (string) ($alumni['alumni_id'] ?? '') : '',
+                'college' => is_array($alumni) ? (string) ($alumni['College'] ?? '') : '',
+                'course' => is_array($alumni) ? (string) ($alumni['Course'] ?? '') : '',
+                'graduationYear' => is_array($alumni) ? (string) ($alumni['GraduationYear'] ?? '') : '',
+                'respondentEmail' => $respondentEmail,
+                'userName' => $resolvedName,
+                'alumniName' => $resolvedName,
+                'firstName' => $firstName,
+                'lastName' => $lastName,
+                'submittedAt' => (string) ($response['submitted_at'] ?? ''),
+                'reviewStatus' => $reviewStatus,
+                'latestReview' => $latestReviewFormatted,
+                'answers' => array_map(function (array $answer): array {
+                    $imagePath = trim((string) ($answer['answer_image_path'] ?? ''));
+                    $value = $answer['choice_text'] ?? $answer['answer_text'] ?? '';
+                    if ($imagePath !== '') {
+                        $value = basename($imagePath);
+                    }
+                    return [
+                        'id' => (int) $answer['id'],
+                        'questionId' => (int) $answer['question_id'],
+                        'questionText' => (string) ($answer['question_text'] ?? ''),
+                        'questionType' => (string) ($answer['question_type'] ?? ''),
+                        'categoryName' => (string) ($answer['category_name'] ?? ''),
+                        'choiceId' => isset($answer['choice_id']) && $answer['choice_id'] !== null ? (int) $answer['choice_id'] : null,
+                        'value' => (string) $value,
+                        'imageUrl' => $imagePath !== '' ? $this->getSurveyAnswerImageUrl((int) $answer['id'], $imagePath) : null,
+                    ];
+                }, $answers),
+            ];
+        }, $responses);
+    }
+
+    /**
      * @param array<string, mixed> $response
      * @return array<string, mixed>
      */
     private function formatResponseRecord(array $response): array
     {
-        $responseId = (int) $response['id'];
-        $userEmailRaw = isset($response['user_email']) ? trim((string) $response['user_email']) : '';
-        $userEmail = $userEmailRaw !== '' ? $userEmailRaw : null;
-        $alumni = $userEmail !== null ? $this->findAlumniByEmail($userEmail) : null;
-        $alumniId = is_array($alumni) && isset($alumni['id']) ? (int) $alumni['id'] : null;
-        $respondentEmail = $userEmail !== null ? $this->normalizeSurveyEmail($userEmail) : null;
-        $storedName = isset($response['user_name']) ? trim((string) $response['user_name']) : '';
-        $resolvedName = $storedName !== ''
-            ? $storedName
-            : (is_array($alumni) ? $this->formatAlumniName($alumni) : '');
-        if ($resolvedName === '') {
-            $resolvedName = $respondentEmail ?? 'Alumni User';
-        }
-
-        $firstName = is_array($alumni) ? trim((string) ($alumni['FirstName'] ?? '')) : '';
-        $lastName = is_array($alumni) ? trim((string) ($alumni['LastName'] ?? '')) : '';
-        if ($firstName === '' && $lastName === '') {
-            $nameParts = preg_split('/\s+/', trim($resolvedName)) ?: [];
-            $firstName = (string) array_shift($nameParts);
-            $lastName = implode(' ', $nameParts);
-        }
-
-        $answers = $this->db->table('answers a')
-            ->select('a.id, a.question_id, a.choice_id, a.answer_text, a.answer_image_path, q.question_text, q.question_type, c.choice_text, cat.category_name')
-            ->join('questions q', 'q.id = a.question_id', 'left')
-            ->join('categories cat', 'cat.id = q.category_id', 'left')
-            ->join('choices c', 'c.id = a.choice_id', 'left')
-            ->where('a.response_id', $responseId)
-            ->orderBy('a.id', 'ASC')
-            ->get()
-            ->getResultArray();
-
-        $surveyNum = isset($response['survey_number']) && $response['survey_number'] !== null && $response['survey_number'] !== ''
-            ? (int) $response['survey_number']
-            : null;
-
-        // Fetch review_status from the responses table
-        $reviewStatus = (string) ($response['review_status'] ?? 'pending');
-
-        // Fetch the latest review record for this response
-        $latestReview = $this->db->table('response_reviews rr')
-            ->select('rr.review_status, rr.review_comment, rr.reviewed_at, s.First_Name, s.Last_Name, u.First_Name as user_first_name, u.Last_Name as user_last_name')
-            ->join('staffs s', 's.Staff_ID = rr.reviewer_id', 'left')
-            ->join('user_accounts u', 'u.Email = s.Email', 'left')
-            ->where('rr.response_id', $responseId)
-            ->orderBy('rr.reviewed_at', 'DESC')
-            ->limit(1)
-            ->get()
-            ->getRowArray();
-
-        $latestReviewFormatted = null;
-        if (is_array($latestReview)) {
-            $reviewerName = trim(($latestReview['First_Name'] ?? $latestReview['user_first_name'] ?? '') . ' ' . ($latestReview['Last_Name'] ?? $latestReview['user_last_name'] ?? ''));
-            $latestReviewFormatted = [
-                'reviewStatus'   => (string) ($latestReview['review_status'] ?? ''),
-                'reviewComment'  => (string) ($latestReview['review_comment'] ?? ''),
-                'reviewedAt'     => (string) ($latestReview['reviewed_at'] ?? ''),
-                'reviewerName'   => $reviewerName !== '' ? $reviewerName : 'Coordinator',
-            ];
-        }
-
-        return [
-            'id' => $responseId,
-            'surveyId' => (int) $response['survey_id'],
-            'surveyNumber' => $surveyNum,
-            'alumniId' => $alumniId,
-            'alumniRecordId' => is_array($alumni) ? (string) ($alumni['alumni_id'] ?? '') : '',
-            'college' => is_array($alumni) ? (string) ($alumni['College'] ?? '') : '',
-            'course' => is_array($alumni) ? (string) ($alumni['Course'] ?? '') : '',
-            'graduationYear' => is_array($alumni) ? (string) ($alumni['GraduationYear'] ?? '') : '',
-            'respondentEmail' => $respondentEmail,
-            'userName' => $resolvedName,
-            'alumniName' => $resolvedName,
-            'firstName' => $firstName,
-            'lastName' => $lastName,
-            'submittedAt' => (string) ($response['submitted_at'] ?? ''),
-            'reviewStatus' => $reviewStatus,
-            'latestReview' => $latestReviewFormatted,
-            'answers' => array_map(function (array $answer): array {
-                $imagePath = trim((string) ($answer['answer_image_path'] ?? ''));
-                $value = $answer['choice_text'] ?? $answer['answer_text'] ?? '';
-                if ($imagePath !== '') {
-                    $value = basename($imagePath);
-                }
-                return [
-                    'id' => (int) $answer['id'],
-                    'questionId' => (int) $answer['question_id'],
-                    'questionText' => (string) ($answer['question_text'] ?? ''),
-                    'questionType' => (string) ($answer['question_type'] ?? ''),
-                    'categoryName' => (string) ($answer['category_name'] ?? ''),
-                    'choiceId' => isset($answer['choice_id']) && $answer['choice_id'] !== null ? (int) $answer['choice_id'] : null,
-                    'value' => (string) $value,
-                    'imageUrl' => $imagePath !== '' ? $this->getSurveyAnswerImageUrl((int) $answer['id']) : null,
-                ];
-            }, $answers),
-        ];
+        return $this->formatResponseRecords([$response])[0];
     }
 
     /**
@@ -1981,7 +2064,7 @@ class SurveyController extends BaseController
 
     private function surveyAllowsMultipleResponses(array $survey): bool
     {
-        return ((int) ($survey['allow_multiple_responses'] ?? 0)) === 1;
+        return filter_var($survey['allow_multiple_responses'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     private function getSurveyState(array $survey): string
@@ -2411,7 +2494,7 @@ class SurveyController extends BaseController
                     'category_id' => $categoryId,
                     'question_text' => trim((string) ($question['text'] ?? '')),
                     'question_type' => trim((string) ($question['type'] ?? '')),
-                    'required' => !empty($question['required']) ? 1 : 0,
+                    'required' => filter_var($question['required'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'rating_min' => isset($question['ratingMin']) ? (int) $question['ratingMin'] : (isset($question['rating_min']) ? (int) $question['rating_min'] : null),
                     'rating_max' => isset($question['ratingMax']) ? (int) $question['ratingMax'] : (isset($question['rating_max']) ? (int) $question['rating_max'] : null),
                     'rating_min_label' => isset($question['ratingMinLabel']) ? trim((string) $question['ratingMinLabel']) : null,
@@ -2701,14 +2784,19 @@ class SurveyController extends BaseController
         }
     }
 
-    private function getSurveyAnswerImageUrl(int $answerId): string
+    private function getSurveyAnswerImageUrl(int $answerId, ?string $knownImagePath = null): string
     {
-        $answer = $this->answerModel->find($answerId);
-        if (! is_array($answer)) {
-            return base_url('surveys/answers/' . $answerId . '/image');
+        if ($knownImagePath !== null) {
+            $path = trim($knownImagePath);
+        } else {
+            $answer = $this->answerModel->find($answerId);
+            if (! is_array($answer)) {
+                return base_url('surveys/answers/' . $answerId . '/image');
+            }
+
+            $path = trim((string) ($answer['answer_image_path'] ?? ''));
         }
 
-        $path = trim((string) ($answer['answer_image_path'] ?? ''));
         if ($path !== '' && $this->isSupabaseStoragePath($path)) {
             return $this->buildSupabasePublicUrl($this->extractSupabaseObjectPath($path));
         }

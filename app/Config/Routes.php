@@ -162,6 +162,7 @@ $routes->group('', ['filter' => 'role:coordinator'], static function (RouteColle
     $routes->get('coordinator/SurveyResponses.html', 'CoordinatorController::surveyResponses');
     $routes->get('coordinator/SurveyResponseDetails.html', 'CoordinatorController::surveyResponseDetails');
     $routes->get('coordinator/alumni', 'CoordinatorController::getAlumni');
+    $routes->get('coordinator/dashboard-data', 'CoordinatorController::dashboardData');
     $routes->get('coordinator/session', 'CoordinatorController::sessionInfo');
     $routes->get('coordinator/payments-data', 'StaffController::getPaymentsData');
     $routes->post('coordinator/payments/create', 'StaffController::createPayment');
@@ -180,12 +181,18 @@ $routes->group('', ['filter' => 'role:developer'], static function (RouteCollect
     $routes->get('developer/EmailSMS.html', 'DeveloperController::emailSMS');
     $routes->get('developer/SurveyTemplates.html', 'DeveloperController::surveyTemplates');
     $routes->get('developer/Maintenance.html', 'DeveloperController::maintenance');
+    $routes->get('developer/overview-data', 'DeveloperController::overviewData');
     $routes->get('developer/users', 'DeveloperController::users');
     $routes->post('developer/users', 'DeveloperController::saveUser');
     $routes->delete('developer/users/(:segment)', 'DeveloperController::deleteUser/$1');
     $routes->get('developer/campuses', 'DeveloperController::campuses');
     $routes->post('developer/campuses', 'DeveloperController::saveCampus');
     $routes->delete('developer/campuses/(:num)', 'DeveloperController::deleteCampus/$1');
+    $routes->get('developer/backups', 'DeveloperController::listBackups');
+    $routes->post('developer/backups/create', 'DeveloperController::createBackup');
+    $routes->get('developer/backups/download/(:segment)', 'DeveloperController::downloadBackup/$1');
+    $routes->delete('developer/backups/(:segment)', 'DeveloperController::deleteBackup/$1');
+    $routes->post('developer/backups/restore', 'DeveloperController::restoreBackup');
 });
 
 // ── Alumni Protected Routes ─────────────────────────────────────────────────

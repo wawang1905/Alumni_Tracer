@@ -21,20 +21,10 @@ const defaultDeveloperState = {
             role: 'Head Admin',
             status: 'Locked',
             lastActive: 'Jul 10, 2026'
-        },
-        {
-            id: 3,
-            firstName: 'Elena',
-            lastName: 'Lim',
-            email: 'elena.lim@ustp.edu.ph',
-            department: 'Guidance',
-            role: 'Staff',
-            status: 'Active',
-            lastActive: 'Jul 11, 2026'
         }
     ],
     settings: {
-        appName: 'USTP Alumni Tracer',
+        appName: 'GradVision',
         supportEmail: 'support@ustp.edu.ph',
         sessionTimeout: '30',
         failedLoginLimit: '5',
@@ -53,7 +43,7 @@ const defaultDeveloperState = {
         emailProvider: 'SMTP',
         smtpHost: 'smtp.ustp.edu.ph',
         senderEmail: 'alumni-tracer@ustp.edu.ph',
-        senderName: 'USTP Alumni Tracer',
+        senderName: 'GradVision',
         smsProvider: 'Disabled',
         smsSenderId: 'USTP',
         smsEnabled: false
@@ -127,6 +117,7 @@ let editingAdminId = null;
 let toastTimer = null;
 let developerUsers = [];
 let developerCampuses = [];
+let developerOverviewTelemetry = null;
 let editingCampusId = null;
 const campusAddressApiUrls = {
     provinces: 'https://psgc.gitlab.io/api/provinces.json',
@@ -176,6 +167,106 @@ function showToast(message) {
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+
+function ensureConfirmationModal() {
+    let modal = document.getElementById('developerConfirmModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'developerConfirmModal';
+    modal.className = 'modal confirm-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+        <div class="modal-content confirm-modal-content" role="dialog" aria-modal="true" aria-labelledby="developerConfirmTitle">
+            <div class="modal-header">
+                <h3 id="developerConfirmTitle">Confirm Action</h3>
+                <button class="icon-button" type="button" id="closeDeveloperConfirmModal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="confirm-modal-body">
+                <div class="confirm-modal-icon" id="developerConfirmIcon">
+                    <i class="fas fa-circle-question"></i>
+                </div>
+                <div class="confirm-modal-text">
+                    <p id="developerConfirmMessage">Are you sure you want to proceed with this action?</p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" type="button" id="cancelDeveloperConfirm">Cancel</button>
+                <button class="btn-primary" type="button" id="acceptDeveloperConfirm">Confirm</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function askConfirmation(options = {}) {
+    const config = typeof options === 'string'
+        ? { message: options }
+        : (options || {});
+
+    const title = config.title || 'Confirm Action';
+    const message = config.message || 'Are you sure you want to proceed with this action?';
+    const confirmText = config.confirmText || 'Confirm';
+    const cancelText = config.cancelText || 'Cancel';
+    const isDanger = Boolean(config.danger);
+    const iconClass = config.icon || (isDanger ? 'fa-triangle-exclamation' : 'fa-circle-question');
+
+    const modal = ensureConfirmationModal();
+    const titleEl = document.getElementById('developerConfirmTitle');
+    const messageEl = document.getElementById('developerConfirmMessage');
+    const iconWrapEl = document.getElementById('developerConfirmIcon');
+    const acceptBtn = document.getElementById('acceptDeveloperConfirm');
+    const cancelBtn = document.getElementById('cancelDeveloperConfirm');
+    const closeBtn = document.getElementById('closeDeveloperConfirmModal');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    if (iconWrapEl) {
+        iconWrapEl.classList.toggle('is-danger', isDanger);
+        iconWrapEl.innerHTML = `<i class="fas ${escapeHtml(iconClass)}"></i>`;
+    }
+    if (acceptBtn) {
+        acceptBtn.textContent = confirmText;
+        acceptBtn.className = isDanger ? 'btn-danger' : 'btn-primary';
+    }
+    if (cancelBtn) {
+        cancelBtn.textContent = cancelText;
+    }
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+
+    return new Promise((resolve) => {
+        const cleanup = (confirmed) => {
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+            acceptBtn?.removeEventListener('click', onAccept);
+            cancelBtn?.removeEventListener('click', onCancel);
+            closeBtn?.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKeydown);
+            resolve(confirmed);
+        };
+
+        const onAccept = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        const onBackdrop = (event) => {
+            if (event.target === modal) cleanup(false);
+        };
+        const onKeydown = (event) => {
+            if (event.key === 'Escape') cleanup(false);
+        };
+
+        acceptBtn?.addEventListener('click', onAccept);
+        cancelBtn?.addEventListener('click', onCancel);
+        closeBtn?.addEventListener('click', onCancel);
+        modal.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKeydown);
+    });
 }
 
 function getLoginUrl() {
@@ -354,6 +445,15 @@ async function loadCurrentUser() {
 }
 
 async function logoutDeveloper() {
+    const confirmed = await askConfirmation({
+        title: 'Confirm Logout',
+        message: 'Are you sure you want to log out of the Developer Console?',
+        confirmText: 'Log Out',
+        danger: true,
+        icon: 'fa-right-from-bracket'
+    });
+    if (!confirmed) return;
+
     try {
         await fetch(getLogoutUrl(), {
             method: 'POST',
@@ -364,7 +464,16 @@ async function logoutDeveloper() {
     }
 }
 
-function switchPanel(sectionName) {
+function switchPanel(sectionName, clickedItem = null) {
+    if (!sectionName) {
+        if (clickedItem) {
+            document.querySelectorAll('.developer-nav-item').forEach((item) => {
+                item.classList.toggle('active', item === clickedItem);
+            });
+        }
+        return;
+    }
+
     document.querySelectorAll('.developer-nav-item').forEach((item) => {
         item.classList.toggle('active', item.dataset.section === sectionName);
     });
@@ -373,21 +482,110 @@ function switchPanel(sectionName) {
     });
 
     const activeLabel = document.querySelector(`.developer-nav-item[data-section="${sectionName}"] span`)?.textContent || 'Developer Overview';
-    document.getElementById('developerPageTitle').textContent = sectionName === 'overview' ? 'Developer Overview' : activeLabel;
+    const titleEl = document.getElementById('developerPageTitle');
+    if (titleEl) {
+        titleEl.textContent = sectionName === 'overview' ? 'Developer Overview' : activeLabel;
+    }
+}
+
+function isHeadAdminUser(admin) {
+    const roleValue = String(admin?.roleValue || '').trim().toLowerCase().replaceAll(' ', '_');
+    const roleLabel = String(admin?.role || '').trim().toLowerCase().replaceAll('_', ' ');
+    return roleValue === 'head_admin' || roleLabel === 'head admin';
 }
 
 function renderMetrics() {
-    const headAdmins = developerUsers.filter((admin) => admin.roleValue === 'head_admin' || admin.role === 'Head Admin');
-    const locked = developerUsers.filter((admin) => admin.status === 'Locked');
+    const headAdmins = developerUsers.filter(isHeadAdminUser);
+    const locked = headAdmins.filter((admin) => admin.status === 'Locked');
+    const telemetry = developerOverviewTelemetry || {};
+    const accounts = telemetry.accounts || {};
+    const alumniDir = telemetry.alumniDirectory || {};
+    const academic = telemetry.academicUnits || {};
+    const modules = telemetry.modules || {};
+    const system = telemetry.system || {};
+
+    const totalHeadAdmins = typeof accounts.headAdmins === 'number' ? accounts.headAdmins : headAdmins.length;
+    const assignedHeadAdmins = typeof accounts.assignedHeadAdmins === 'number'
+        ? accounts.assignedHeadAdmins
+        : headAdmins.filter((admin) => String(admin.campus || '').trim() !== '').length;
+    const unassignedHeadAdmins = Math.max(0, totalHeadAdmins - assignedHeadAdmins);
 
     const headAdminCount = document.getElementById('headAdminCount');
-    if (headAdminCount) headAdminCount.textContent = headAdmins.length;
+    if (headAdminCount) headAdminCount.textContent = totalHeadAdmins;
+
+    const headAdminSub = document.getElementById('headAdminSub');
+    if (headAdminSub) headAdminSub.textContent = `${assignedHeadAdmins} assigned · ${unassignedHeadAdmins} unassigned`;
+
+    const campusUnitCount = document.getElementById('campusUnitCount');
+    if (campusUnitCount) {
+        const campusTotal = typeof academic.totalCampuses === 'number' ? academic.totalCampuses : developerCampuses.length;
+        campusUnitCount.textContent = campusTotal;
+    }
+
+    const campusUnitSub = document.getElementById('campusUnitSub');
+    if (campusUnitSub) {
+        campusUnitSub.textContent = `${academic.totalColleges ?? 0} colleges · ${academic.totalDepartments ?? 0} departments`;
+    }
+
+    const totalPlatformUsers = document.getElementById('totalPlatformUsers');
+    if (totalPlatformUsers) totalPlatformUsers.textContent = alumniDir.total ?? 0;
+
+    const totalPlatformUsersSub = document.getElementById('totalPlatformUsersSub');
+    if (totalPlatformUsersSub) {
+        totalPlatformUsersSub.textContent = `${alumniDir.active ?? 0} active · ${alumniDir.pending ?? 0} pending`;
+    }
+
+    const surveyResponseCount = document.getElementById('surveyResponseCount');
+    if (surveyResponseCount) surveyResponseCount.textContent = modules.totalResponses ?? 0;
+
+    const surveyResponseSub = document.getElementById('surveyResponseSub');
+    if (surveyResponseSub) {
+        surveyResponseSub.textContent = `${modules.activeSurveys ?? 0} active of ${modules.totalSurveys ?? 0} surveys`;
+    }
+
+    const dbHealthStatus = document.getElementById('dbHealthStatus');
+    if (dbHealthStatus) {
+        dbHealthStatus.textContent = system.dbConnected === false ? 'Degraded' : 'Online';
+    }
+
+    const dbHealthSub = document.getElementById('dbHealthSub');
+    if (dbHealthSub) {
+        const pingText = system.dbPingMs !== undefined ? `${system.dbPingMs} ms` : 'Connected';
+        const phpText = system.phpVersion ? `PHP ${system.phpVersion}` : 'Runtime OK';
+        dbHealthSub.textContent = `${pingText} · ${phpText}`;
+    }
+
+    const platformContentCount = document.getElementById('platformContentCount');
+    if (platformContentCount) {
+        const totalItems = (modules.totalEvents ?? 0) + (modules.totalNews ?? 0) + (modules.totalPayments ?? 0);
+        platformContentCount.textContent = totalItems;
+    }
+
+    const platformContentSub = document.getElementById('platformContentSub');
+    if (platformContentSub) {
+        platformContentSub.textContent = `${modules.totalEvents ?? 0} events · ${modules.totalNews ?? 0} news · ${modules.totalPayments ?? 0} payments`;
+    }
 
     const lockedAccountCount = document.getElementById('lockedAccountCount');
     if (lockedAccountCount) lockedAccountCount.textContent = locked.length;
 
     const maintenanceStatus = document.getElementById('maintenanceStatus');
     if (maintenanceStatus) maintenanceStatus.textContent = developerState.maintenance.enabled ? 'On' : 'Off';
+
+    const maintenanceSub = document.getElementById('maintenanceSub');
+    if (maintenanceSub) {
+        maintenanceSub.textContent = developerState.maintenance.enabled ? 'Public access restricted' : 'Normal user access';
+    }
+
+    const maintenanceMetricIcon = document.getElementById('maintenanceMetricIcon');
+    if (maintenanceMetricIcon) {
+        maintenanceMetricIcon.className = developerState.maintenance.enabled ? 'fas fa-toggle-on' : 'fas fa-toggle-off';
+    }
+
+    const quickMaintenanceLabel = document.getElementById('quickMaintenanceLabel');
+    if (quickMaintenanceLabel) {
+        quickMaintenanceLabel.textContent = developerState.maintenance.enabled ? 'Disable Maintenance' : 'Enable Maintenance';
+    }
 
     const lastBackupDate = document.getElementById('lastBackupDate');
     if (lastBackupDate) lastBackupDate.textContent = developerState.backups[0]?.date || 'None';
@@ -403,6 +601,154 @@ function renderMetrics() {
 
     const overviewTemplateCount = document.getElementById('overviewTemplateCount');
     if (overviewTemplateCount) overviewTemplateCount.textContent = developerState.surveyTemplates.filter((template) => template.status === 'Active').length;
+
+    renderOverviewDashboard();
+}
+
+function renderOverviewDashboard() {
+    const matrixBody = document.getElementById('overviewCampusMatrixBody');
+    if (matrixBody) {
+        if (developerCampuses.length === 0) {
+            matrixBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--muted);">No campuses registered yet. Add one in School Info.</td></tr>';
+        } else {
+            matrixBody.innerHTML = developerCampuses.map((campus) => {
+                const headEmail = String(campus.alumniHeadEmail || '').trim();
+                const matchedAdmin = developerUsers.find((u) => String(u.email || '').toLowerCase() === headEmail.toLowerCase());
+                const adminDisplay = matchedAdmin
+                    ? `${matchedAdmin.firstName} ${matchedAdmin.lastName} (${matchedAdmin.email})`
+                    : (headEmail || 'Unassigned');
+                const isAssigned = headEmail !== '';
+                const pillClass = isAssigned ? 'status-active' : 'status-queued';
+                const pillLabel = isAssigned ? 'Assigned' : 'Needs Head Admin';
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(campus.campus)}</strong></td>
+                        <td>${escapeHtml(campus.abbreviation)}</td>
+                        <td>${escapeHtml(adminDisplay)}</td>
+                        <td><span class="status-pill ${pillClass}">${pillLabel}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    const telemetry = developerOverviewTelemetry || {};
+    const accounts = telemetry.accounts || {};
+    const academic = telemetry.academicUnits || {};
+    const modules = telemetry.modules || {};
+    const system = telemetry.system || {};
+
+    const checklistEl = document.getElementById('overviewHealthChecklist');
+    if (checklistEl) {
+        const totalCampuses = academic.totalCampuses ?? developerCampuses.length;
+        const assignedCampuses = academic.assignedCampuses ?? developerCampuses.filter((c) => String(c.alumniHeadEmail || '').trim() !== '').length;
+        const campusHealthy = totalCampuses > 0 && assignedCampuses === totalCampuses;
+
+        const totalDepts = academic.totalDepartments ?? 0;
+        const assignedDepts = academic.assignedDepartments ?? 0;
+        const deptHealthy = totalDepts > 0 && assignedDepts === totalDepts;
+
+        const totalAlumniAccts = accounts.alumniAccounts ?? 0;
+        const linkedAlumniAccts = accounts.linkedAlumniAccounts ?? 0;
+        const linkageHealthy = totalAlumniAccts === 0 || linkedAlumniAccts === totalAlumniAccts;
+
+        const activeSurveys = modules.activeSurveys ?? 0;
+        const pendingReviews = modules.pendingResponses ?? 0;
+
+        const checks = [
+            {
+                icon: 'fa-building-user',
+                label: `Campus Head Admin coverage (${assignedCampuses}/${totalCampuses})`,
+                status: campusHealthy ? 'Healthy' : 'Attention',
+                pill: campusHealthy ? 'status-active' : 'status-queued',
+            },
+            {
+                icon: 'fa-sitemap',
+                label: `Department coordinators (${assignedDepts}/${totalDepts})`,
+                status: deptHealthy ? 'Complete' : 'Partial',
+                pill: deptHealthy ? 'status-active' : 'status-queued',
+            },
+            {
+                icon: 'fa-id-card-clip',
+                label: `Alumni account ID linkage (${linkedAlumniAccts}/${totalAlumniAccts})`,
+                status: linkageHealthy ? 'Synced' : 'Review',
+                pill: linkageHealthy ? 'status-active' : 'status-queued',
+            },
+            {
+                icon: 'fa-poll-h',
+                label: `Active tracer surveys (${activeSurveys}) · Pending reviews (${pendingReviews})`,
+                status: activeSurveys > 0 ? 'Collecting' : 'Idle',
+                pill: activeSurveys > 0 ? 'status-active' : 'status-queued',
+            },
+            {
+                icon: 'fa-hard-drive',
+                label: `Storage & DB (${system.writableStatus !== false ? 'Writable OK' : 'Read-Only'})`,
+                status: system.writableStatus !== false ? 'Ready' : 'Warning',
+                pill: system.writableStatus !== false ? 'status-active' : 'status-locked',
+            },
+        ];
+
+        checklistEl.innerHTML = checks.map((item) => `
+            <div class="control-row">
+                <span><i class="fas ${escapeHtml(item.icon)}"></i> ${escapeHtml(item.label)}</span>
+                <span class="status-pill ${escapeHtml(item.pill)}">${escapeHtml(item.status)}</span>
+            </div>
+        `).join('');
+    }
+
+    const roleDistEl = document.getElementById('overviewRoleDistribution');
+    if (roleDistEl) {
+        const totalAccts = Math.max(1, accounts.total || 1);
+        const roles = [
+            { label: 'Head Admins', count: accounts.headAdmins ?? developerUsers.length, sub: `${accounts.assignedHeadAdmins ?? 0} assigned to campus` },
+            { label: 'Coordinators', count: accounts.coordinators ?? 0, sub: `${academic.assignedDepartments ?? 0} dept assignments` },
+            { label: 'Alumni Accounts', count: accounts.alumniAccounts ?? 0, sub: `${accounts.linkedAlumniAccounts ?? 0} ID-linked` },
+            { label: 'Developers', count: accounts.developers ?? 1, sub: 'System administrators' },
+        ];
+
+        roleDistEl.innerHTML = roles.map((item) => {
+            const pct = Math.min(100, Math.round((item.count / totalAccts) * 100));
+            return `
+                <div class="role-dist-card">
+                    <div class="role-dist-head">
+                        <span>${escapeHtml(item.label)}</span>
+                        <strong>${escapeHtml(item.count)}</strong>
+                    </div>
+                    <div class="role-dist-bar"><span style="width: ${pct}%"></span></div>
+                    <div class="role-dist-meta">${escapeHtml(item.sub)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+async function loadOverviewTelemetry(showFeedback = false) {
+    try {
+        const response = await fetch('../developer/overview-data', {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Unable to load overview telemetry');
+        const data = await response.json();
+        if (data && data.success && data.telemetry) {
+            developerOverviewTelemetry = data.telemetry;
+            const lastSyncedEl = document.getElementById('overviewLastSynced');
+            if (lastSyncedEl) {
+                lastSyncedEl.textContent = `Last synced: ${data.telemetry.system?.serverTime || new Date().toLocaleTimeString()} · DB ping ${data.telemetry.system?.dbPingMs ?? 0} ms`;
+            }
+            renderMetrics();
+            renderLogs();
+            if (showFeedback) {
+                showToast('Live platform telemetry refreshed.');
+            }
+        }
+    } catch (error) {
+        const lastSyncedEl = document.getElementById('overviewLastSynced');
+        if (lastSyncedEl) {
+            lastSyncedEl.textContent = 'Using cached console state (unable to reach telemetry endpoint).';
+        }
+    }
 }
 
 function renderAdminTable() {
@@ -412,21 +758,19 @@ function renderAdminTable() {
     const searchInput = document.getElementById('adminSearch');
     const search = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-    const roleFilterSelect = document.getElementById('roleFilter');
-    const roleFilter = roleFilterSelect ? roleFilterSelect.value : 'all';
-
     const visibleUsers = developerUsers.filter((admin) => {
-        const roleValue = String(admin.roleValue || '').toLowerCase();
-        const roleLabel = String(admin.role || '').toLowerCase();
-        const isSupportedRole = roleValue === 'head_admin' || roleValue === 'developer' || roleLabel === 'head admin' || roleLabel === 'developer';
-        if (!isSupportedRole) {
+        if (!isHeadAdminUser(admin)) {
             return false;
         }
 
-        const matchesRole = roleFilter === 'all' || roleValue === roleFilter || roleLabel === roleFilter;
         const haystack = `${admin.firstName} ${admin.lastName} ${admin.email} ${admin.department}`.toLowerCase();
-        return matchesRole && haystack.includes(search);
+        return haystack.includes(search);
     });
+
+    if (visibleUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted);">No Head Admin accounts found.</td></tr>';
+        return;
+    }
 
     tbody.innerHTML = visibleUsers.map((admin) => {
         const campusValue = (admin.campus && String(admin.campus).trim() !== '') ? String(admin.campus) : 'Not Assigned';
@@ -453,21 +797,27 @@ function renderAdminTable() {
 function populateRoleDropdown() {
     const select = document.getElementById('adminRole');
     const filterSelect = document.getElementById('roleFilter');
-    if (!select || !filterSelect) return;
 
-    const options = DEVELOPER_ROLE_OPTIONS || [];
-    select.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
-    filterSelect.innerHTML = ['<option value="all">All roles</option>', ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)].join('');
+    const options = (typeof DEVELOPER_ROLE_OPTIONS !== 'undefined' && Array.isArray(DEVELOPER_ROLE_OPTIONS) && DEVELOPER_ROLE_OPTIONS.length > 0)
+        ? DEVELOPER_ROLE_OPTIONS
+        : [{ value: 'head_admin', label: 'Head Admin' }];
+
+    if (select) {
+        select.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+    }
+    if (filterSelect) {
+        filterSelect.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+    }
 }
 
 function openAdminModal(admin = null) {
     editingAdminId = admin?.email || null;
-    document.getElementById('adminModalTitle').textContent = admin ? 'Edit Account' : 'Add User';
+    document.getElementById('adminModalTitle').textContent = admin ? 'Edit Head Admin' : 'Add Head Admin';
     document.getElementById('adminFirstName').value = admin?.firstName || '';
     document.getElementById('adminLastName').value = admin?.lastName || '';
     document.getElementById('adminEmail').value = admin?.email || '';
     document.getElementById('adminDepartment').value = admin?.department || '';
-    document.getElementById('adminRole').value = admin?.roleValue || 'alumni';
+    document.getElementById('adminRole').value = 'head_admin';
     document.getElementById('adminStatus').value = admin?.status || 'Active';
     const modal = document.getElementById('adminModal');
     modal.classList.add('open');
@@ -495,6 +845,17 @@ async function saveAdminAccount() {
         showToast('Please complete the required account fields.');
         return;
     }
+
+    const isEdit = Boolean(editingAdminId);
+    const confirmed = await askConfirmation({
+        title: isEdit ? 'Confirm Update Account' : 'Confirm Add Head Admin',
+        message: isEdit
+            ? `Are you sure you want to save changes to the Head Admin account for ${account.firstName} ${account.lastName} (${account.email})?`
+            : `Are you sure you want to create a new Head Admin account for ${account.firstName} ${account.lastName} (${account.email})?`,
+        confirmText: isEdit ? 'Save Changes' : 'Create Account',
+        icon: 'fa-user-shield'
+    });
+    if (!confirmed) return;
 
     try {
         const response = await fetch('../developer/users', {
@@ -525,6 +886,15 @@ function editAdmin(email) {
 async function resetAdminPassword(email) {
     const admin = developerUsers.find((item) => item.email === email);
     if (!admin) return;
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Password Reset',
+        message: `Are you sure you want to reset the password for ${admin.firstName} ${admin.lastName} (${admin.email})?`,
+        confirmText: 'Reset Password',
+        icon: 'fa-key'
+    });
+    if (!confirmed) return;
+
     try {
         const response = await fetch('../developer/users', {
             method: 'POST',
@@ -545,8 +915,19 @@ async function resetAdminPassword(email) {
 async function toggleAdminLock(email) {
     const admin = developerUsers.find((item) => item.email === email);
     if (!admin) return;
+
+    const nextStatus = admin.status === 'Locked' ? 'Active' : 'Locked';
+    const actionLabel = nextStatus === 'Locked' ? 'Lock' : 'Unlock';
+    const confirmed = await askConfirmation({
+        title: `Confirm ${actionLabel} Account`,
+        message: `Are you sure you want to ${actionLabel.toLowerCase()} the Head Admin account for ${admin.firstName} ${admin.lastName} (${admin.email})?`,
+        confirmText: `${actionLabel} Account`,
+        danger: nextStatus === 'Locked',
+        icon: 'fa-lock'
+    });
+    if (!confirmed) return;
+
     try {
-        const nextStatus = admin.status === 'Locked' ? 'Active' : 'Locked';
         const response = await fetch('../developer/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -566,6 +947,16 @@ async function toggleAdminLock(email) {
 async function deleteAdmin(email) {
     const admin = developerUsers.find((item) => item.email === email);
     if (!admin) return;
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Delete Account',
+        message: `Are you sure you want to permanently delete the Head Admin account for ${admin.firstName} ${admin.lastName} (${admin.email})? This action cannot be undone.`,
+        confirmText: 'Delete Account',
+        danger: true,
+        icon: 'fa-trash'
+    });
+    if (!confirmed) return;
+
     try {
         const response = await fetch(`../developer/users/${encodeURIComponent(admin.email)}`, {
             method: 'DELETE',
@@ -599,17 +990,17 @@ async function loadDeveloperUsers() {
         });
         if (!response.ok) throw new Error('Unable to load users');
         const data = await response.json();
-        developerUsers = Array.isArray(data.users) ? data.users : [];
+        developerUsers = (Array.isArray(data.users) ? data.users : []).filter(isHeadAdminUser);
         populateCampusAlumniHeadOptions();
         if (Array.isArray(data.roles)) {
-            const options = data.roles;
+            const options = data.roles.filter((option) => String(option.value || '').toLowerCase() === 'head_admin');
             const select = document.getElementById('adminRole');
             const filterSelect = document.getElementById('roleFilter');
-            if (select) {
+            if (select && options.length > 0) {
                 select.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
             }
-            if (filterSelect) {
-                filterSelect.innerHTML = ['<option value="all">All roles</option>', ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)].join('');
+            if (filterSelect && options.length > 0) {
+                filterSelect.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
             }
         }
         renderMetrics();
@@ -649,7 +1040,15 @@ function renderSettingsForms() {
     if (maintenanceEnd) maintenanceEnd.value = developerState.maintenance.end;
 }
 
-function saveSystemSettings() {
+async function saveSystemSettings() {
+    const confirmed = await askConfirmation({
+        title: 'Confirm System Settings',
+        message: 'Are you sure you want to save and apply these system settings?',
+        confirmText: 'Save Settings',
+        icon: 'fa-sliders-h'
+    });
+    if (!confirmed) return;
+
     developerState.settings = {
         appName: document.getElementById('appName').value.trim(),
         supportEmail: document.getElementById('supportEmail').value.trim(),
@@ -665,7 +1064,15 @@ function saveSystemSettings() {
     showToast('System settings saved.');
 }
 
-function saveSchoolInfo() {
+async function saveSchoolInfo() {
+    const confirmed = await askConfirmation({
+        title: 'Confirm School Information',
+        message: 'Are you sure you want to update the institution profile details?',
+        confirmText: 'Save Changes',
+        icon: 'fa-school'
+    });
+    if (!confirmed) return;
+
     developerState.school = {
         schoolName: document.getElementById('schoolName').value.trim(),
         schoolCampus: document.getElementById('schoolCampus').value.trim(),
@@ -679,7 +1086,15 @@ function saveSchoolInfo() {
     showToast('School information saved.');
 }
 
-function saveMessagingSettings() {
+async function saveMessagingSettings() {
+    const confirmed = await askConfirmation({
+        title: 'Confirm Messaging Settings',
+        message: 'Are you sure you want to save the Email and SMS configuration?',
+        confirmText: 'Save Settings',
+        icon: 'fa-envelope-open-text'
+    });
+    if (!confirmed) return;
+
     developerState.messaging = {
         emailProvider: document.getElementById('emailProvider').value.trim(),
         smtpHost: document.getElementById('smtpHost').value.trim(),
@@ -698,57 +1113,218 @@ function saveMessagingSettings() {
 function renderBackups() {
     const tbody = document.getElementById('backupTableBody');
     if (tbody) {
-        tbody.innerHTML = developerState.backups.map((backup) => `
-            <tr>
-                <td><strong>${escapeHtml(backup.name)}</strong></td>
-                <td>${escapeHtml(backup.date)}</td>
-                <td>${escapeHtml(backup.size)}</td>
-                <td><span class="status-pill status-active">${escapeHtml(backup.status)}</span></td>
-                <td>${escapeHtml(backup.createdBy)}</td>
-            </tr>
-        `).join('');
+        if (!Array.isArray(developerState.backups) || developerState.backups.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">No Supabase SQL backups found yet. Click "Create Supabase Backup (.sql)" to generate one.</td></tr>';
+        } else {
+            tbody.innerHTML = developerState.backups.map((backup) => `
+                <tr>
+                    <td><strong>${escapeHtml(backup.name)}</strong></td>
+                    <td>${escapeHtml(backup.format || 'Supabase PostgreSQL (.sql)')}</td>
+                    <td>${escapeHtml(backup.date)}</td>
+                    <td>${escapeHtml(backup.size)}</td>
+                    <td><span class="status-pill status-active">${escapeHtml(backup.status)}</span></td>
+                    <td>${escapeHtml(backup.createdBy)}</td>
+                    <td>
+                        <div class="action-set">
+                            <button class="icon-button" type="button" title="Download Supabase .sql file" aria-label="Download Supabase .sql file" onclick="downloadBackupFile('${escapeHtml(backup.name)}')"><i class="fas fa-download"></i></button>
+                            <button class="icon-button" type="button" title="Restore snapshot to Supabase" aria-label="Restore snapshot to Supabase" onclick="restoreBackupFile('${escapeHtml(backup.name)}')"><i class="fas fa-rotate-left"></i></button>
+                            <button class="icon-button danger" type="button" title="Delete snapshot" aria-label="Delete snapshot" onclick="deleteBackupFile('${escapeHtml(backup.name)}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
     }
 
     const select = document.getElementById('restorePointSelect');
     if (select) {
-        select.innerHTML = developerState.backups.map((backup) => (
-            `<option value="${escapeHtml(backup.name)}">${escapeHtml(backup.name)}</option>`
-        )).join('');
+        if (!Array.isArray(developerState.backups) || developerState.backups.length === 0) {
+            select.innerHTML = '<option value="">No backups available</option>';
+        } else {
+            select.innerHTML = developerState.backups.map((backup) => (
+                `<option value="${escapeHtml(backup.name)}">${escapeHtml(backup.name)} (${escapeHtml(backup.date)})</option>`
+            )).join('');
+        }
     }
 }
 
-function createBackup() {
-    const now = new Date();
-    const label = now.toISOString().slice(0, 10).replaceAll('-', '_');
-    developerState.backups.unshift({
-        name: `alumni_tracer_backup_${label}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.sql`,
-        date: now.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
-        size: `${Math.floor(38 + Math.random() * 9)} MB`,
-        status: 'Completed',
-        createdBy: 'Developer'
-    });
-    addLog('info', 'Database backup created', 'A new backup snapshot was recorded.');
-    saveDeveloperState();
-    renderAll();
-    showToast('Backup record created.');
+async function loadDeveloperBackups() {
+    try {
+        const response = await fetch('../developer/backups', {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data && data.success && Array.isArray(data.backups)) {
+            developerState.backups = data.backups;
+            saveDeveloperState();
+            renderBackups();
+            renderMetrics();
+        }
+    } catch (error) {
+        // Fallback to cached state
+    }
 }
 
-function queueRestore() {
-    const selected = document.getElementById('restorePointSelect').value;
+function downloadBackupFile(filename) {
+    if (!filename) return;
+    const downloadUrl = `../developer/backups/download/${encodeURIComponent(filename)}`;
+    const anchor = document.createElement('a');
+    anchor.href = downloadUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+}
+
+async function createBackup() {
+    const confirmed = await askConfirmation({
+        title: 'Create Supabase PostgreSQL Backup',
+        message: 'Are you sure you want to export all public schema tables, rows, sequences, and RLS policies into a Supabase-compatible .sql backup?',
+        confirmText: 'Create Backup (.sql)',
+        icon: 'fa-database'
+    });
+    if (!confirmed) return;
+
+    try {
+        showToast('Generating Supabase PostgreSQL (.sql) dump...');
+        const response = await fetch('../developer/backups/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Could not generate Supabase backup.');
+        }
+
+        if (Array.isArray(data.backups)) {
+            developerState.backups = data.backups;
+        } else if (data.backup) {
+            developerState.backups.unshift(data.backup);
+        }
+
+        const created = data.backup || developerState.backups[0];
+        addLog(
+            'info',
+            'Supabase SQL backup created',
+            `${created?.name || 'supabase_backup.sql'} (${created?.tablesCount ?? 0} tables, ${created?.rowsCount ?? 0} rows) exported.`
+        );
+        saveDeveloperState();
+        renderAll();
+
+        const autoDownloadToggle = document.getElementById('autoDownloadBackupSql');
+        const shouldAutoDownload = !autoDownloadToggle || autoDownloadToggle.checked;
+        if (shouldAutoDownload && created?.name) {
+            downloadBackupFile(created.name);
+        }
+
+        showToast('Supabase .sql backup created and ready for import.');
+    } catch (error) {
+        showToast(error.message || 'Supabase backup generation failed.');
+    }
+}
+
+async function restoreBackupFile(filename) {
+    if (!filename) {
+        showToast('No backup snapshot selected.');
+        return;
+    }
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Restore to Supabase',
+        message: `Are you sure you want to execute and restore "${filename}" into the connected Supabase PostgreSQL database? Existing rows with matching primary keys will be updated.`,
+        confirmText: 'Restore to Supabase',
+        danger: true,
+        icon: 'fa-rotate-left'
+    });
+    if (!confirmed) return;
+
+    try {
+        showToast(`Restoring ${filename} to Supabase...`);
+        const response = await fetch('../developer/backups/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ filename })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Restore execution failed.');
+        }
+
+        addLog('critical', 'Supabase database restored', `${filename} was executed and restored onto the database.`);
+        saveDeveloperState();
+        await Promise.all([
+            loadOverviewTelemetry(),
+            loadDeveloperUsers(),
+            loadCampuses()
+        ]);
+        renderAll();
+        showToast(data.message || 'Snapshot restored to Supabase.');
+    } catch (error) {
+        showToast(error.message || 'Database restore failed.');
+    }
+}
+
+async function deleteBackupFile(filename) {
+    if (!filename) return;
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Delete Backup',
+        message: `Are you sure you want to permanently delete the backup file "${filename}"?`,
+        confirmText: 'Delete Backup',
+        danger: true,
+        icon: 'fa-trash'
+    });
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`../developer/backups/${encodeURIComponent(filename)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Could not delete backup.');
+        }
+
+        developerState.backups = Array.isArray(data.backups)
+            ? data.backups
+            : developerState.backups.filter((b) => b.name !== filename);
+        addLog('warning', 'Backup deleted', `${filename} was removed.`);
+        saveDeveloperState();
+        renderAll();
+        showToast('Backup snapshot deleted.');
+    } catch (error) {
+        showToast(error.message || 'Backup deletion failed.');
+    }
+}
+
+async function queueRestore() {
+    const selected = document.getElementById('restorePointSelect')?.value || '';
     if (!selected) {
         showToast('No backup is available to restore.');
         return;
     }
-    addLog('critical', 'Restore queued for review', `${selected} was queued for restore review.`);
-    saveDeveloperState();
-    renderAll();
-    showToast('Restore queued for review.');
+    await restoreBackupFile(selected);
 }
 
 function renderLogs() {
+    const dbActivities = Array.isArray(developerOverviewTelemetry?.recentActivities)
+        ? developerOverviewTelemetry.recentActivities.map((act) => ({
+            level: act.category === 'auth' ? 'info' : 'info',
+            title: act.action || 'System Activity',
+            detail: `${act.userType ? `[${act.userType.toUpperCase()}] ` : ''}${act.description || act.category || 'Database event'}${act.ipAddress ? ` · IP ${act.ipAddress}` : ''}`,
+            time: act.createdAt || 'Recent'
+        }))
+        : [];
+
+    const combinedLogs = [...dbActivities, ...developerState.logs];
     const logLevelFilter = document.getElementById('logLevelFilter');
     const logLevel = logLevelFilter ? logLevelFilter.value : 'all';
-    const logs = developerState.logs.filter((log) => logLevel === 'all' || log.level === logLevel);
+    const logs = combinedLogs.filter((log) => logLevel === 'all' || log.level === logLevel);
     const html = logs.map((log) => `
         <article class="log-item">
             <span class="level-pill level-${escapeHtml(log.level)}">${escapeHtml(log.level)}</span>
@@ -767,25 +1343,35 @@ function renderLogs() {
 
     const overviewLogs = document.getElementById('overviewLogs');
     if (overviewLogs) {
-        overviewLogs.innerHTML = developerState.logs.slice(0, 4).map((log) => `
+        overviewLogs.innerHTML = combinedLogs.slice(0, 6).map((log) => `
             <article class="log-item">
                 <span class="level-pill level-${escapeHtml(log.level)}">${escapeHtml(log.level)}</span>
                 <div class="log-message">
                     <strong>${escapeHtml(log.title)}</strong>
                     <span>${escapeHtml(log.detail)}</span>
                 </div>
+                <time class="log-time">${escapeHtml(log.time)}</time>
             </article>
         `).join('');
     }
 }
 
-function publishAnnouncement() {
+async function publishAnnouncement() {
     const title = document.getElementById('announcementTitle').value.trim();
     const body = document.getElementById('announcementBody').value.trim();
     if (!title || !body) {
         showToast('Enter an announcement title and details.');
         return;
     }
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Publish Announcement',
+        message: `Are you sure you want to publish the announcement "${title}"?`,
+        confirmText: 'Publish',
+        icon: 'fa-bullhorn'
+    });
+    if (!confirmed) return;
+
     developerState.announcements.unshift({
         title,
         body,
@@ -815,7 +1401,19 @@ function renderAnnouncements() {
     }
 }
 
-function removeAnnouncement(index) {
+async function removeAnnouncement(index) {
+    const target = developerState.announcements[index];
+    if (!target) return;
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Remove Announcement',
+        message: `Are you sure you want to remove the announcement "${target.title}"?`,
+        confirmText: 'Remove',
+        danger: true,
+        icon: 'fa-trash'
+    });
+    if (!confirmed) return;
+
     const removed = developerState.announcements.splice(index, 1)[0];
     addLog('warning', 'Announcement removed', removed?.title || 'Announcement removed.');
     saveDeveloperState();
@@ -843,8 +1441,16 @@ function renderSurveyTemplates() {
     }
 }
 
-function addSurveyTemplate() {
+async function addSurveyTemplate() {
     const nextNumber = developerState.surveyTemplates.length + 1;
+    const confirmed = await askConfirmation({
+        title: 'Confirm Add Survey Template',
+        message: `Are you sure you want to create "Custom Template ${nextNumber}"?`,
+        confirmText: 'Create Template',
+        icon: 'fa-file-signature'
+    });
+    if (!confirmed) return;
+
     developerState.surveyTemplates.unshift({
         name: `Custom Template ${nextNumber}`,
         description: 'New reusable survey template for administrators.',
@@ -857,16 +1463,37 @@ function addSurveyTemplate() {
     showToast('Survey template added.');
 }
 
-function toggleTemplateStatus(index) {
+async function toggleTemplateStatus(index) {
     const template = developerState.surveyTemplates[index];
     if (!template) return;
-    template.status = template.status === 'Active' ? 'Draft' : 'Active';
+    const nextStatus = template.status === 'Active' ? 'Draft' : 'Active';
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Template Status Change',
+        message: `Are you sure you want to change "${template.name}" status to ${nextStatus}?`,
+        confirmText: `Set to ${nextStatus}`
+    });
+    if (!confirmed) return;
+
+    template.status = nextStatus;
     addLog('info', 'Survey template status changed', `${template.name} is now ${template.status}.`);
     saveDeveloperState();
     renderAll();
 }
 
-function deleteTemplate(index) {
+async function deleteTemplate(index) {
+    const target = developerState.surveyTemplates[index];
+    if (!target) return;
+
+    const confirmed = await askConfirmation({
+        title: 'Confirm Delete Template',
+        message: `Are you sure you want to delete the survey template "${target.name}"?`,
+        confirmText: 'Delete Template',
+        danger: true,
+        icon: 'fa-trash'
+    });
+    if (!confirmed) return;
+
     const removed = developerState.surveyTemplates.splice(index, 1)[0];
     addLog('warning', 'Survey template deleted', removed?.name || 'Template removed.');
     saveDeveloperState();
@@ -874,9 +1501,21 @@ function deleteTemplate(index) {
     showToast('Survey template deleted.');
 }
 
-function saveMaintenance() {
+async function saveMaintenance() {
+    const enabled = document.getElementById('maintenanceToggle').checked;
+    const confirmed = await askConfirmation({
+        title: 'Confirm Maintenance Settings',
+        message: enabled
+            ? 'Are you sure you want to enable Maintenance Mode and save these settings?'
+            : 'Are you sure you want to save Maintenance Mode settings?',
+        confirmText: 'Save Settings',
+        danger: enabled,
+        icon: 'fa-power-off'
+    });
+    if (!confirmed) return;
+
     developerState.maintenance = {
-        enabled: document.getElementById('maintenanceToggle').checked,
+        enabled,
         message: document.getElementById('maintenanceMessage').value.trim(),
         end: document.getElementById('maintenanceEnd').value
     };
@@ -954,6 +1593,7 @@ async function loadCampuses() {
         const data = await response.json();
         developerCampuses = Array.isArray(data.campuses) ? data.campuses : [];
         renderCampusTable();
+        renderMetrics();
     } catch (error) {
         showToast('Unable to load campuses.');
         const tbody = document.getElementById('campusTableBody');
@@ -1020,6 +1660,17 @@ async function saveCampusRecord() {
         return;
     }
 
+    const isEdit = campus.existingId > 0;
+    const confirmed = await askConfirmation({
+        title: isEdit ? 'Confirm Update Campus' : 'Confirm Add Campus',
+        message: isEdit
+            ? `Are you sure you want to save changes to campus "${campus.campus}" (${campus.abbreviation})?`
+            : `Are you sure you want to add campus "${campus.campus}" (${campus.abbreviation})?`,
+        confirmText: isEdit ? 'Save Changes' : 'Add Campus',
+        icon: 'fa-school'
+    });
+    if (!confirmed) return;
+
     try {
         const response = await fetch('../developer/campuses', {
             method: 'POST',
@@ -1047,7 +1698,16 @@ function editCampus(id) {
 }
 
 async function deleteCampus(id) {
-    if (!confirm('Are you sure you want to delete this campus?')) return;
+    const targetCampus = developerCampuses.find((item) => item.id === id);
+    const campusLabel = targetCampus ? `"${targetCampus.campus}" (${targetCampus.abbreviation})` : 'this campus';
+    const confirmed = await askConfirmation({
+        title: 'Confirm Delete Campus',
+        message: `Are you sure you want to permanently delete ${campusLabel}? This action cannot be undone.`,
+        confirmText: 'Delete Campus',
+        danger: true,
+        icon: 'fa-trash'
+    });
+    if (!confirmed) return;
 
     try {
         const response = await fetch(`../developer/campuses/${id}`, {
@@ -1073,7 +1733,7 @@ function exportLogs() {
 
 function bindEvents() {
     document.querySelectorAll('.developer-nav-item').forEach((item) => {
-        item.addEventListener('click', () => switchPanel(item.dataset.section));
+        item.addEventListener('click', () => switchPanel(item.dataset.section, item));
     });
 
     const developerLogout = document.getElementById('developerLogout');
@@ -1118,14 +1778,14 @@ function bindEvents() {
     const publishAnnouncementButton = document.getElementById('publishAnnouncement');
     if (publishAnnouncementButton) publishAnnouncementButton.addEventListener('click', publishAnnouncement);
 
-    const saveMessagingSettings = document.getElementById('saveMessagingSettings');
-    if (saveMessagingSettings) saveMessagingSettings.addEventListener('click', saveMessagingSettings);
+    const saveMessagingSettingsButton = document.getElementById('saveMessagingSettings');
+    if (saveMessagingSettingsButton) saveMessagingSettingsButton.addEventListener('click', saveMessagingSettings);
 
-    const addSurveyTemplate = document.getElementById('addSurveyTemplate');
-    if (addSurveyTemplate) addSurveyTemplate.addEventListener('click', addSurveyTemplate);
+    const addSurveyTemplateButton = document.getElementById('addSurveyTemplate');
+    if (addSurveyTemplateButton) addSurveyTemplateButton.addEventListener('click', addSurveyTemplate);
 
-    const saveMaintenance = document.getElementById('saveMaintenance');
-    if (saveMaintenance) saveMaintenance.addEventListener('click', saveMaintenance);
+    const saveMaintenanceButton = document.getElementById('saveMaintenance');
+    if (saveMaintenanceButton) saveMaintenanceButton.addEventListener('click', saveMaintenance);
 
     const maintenanceToggle = document.getElementById('maintenanceToggle');
     if (maintenanceToggle) maintenanceToggle.addEventListener('change', () => {
@@ -1175,6 +1835,137 @@ function bindEvents() {
 
     const saveCampusBtn = document.getElementById('saveCampus');
     if (saveCampusBtn) saveCampusBtn.addEventListener('click', saveCampusRecord);
+
+    const quickBackupBtn = document.getElementById('quickBackupBtn');
+    if (quickBackupBtn) quickBackupBtn.addEventListener('click', createBackup);
+
+    const quickMaintenanceBtn = document.getElementById('quickMaintenanceBtn');
+    if (quickMaintenanceBtn) {
+        quickMaintenanceBtn.addEventListener('click', async () => {
+            const nextState = !developerState.maintenance.enabled;
+            const confirmed = await askConfirmation({
+                title: nextState ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode',
+                message: nextState
+                    ? 'Are you sure you want to enable Maintenance Mode across the web app?'
+                    : 'Are you sure you want to disable Maintenance Mode and restore normal user access?',
+                confirmText: nextState ? 'Enable Maintenance' : 'Disable Maintenance',
+                danger: nextState,
+                icon: 'fa-power-off'
+            });
+            if (!confirmed) return;
+
+            developerState.maintenance.enabled = nextState;
+            addLog(
+                nextState ? 'critical' : 'info',
+                'Maintenance mode updated',
+                nextState ? 'Maintenance mode was enabled from the Overview command bar.' : 'Maintenance mode was disabled from the Overview command bar.'
+            );
+            saveDeveloperState();
+            renderAll();
+            showToast(nextState ? 'Maintenance mode enabled.' : 'Maintenance mode disabled.');
+        });
+    }
+
+    const refreshOverviewBtn = document.getElementById('refreshOverviewBtn');
+    if (refreshOverviewBtn) {
+        refreshOverviewBtn.addEventListener('click', async () => {
+            await Promise.all([
+                loadOverviewTelemetry(true),
+                loadDeveloperUsers(),
+                loadCampuses()
+            ]);
+        });
+    }
+}
+
+function initDeveloperSidebar() {
+    const shell = document.querySelector('.developer-shell');
+    const sidebar = document.querySelector('.developer-sidebar');
+    const brand = document.querySelector('.developer-brand');
+    const nav = document.querySelector('.developer-nav');
+    if (!shell || !sidebar || !brand || !nav) return;
+
+    const SIDEBAR_STORAGE_KEY = 'developer_sidebar_collapsed_v1';
+
+    try {
+        if (localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1') {
+            shell.classList.add('sidebar-collapsed');
+        }
+    } catch (error) {
+        // Ignore storage read errors
+    }
+
+    if (!document.getElementById('developerSidebarToggle')) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.id = 'developerSidebarToggle';
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'sidebar-collapse-btn';
+        toggleBtn.title = 'Toggle sidebar (Ctrl+B)';
+        toggleBtn.setAttribute('aria-label', 'Toggle sidebar');
+        toggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        toggleBtn.addEventListener('click', () => {
+            if (window.matchMedia('(max-width: 780px)').matches) {
+                shell.classList.toggle('mobile-nav-open');
+                return;
+            }
+            const isCollapsed = shell.classList.toggle('sidebar-collapsed');
+            try {
+                localStorage.setItem(SIDEBAR_STORAGE_KEY, isCollapsed ? '1' : '0');
+            } catch (error) {
+                // Ignore storage write errors
+            }
+        });
+        brand.appendChild(toggleBtn);
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+            event.preventDefault();
+            document.getElementById('developerSidebarToggle')?.click();
+        }
+    });
+
+    const sectionMarkers = {
+        'Overview.html': 'Core Management',
+        'BackupRestore.html': 'System & Logs',
+    };
+
+    const currentPage = (window.location.pathname.split('/').pop() || 'Overview.html').toLowerCase();
+    const targetPage = currentPage === 'dashboard.html' ? 'overview.html' : currentPage;
+
+    nav.querySelectorAll('.developer-nav-item').forEach((item) => {
+        const labelText = item.querySelector('span')?.textContent?.trim() || '';
+        if (labelText && !item.getAttribute('title')) {
+            item.setAttribute('title', labelText);
+        }
+
+        const href = item.getAttribute('href') || '';
+        if (href) {
+            const hrefPage = href.split('/').pop().toLowerCase();
+            item.classList.toggle('active', hrefPage === targetPage);
+        }
+
+        const groupTitle = sectionMarkers[href];
+        if (groupTitle && !item.previousElementSibling?.classList.contains('developer-nav-label')) {
+            const labelEl = document.createElement('div');
+            labelEl.className = 'developer-nav-label';
+            labelEl.textContent = groupTitle;
+            nav.insertBefore(labelEl, item);
+        }
+    });
+
+    if (!sidebar.querySelector('.developer-sidebar-footer')) {
+        const footer = document.createElement('div');
+        footer.className = 'developer-sidebar-footer';
+        footer.innerHTML = `
+            <button type="button" class="developer-sidebar-logout" id="developerSidebarLogoutBtn" title="Sign Out">
+                <i class="fas fa-right-from-bracket"></i>
+                <span>Sign Out</span>
+            </button>
+        `;
+        footer.querySelector('#developerSidebarLogoutBtn')?.addEventListener('click', logoutDeveloper);
+        sidebar.appendChild(footer);
+    }
 }
 
 function renderAll() {
@@ -1190,12 +1981,15 @@ function renderAll() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initDeveloperSidebar();
     populateRoleDropdown();
     bindEvents();
     renderAll();
     loadCurrentUser();
+    loadOverviewTelemetry();
     loadDeveloperUsers();
     loadCampuses();
+    loadDeveloperBackups();
 });
 
 if (typeof module !== 'undefined' && module.exports) {

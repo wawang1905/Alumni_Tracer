@@ -29,36 +29,28 @@ class PaymentReportService
             ->setDescription('Official Payment Transactions Report generated from USTP Alumni Tracer System.')
             ->setKeywords('payment alumni tracer report financial transactions');
 
-        // Build Sheet 1: Payment Transactions
+        // Build Payment Transactions Sheet
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Payment Transactions');
         $this->buildTransactionsSheet($sheet1, $payments, $filters);
-
-        // Build Sheet 2: Summary
-        $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Summary');
-        $this->buildSummarySheet($sheet2, $payments);
-
-        // Set active sheet back to Sheet 1
-        $spreadsheet->setActiveSheetIndex(0);
 
         return $spreadsheet;
     }
 
     /**
-     * Build and format the primary transactions worksheet.
+     * Build and format the primary transactions worksheet separated by College.
      */
     private function buildTransactionsSheet($sheet, array $payments, array $filters): void
     {
-        // 1. Institutional Headers
+        // 1. Report Header (Columns A to E)
         $sheet->setCellValue('A1', 'UNIVERSITY OF SCIENCE AND TECHNOLOGY OF SOUTHERN PHILIPPINES');
-        $sheet->mergeCells('A1:O1');
-        $sheet->getStyle('A1')->getFont()->setSize(13)->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF1E3A8A'));
+        $sheet->mergeCells('A1:E1');
+        $sheet->getStyle('A1')->getFont()->setSize(12)->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF1E3A8A'));
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('A2', 'Payment Transactions Report');
-        $sheet->mergeCells('A2:O2');
-        $sheet->getStyle('A2')->getFont()->setSize(16)->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF0F172A'));
+        $sheet->mergeCells('A2:E2');
+        $sheet->getStyle('A2')->getFont()->setSize(15)->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF0F172A'));
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         // Reporting period text
@@ -75,54 +67,38 @@ class PaymentReportService
         }
 
         $sheet->setCellValue('A3', $periodText);
-        $sheet->mergeCells('A3:O3');
-        $sheet->getStyle('A3')->getFont()->setSize(11)->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF475569'));
+        $sheet->mergeCells('A3:E3');
+        $sheet->getStyle('A3')->getFont()->setSize(10.5)->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF475569'));
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $generatedAt = date('F d, Y h:i:s A');
         $sheet->setCellValue('A4', "Generated on: {$generatedAt} | USTP Alumni Tracer System");
-        $sheet->mergeCells('A4:O4');
-        $sheet->getStyle('A4')->getFont()->setSize(10)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF64748B'));
+        $sheet->mergeCells('A4:E4');
+        $sheet->getStyle('A4')->getFont()->setSize(9.5)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF64748B'));
         $sheet->getStyle('A4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // Row 5 is blank separator
         $sheet->getRowDimension(1)->setRowHeight(22);
-        $sheet->getRowDimension(2)->setRowHeight(26);
+        $sheet->getRowDimension(2)->setRowHeight(24);
         $sheet->getRowDimension(3)->setRowHeight(18);
         $sheet->getRowDimension(4)->setRowHeight(16);
-        $sheet->getRowDimension(5)->setRowHeight(10);
+        $sheet->getRowDimension(5)->setRowHeight(12);
 
-        // 2. Column Headers (Row 6)
-        $headers = [
-            'A6' => 'Transaction Reference',
-            'B6' => 'Payment Date',
-            'C6' => 'Payer Name',
-            'D6' => 'Student Number / Alumni ID',
-            'E6' => 'Campus',
-            'F6' => 'College',
-            'G6' => 'Payment Purpose / Type',
-            'H6' => 'Amount',
-            'I6' => 'Payment Method',
-            'J6' => 'Channel Reference',
-            'K6' => 'Status',
-            'L6' => 'Recorded By',
-            'M6' => 'Verified By',
-            'N6' => 'Verification Date',
-            'O6' => 'Notes',
-        ];
-
-        foreach ($headers as $cell => $text) {
-            $sheet->setCellValue($cell, $text);
+        // 2. Group payments by College
+        $paymentsByCollege = [];
+        foreach ($payments as $p) {
+            $collegeName = trim((string) ($p['college_name'] ?? ''));
+            if ($collegeName === '') {
+                $collegeName = 'Unassigned / General';
+            }
+            $paymentsByCollege[$collegeName][] = $p;
         }
+        ksort($paymentsByCollege);
 
-        $sheet->getRowDimension(6)->setRowHeight(28);
-
-        // Header style: Navy background (#1E3A8A), White bold text, centered vertically
-        $headerStyle = [
+        $tableHeaderStyle = [
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
-                'size' => 11,
+                'size' => 10.5,
             ],
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
@@ -140,198 +116,183 @@ class PaymentReportService
                 ],
             ],
         ];
-        $sheet->getStyle('A6:O6')->applyFromArray($headerStyle);
 
-        // 3. Populate Data Rows starting at Row 7
-        $currentRow = 7;
-        $totalTransactions = count($payments);
-        $verifiedCount = 0;
-        $pendingCount = 0;
-        $rejectedCount = 0;
-        $totalVerifiedAmount = 0.00;
+        $collegeTitleStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => '0F172A'],
+                'size' => 11.5,
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'E2E8F0'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'CBD5E1'],
+                ],
+            ],
+        ];
 
         $currencyFormat = '"₱"#,##0.00';
+        $currentRow = 6;
+        $grandTotalAmount = 0.00;
 
-        foreach ($payments as $p) {
-            $statusRaw = strtolower(trim((string) ($p['status'] ?? 'pending')));
-            $amountVal = (float) ($p['amount'] ?? 0.00);
+        // 3. Render a separate table for each College
+        foreach ($paymentsByCollege as $collegeName => $collegePayments) {
+            // College Header Banner
+            $sheet->setCellValue("A{$currentRow}", strtoupper($collegeName));
+            $sheet->mergeCells("A{$currentRow}:E{$currentRow}");
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($collegeTitleStyle);
+            $sheet->getRowDimension($currentRow)->setRowHeight(24);
+            $currentRow++;
 
-            if ($statusRaw === 'verified') {
-                $verifiedCount++;
-                $totalVerifiedAmount += $amountVal;
-            } elseif ($statusRaw === 'rejected') {
-                $rejectedCount++;
-            } else {
-                $pendingCount++;
+            // Table Header Row
+            $sheet->setCellValue("A{$currentRow}", 'Alumni ID');
+            $sheet->setCellValue("B{$currentRow}", 'Full Name');
+            $sheet->setCellValue("C{$currentRow}", 'Payment Purpose');
+            $sheet->setCellValue("D{$currentRow}", 'Payment Method');
+            $sheet->setCellValue("E{$currentRow}", 'Amount');
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($tableHeaderStyle);
+            $sheet->getRowDimension($currentRow)->setRowHeight(24);
+            $currentRow++;
+
+            $dataStartRow = $currentRow;
+            $collegeSubtotal = 0.00;
+
+            foreach ($collegePayments as $idx => $p) {
+                $amountVal = (float) ($p['amount'] ?? 0.00);
+                $collegeSubtotal += $amountVal;
+                $grandTotalAmount += $amountVal;
+
+                // 1. Alumni ID
+                $studentNumber = trim((string) ($p['student_number'] ?? ''));
+                $alumniId = trim((string) ($p['alumni_id'] ?? ''));
+                $idDisplay = $studentNumber !== '' ? $studentNumber : ($alumniId !== '' ? $alumniId : 'N/A');
+                $sheet->setCellValueExplicit("A{$currentRow}", $idDisplay, DataType::TYPE_STRING);
+
+                // 2. Full Name
+                $payerName = trim((string) ($p['payer_name'] ?? ''));
+                $sheet->setCellValue("B{$currentRow}", $payerName !== '' ? $payerName : 'N/A');
+
+                // 3. Payment Purpose
+                $paymentPurpose = !empty($p['payment_purpose_name'])
+                    ? $p['payment_purpose_name']
+                    : $this->formatPaymentType((string) ($p['payment_type'] ?? ''));
+                $sheet->setCellValue("C{$currentRow}", $paymentPurpose);
+
+                // 4. Payment Method
+                $paymentMethod = $this->formatPaymentMethod((string) ($p['payment_method'] ?? ''));
+                $sheet->setCellValue("D{$currentRow}", $paymentMethod);
+
+                // 5. Amount
+                $sheet->setCellValue("E{$currentRow}", $amountVal);
+                $sheet->getStyle("E{$currentRow}")->getNumberFormat()->setFormatCode($currencyFormat);
+
+                // Zebra striping within each college table
+                if ($idx % 2 === 1) {
+                    $sheet->getStyle("A{$currentRow}:E{$currentRow}")
+                        ->getFill()
+                        ->setFillType(Fill::FILL_SOLID)
+                        ->getStartColor()
+                        ->setRGB('F8FAFC');
+                }
+
+                $sheet->getRowDimension($currentRow)->setRowHeight(20);
+                $currentRow++;
             }
 
-            // 1. Transaction Reference (explicit text)
-            $txnRef = trim((string) ($p['transaction_ref'] ?? ''));
-            $sheet->setCellValueExplicit("A{$currentRow}", $txnRef !== '' ? $txnRef : 'N/A', DataType::TYPE_STRING);
+            $dataEndRow = $currentRow - 1;
+            if ($dataEndRow >= $dataStartRow) {
+                $sheet->getStyle("A{$dataStartRow}:E{$dataEndRow}")
+                    ->getBorders()
+                    ->getAllBorders()
+                    ->setBorderStyle(Border::BORDER_THIN)
+                    ->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FFE2E8F0'));
 
-            // 2. Payment Date
-            $paymentDateStr = $this->formatDateValue($p['created_at'] ?? null);
-            $sheet->setCellValue("B{$currentRow}", $paymentDateStr);
-
-            // 3. Payer Name
-            $payerName = trim((string) ($p['payer_name'] ?? ''));
-            $sheet->setCellValue("C{$currentRow}", $payerName !== '' ? $payerName : 'N/A');
-
-            // 4. Student Number / Alumni ID (explicit text)
-            $studentNumber = trim((string) ($p['student_number'] ?? ''));
-            $alumniId = trim((string) ($p['alumni_id'] ?? ''));
-            $idDisplay = $studentNumber !== '' ? $studentNumber : ($alumniId !== '' ? $alumniId : 'N/A');
-            $sheet->setCellValueExplicit("D{$currentRow}", $idDisplay, DataType::TYPE_STRING);
-
-            // 5. Campus
-            $campusName = trim((string) ($p['campus_name'] ?? ''));
-            $sheet->setCellValue("E{$currentRow}", $campusName !== '' ? $campusName : 'N/A');
-
-            // 6. College
-            $collegeName = trim((string) ($p['college_name'] ?? ''));
-            $sheet->setCellValue("F{$currentRow}", $collegeName !== '' ? $collegeName : 'N/A');
-
-            // 7. Payment Purpose / Type
-            $paymentType = !empty($p['payment_purpose_name'])
-                ? $p['payment_purpose_name']
-                : $this->formatPaymentType((string) ($p['payment_type'] ?? ''));
-            $sheet->setCellValue("G{$currentRow}", $paymentType);
-
-            // 8. Amount (numeric with currency format)
-            $sheet->setCellValue("H{$currentRow}", $amountVal);
-            $sheet->getStyle("H{$currentRow}")->getNumberFormat()->setFormatCode($currencyFormat);
-
-            // 9. Payment Method
-            $paymentMethod = $this->formatPaymentMethod((string) ($p['payment_method'] ?? ''));
-            $sheet->setCellValue("I{$currentRow}", $paymentMethod);
-
-            // 10. Channel Reference
-            $channelRef = trim((string) ($p['channel_reference'] ?? ''));
-            $isCash = strtolower(trim((string) ($p['payment_method'] ?? ''))) === 'cash';
-            if ($isCash || $channelRef === '') {
-                $channelDisplay = 'N/A';
-            } else {
-                $channelDisplay = $channelRef;
+                $sheet->getStyle("A{$dataStartRow}:A{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("B{$dataStartRow}:C{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("D{$dataStartRow}:D{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("E{$dataStartRow}:E{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("A{$dataStartRow}:E{$dataEndRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
             }
-            $sheet->setCellValueExplicit("J{$currentRow}", $channelDisplay, DataType::TYPE_STRING);
 
-            // 11. Status
-            $statusDisplay = ucfirst($statusRaw);
-            $sheet->setCellValue("K{$currentRow}", $statusDisplay);
+            // College Subtotal Row
+            $sheet->setCellValue("A{$currentRow}", "Total ({$collegeName})");
+            $sheet->mergeCells("A{$currentRow}:D{$currentRow}");
+            $sheet->setCellValue("E{$currentRow}", $collegeSubtotal);
+            $sheet->getStyle("E{$currentRow}")->getNumberFormat()->setFormatCode($currencyFormat);
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => '0F172A'],
+                    'size' => 10,
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'F1F5F9'],
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color' => ['rgb' => 'CBD5E1'],
+                    ],
+                ],
+            ]);
+            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("E{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getRowDimension($currentRow)->setRowHeight(21);
+            $currentRow++;
 
-            // 12. Recorded By
-            $recordedBy = $this->formatRecordedByRole((string) ($p['submitted_by_role'] ?? ''));
-            $sheet->setCellValue("L{$currentRow}", $recordedBy);
-
-            // 13. Verified By
-            $verifiedBy = $this->resolveVerifierName($p);
-            $sheet->setCellValue("M{$currentRow}", $verifiedBy);
-
-            // 14. Verification Date
-            $verifiedAtStr = $this->formatDateValue($p['verified_at'] ?? null);
-            $sheet->setCellValue("N{$currentRow}", $verifiedAtStr);
-
-            // 15. Notes
-            $notes = trim((string) ($p['notes'] ?? ''));
-            $sheet->setCellValue("O{$currentRow}", $notes !== '' ? $notes : 'N/A');
-
-            // Row height and alignment
-            $sheet->getRowDimension($currentRow)->setRowHeight(20);
-
+            // Blank separator row between college tables
+            $sheet->getRowDimension($currentRow)->setRowHeight(14);
             $currentRow++;
         }
 
-        $lastDataRow = $currentRow - 1;
-
-        // Apply grid borders and alignments to data rows
-        if ($lastDataRow >= 7) {
-            $dataRange = "A7:O{$lastDataRow}";
-            $sheet->getStyle($dataRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FFE2E8F0'));
-
-            // Text alignments
-            $sheet->getStyle("A7:A{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("B7:B{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("D7:D{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("H7:H{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $sheet->getStyle("I7:I{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("J7:J{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("K7:K{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("L7:L{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("M7:M{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-            $sheet->getStyle("N7:N{$lastDataRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("O7:O{$lastDataRow}")->getAlignment()->setWrapText(true);
-
-            // Alternate zebra row styling for readability
-            for ($r = 7; $r <= $lastDataRow; $r++) {
-                if ($r % 2 === 0) {
-                    $sheet->getStyle("A{$r}:O{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F8FAFC');
-                }
-            }
+        // Grand Total Row at the bottom if there are records
+        if (!empty($paymentsByCollege)) {
+            $sheet->setCellValue("A{$currentRow}", 'GRAND TOTAL');
+            $sheet->mergeCells("A{$currentRow}:D{$currentRow}");
+            $sheet->setCellValue("E{$currentRow}", $grandTotalAmount);
+            $sheet->getStyle("E{$currentRow}")->getNumberFormat()->setFormatCode($currencyFormat);
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => '15803D'],
+                    'size' => 11,
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'F0FDF4'],
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_MEDIUM,
+                        'color' => ['rgb' => '16A34A'],
+                    ],
+                ],
+            ]);
+            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("E{$currentRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getRowDimension($currentRow)->setRowHeight(24);
         }
 
-        // Freeze header row at Row 7 (row 6 remains static above)
-        $sheet->freezePane('A7');
-
-        // Enable column filters on header row
-        $sheet->setAutoFilter("A6:O" . max(7, $lastDataRow));
-
-        // 4. Summary Section at the Bottom
-        $summaryStartRow = $lastDataRow + 2;
-
-        $sheet->setCellValue("B{$summaryStartRow}", 'EXECUTIVE SUMMARY');
-        $sheet->mergeCells("B{$summaryStartRow}:D{$summaryStartRow}");
-        $sheet->getStyle("B{$summaryStartRow}")->getFont()->setBold(true)->setSize(12)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF1E3A8A'));
-
-        $metrics = [
-            'Total Number of Transactions' => [$totalTransactions, 'count'],
-            'Total Verified Transactions'  => [$verifiedCount, 'count'],
-            'Total Pending Transactions'   => [$pendingCount, 'count'],
-            'Total Rejected Transactions'  => [$rejectedCount, 'count'],
-            'Total Amount of Verified Payments' => [$totalVerifiedAmount, 'currency'],
+        // 4. Column Widths (A to E)
+        $columnWidths = [
+            'A' => 22, // Alumni ID
+            'B' => 30, // Full Name
+            'C' => 28, // Payment Purpose
+            'D' => 22, // Payment Method
+            'E' => 20, // Amount
         ];
 
-        $metricRow = $summaryStartRow + 1;
-        foreach ($metrics as $label => [$val, $type]) {
-            $sheet->setCellValue("B{$metricRow}", $label);
-            $sheet->mergeCells("B{$metricRow}:C{$metricRow}");
-            $sheet->getStyle("B{$metricRow}")->getFont()->setBold(true);
-
-            $sheet->setCellValue("D{$metricRow}", $val);
-            if ($type === 'currency') {
-                $sheet->getStyle("D{$metricRow}")->getNumberFormat()->setFormatCode($currencyFormat);
-                $sheet->getStyle("D{$metricRow}")->getFont()->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF15803D'));
-            } else {
-                $sheet->getStyle("D{$metricRow}")->getNumberFormat()->setFormatCode('#,##0');
-            }
-            $sheet->getStyle("D{$metricRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $metricRow++;
-        }
-
-        $summaryBoxRange = "B" . ($summaryStartRow) . ":D" . ($metricRow - 1);
-        $sheet->getStyle($summaryBoxRange)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_MEDIUM)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF1E3A8A'));
-        $sheet->getStyle("B" . ($summaryStartRow + 1) . ":D" . ($metricRow - 1))->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
-
-        // 5. Auto-size columns with reasonable maximums
-        $maxColumnWidths = [
-            'A' => 22, // Transaction Ref
-            'B' => 20, // Payment Date
-            'C' => 26, // Payer Name
-            'D' => 24, // Student Number / Alumni ID
-            'E' => 20, // Campus
-            'F' => 30, // College
-            'G' => 24, // Payment Type
-            'H' => 18, // Amount
-            'I' => 18, // Payment Method
-            'J' => 22, // Channel Reference
-            'K' => 16, // Status
-            'L' => 18, // Recorded By
-            'M' => 26, // Verified By
-            'N' => 20, // Verification Date
-            'O' => 38, // Notes
-        ];
-
-        foreach ($maxColumnWidths as $col => $maxW) {
-            $sheet->getColumnDimension($col)->setWidth($maxW);
+        foreach ($columnWidths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
         }
     }
 

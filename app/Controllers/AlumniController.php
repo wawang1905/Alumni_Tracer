@@ -35,7 +35,7 @@ class AlumniController extends BaseController
 
     public function newsPage(): ResponseInterface
     {
-        return $this->renderProtectedView('HTML/Alumni/News.html');
+        return redirect()->to(base_url('alumni/Main.html'));
     }
 
     public function surveysPage(): ResponseInterface
@@ -106,7 +106,14 @@ class AlumniController extends BaseController
         }
 
         $sort = (string) ($this->request->getGet('sort') ?? 'last_name_asc');
-        $records = $this->alumniModel->getSortedList($sort);
+        $filters = [
+            'year'           => $this->request->getGet('year'),
+            'graduationYear' => $this->request->getGet('graduationYear'),
+            'college'        => $this->request->getGet('college'),
+            'course'         => $this->request->getGet('course'),
+            'status'         => $this->request->getGet('status'),
+        ];
+        $records = $this->alumniModel->getSortedList($sort, $filters);
 
         return $this->response->setJSON([
             'success' => true,
@@ -122,9 +129,6 @@ class AlumniController extends BaseController
                 'message' => 'Unauthorized.',
             ]);
         }
-
-        $this->ensureBatchRegistryTable();
-        $this->ensureBatchDepartmentTable();
 
         $batchMap = [];
         foreach ($this->alumniModel->getBatchSummaries() as $batch) {
@@ -145,11 +149,17 @@ class AlumniController extends BaseController
 
         $db = \Config\Database::connect();
         $yearColumn = $this->getBatchRegistryYearColumn();
-        $registered = $db->table('alumni_batches')
-            ->select($yearColumn)
-            ->orderBy($yearColumn, 'DESC')
-            ->get()
-            ->getResultArray();
+
+        try {
+            $registered = $db->table('alumni_batches')
+                ->select($yearColumn)
+                ->orderBy($yearColumn, 'DESC')
+                ->get()
+                ->getResultArray();
+        } catch (\Throwable) {
+            $this->ensureBatchRegistryTable();
+            $registered = [];
+        }
 
         foreach ($registered as $row) {
             $year = trim((string) ($row[$yearColumn] ?? ''));
@@ -167,16 +177,24 @@ class AlumniController extends BaseController
             ];
         }
 
-        $this->attachBatchDepartmentSelections($batchMap);
+        try {
+            $this->attachBatchDepartmentSelections($batchMap);
+        } catch (\Throwable) {
+            $this->ensureBatchDepartmentTable();
+        }
 
         $batches = array_values($batchMap);
         usort($batches, static function (array $a, array $b): int {
             return strcmp((string) ($b['graduationYear'] ?? ''), (string) ($a['graduationYear'] ?? ''));
         });
 
+        $summary = $this->alumniModel->getOverallCounts();
+        $summary['totalBatches'] = count($batches);
+
         return $this->response->setJSON([
             'success' => true,
             'batches' => $batches,
+            'summary' => $summary,
         ]);
     }
 
@@ -194,22 +212,6 @@ class AlumniController extends BaseController
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'Please enter a valid 4-digit batch year.',
-            ]);
-        }
-
-        $this->ensureBatchRegistryTable();
-        $this->ensureBatchDepartmentTable();
-        $db = \Config\Database::connect();
-        $yearColumn = $this->getBatchRegistryYearColumn();
-        $existing = $db->table('alumni_batches')
-            ->select('id')
-            ->where($yearColumn, $graduationYear)
-            ->get()
-            ->getRowArray();
-
-        if (! $existing) {
-            $db->table('alumni_batches')->insert([
-                $yearColumn => $graduationYear,
             ]);
         }
 
@@ -238,16 +240,32 @@ class AlumniController extends BaseController
             ]);
         }
 
+        $db = \Config\Database::connect();
+        $yearColumn = $this->getBatchRegistryYearColumn();
+        $existing = $db->table('alumni_batches')
+            ->select('id')
+            ->where($yearColumn, $graduationYear)
+            ->get()
+            ->getRowArray();
+
+        if (! $existing) {
+            $db->table('alumni_batches')->insert([
+                $yearColumn => $graduationYear,
+            ]);
+        }
+
         $db->table('alumni_batch_departments')
             ->where('GraduationYear', $graduationYear)
             ->delete();
 
-        foreach ($validDepartments as $department) {
-            $db->table('alumni_batch_departments')->insert([
-                'GraduationYear' => $graduationYear,
-                'College_ID' => (int) $department['College_ID'],
-                'Department_ID' => (int) $department['Department_ID'],
-            ]);
+        $batchRows = array_map(static fn (array $department): array => [
+            'GraduationYear' => $graduationYear,
+            'College_ID' => (int) $department['College_ID'],
+            'Department_ID' => (int) $department['Department_ID'],
+        ], $validDepartments);
+
+        if ($batchRows !== []) {
+            $db->table('alumni_batch_departments')->insertBatch($batchRows);
         }
 
         return $this->response->setJSON([
@@ -284,7 +302,6 @@ class AlumniController extends BaseController
             ]);
         }
 
-        $this->ensureBatchRegistryTable();
         $db = \Config\Database::connect();
         $yearColumn = $this->getBatchRegistryYearColumn();
 
@@ -942,17 +959,6 @@ class AlumniController extends BaseController
 
     private function getBatchRegistryYearColumn(): string
     {
-        $db = \Config\Database::connect();
-        $fieldNames = $db->getFieldNames('alumni_batches');
-
-        if (in_array('GraduationYear', $fieldNames, true)) {
-            return 'GraduationYear';
-        }
-
-        if (in_array('graduation_year', $fieldNames, true)) {
-            return 'graduation_year';
-        }
-
         return 'GraduationYear';
     }
 

@@ -1,141 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer - Departments</title>
+    <title>Academic Departments | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
-    <style>
-        .members-collapse-btn {
-            background: none;
-            border: none;
-            color: #1e4a76;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-        .members-collapse-btn:hover {
-            background: #e8f0f7;
-        }
-        .members-row {
-            background: #f8fafc;
-        }
-        .members-container {
-            padding: 15px 20px;
-            border-left: 3px solid #1e4a76;
-            margin: 5px 0;
-            background: white;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-            border-radius: 4px;
-        }
-        .members-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        .members-table th {
-            background: #f1f5f9;
-            color: #475569;
-            padding: 8px;
-            font-weight: 600;
-        }
-        .members-table td {
-            padding: 8px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        /* College collapsible group styles */
-        .college-group-header {
-            cursor: pointer;
-            user-select: none;
-        }
-        .college-collapse-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 14px;
-            background: linear-gradient(135deg, #eaf1f8 0%, #f4f7fb 100%);
-            transition: background 0.2s;
-        }
-        .college-group-header:hover .college-collapse-header {
-            background: linear-gradient(135deg, #dce8f3 0%, #eaf0f7 100%);
-        }
-        .college-collapsed .college-collapse-header {
-            background: linear-gradient(135deg, #f0f3f7 0%, #f8f9fb 100%);
-        }
-        .college-collapse-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .college-chevron {
-            font-size: 12px;
-            color: #1e4a76;
-            transition: transform 0.25s ease;
-        }
-        .college-chevron.collapsed {
-            transform: rotate(-90deg);
-        }
-        .college-icon {
-            font-size: 15px;
-            color: #1e4a76;
-            opacity: 0.7;
-        }
-        .college-name-text {
-            font-weight: 600;
-            font-size: 14px;
-            color: #1e4a76;
-        }
-        .college-collapse-badges {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .college-badge {
-            font-size: 11px;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-weight: 500;
-        }
-        .college-badge-dept {
-            background: #e0ecf7;
-            color: #1e4a76;
-        }
-        .college-badge-coord {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        .college-badge-user {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        /* Expand/Collapse All button styles */
-        .college-toggle-all-btn {
-            padding: 5px 10px;
-            background: #f0f4f8;
-            color: #1e4a76;
-            border: 1px solid #d0dbe6;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: background 0.2s, border-color 0.2s;
-        }
-        .college-toggle-all-btn:hover {
-            background: #dce8f3;
-            border-color: #1e4a76;
-        }
-    </style>
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
     <script>
         (function() {
@@ -144,49 +15,62 @@
                 document.documentElement.classList.add('staff-sidebar-collapsed');
             }
         })();
-    </script></head>
+    </script>
+</head>
 <body class="alumni-management-page">
     <div class="dashboard-container">
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
-                <div class="menu-item" onclick="location.href='Dashboard.html'">
+                <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </div>
-                <div class="menu-item" onclick="location.href='AlumniManagement.html'">
+                <div class="menu-item" data-page="alumni" onclick="location.href='AlumniManagement.html'">
                     <i class="fas fa-users"></i>
                     <span>Alumni Management</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Coordinators.html'">
+                <div class="menu-item" data-page="coordinators" onclick="location.href='Coordinators.html'">
                     <i class="fas fa-user-tie"></i>
                     <span>Coordinators</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Events.html'">
+                <div class="menu-item" data-page="colleges" onclick="location.href='Colleges.html'">
+                    <i class="fas fa-building-columns"></i>
+                    <span>Colleges</span>
+                </div>
+                <div class="menu-item active" data-page="departments" onclick="location.href='Departments.html'">
+                    <i class="fas fa-network-wired"></i>
+                    <span>Departments</span>
+                </div>
+                <div class="menu-item" data-page="events" onclick="location.href='Events.html'">
                     <i class="fas fa-calendar-alt"></i>
                     <span>Events</span>
                 </div>
-                <div class="menu-item" onclick="location.href='News.html'">
+                <div class="menu-item" data-page="news" onclick="location.href='News.html'">
                     <i class="fas fa-newspaper"></i>
                     <span>News</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Surveys.html'">
+                <div class="menu-item" data-page="surveys" onclick="location.href='Surveys.html'">
                     <i class="fas fa-file-alt"></i>
                     <span>Surveys</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Reports.html'">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Reports</span>
+                <div class="menu-item" data-page="payments" onclick="location.href='Payments.html'">
+                    <i class="fas fa-receipt"></i>
+                    <span>Payments</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Settings.html'">
+                <div class="menu-item" data-page="settings" onclick="location.href='Settings.html'">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </div>
-            
             </div>
             <div class="sidebar-footer">
                 <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
@@ -199,7 +83,7 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="top-bar">
-                <div class="page-title" id="pageTitle">Departments Directory</div>
+                <div class="page-title" id="pageTitle">Departments Management</div>
                 <div class="staff-info">
                     <span class="staff-name">Staff Office</span>
                     <div class="staff-avatar">
@@ -208,110 +92,115 @@
                 </div>
             </div>
 
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalDeptsCountStat">—</h3>
-                        <p>Total Departments</p>
+            <!-- Departments Workspace -->
+            <div class="dashboard-workspace departments-workspace">
+                <!-- Minimalist Executive Toolbar -->
+                <div class="dashboard-exec-bar">
+                    <div class="dashboard-exec-copy">
+                        <h2>Academic Departments & Programs</h2>
+                        <p>Institutional oversight of degree programs, parent academic colleges, program leadership, and alumni enrollment.</p>
                     </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-network-wired"></i>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalDeptsCoordinatorsStat">—</h3>
-                        <p>Total Coordinators</p>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-user-tie"></i>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalDeptsUsersStat">—</h3>
-                        <p>Associated Users</p>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Module 3: Departments Directory -->
-            <div class="section-card">
-                <div class="section-header" style="border-bottom: 1px solid #eef2f6; padding-bottom: 15px; margin-bottom: 15px;">
-                    <div>
-                        <h3 style="font-size: 18px; font-weight: 600; color: #1e4a76;">
-                            <i class="fas fa-network-wired" style="margin-right: 8px;"></i> Departments & Coordinators Directory
-                        </h3>
-                        <p style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Registered coordinator departments and member accounts</p>
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <button class="college-toggle-all-btn" onclick="toggleAllColleges(true)" title="Expand All Colleges">
-                            <i class="fas fa-expand-alt"></i> Expand All
+                    <div class="dashboard-exec-actions">
+                        <button type="button" class="alumni-btn alumni-btn-secondary" onclick="location.href='Colleges.html'">
+                            <i class="fas fa-building-columns"></i>
+                            <span>View Colleges</span>
                         </button>
-                        <button class="college-toggle-all-btn" onclick="toggleAllColleges(false)" title="Collapse All Colleges">
-                            <i class="fas fa-compress-alt"></i> Collapse All
+                        <button type="button" class="alumni-btn alumni-btn-secondary" onclick="location.href='Coordinators.html'">
+                            <i class="fas fa-user-tie"></i>
+                            <span>Coordinators</span>
                         </button>
-                        <button onclick="openAddDepartmentModal()" style="padding: 6px 12px; background: #1e4a76; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer;">
-                            <i class="fas fa-plus" style="margin-right: 5px;"></i> Add Department
+                        <button type="button" class="alumni-btn alumni-btn-primary" onclick="openAddDepartmentModal()">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Department</span>
                         </button>
-                        <input type="text" id="deptSearch" placeholder="Search department..." style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
                     </div>
                 </div>
 
-                <div style="overflow-x: auto;">
-                    <table class="data-table" style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 12px; text-align: left; background: #f8f9fa; font-weight: 600;">Department</th>
-                                <th style="padding: 12px; text-align: center; background: #f8f9fa; font-weight: 600; width: 150px;">Coordinators</th>
-                                <th style="padding: 12px; text-align: center; background: #f8f9fa; font-weight: 600; width: 150px;">Total Users</th>
-                                <th style="padding: 12px; text-align: center; background: #f8f9fa; font-weight: 600; width: 180px;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="departmentsTableBody">
-                            <tr>
-                                <td colspan="4" style="text-align: center; padding: 25px; color: #7f8c8d;">Loading departments data...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Main Layout: Departments Table -->
+                <div class="departments-layout-grid">
+                    <!-- Module: Departments Directory Table -->
+                    <div class="section-card departments-table-card">
+                        <div class="section-header departments-card-header">
+                            <div class="chart-header-title">
+                                <div class="departments-title-wrap">
+                                    <h3>Departments Directory</h3>
+                                    <span id="departmentsCountBadge" class="departments-count-pill">0 Departments</span>
+                                </div>
+                                <span class="chart-header-subtitle">Academic units, degree programs, and assigned coordinator leadership</span>
+                            </div>
+                            <div class="departments-header-controls">
+                                <select id="deptCollegeFilter" class="departments-filter-select" aria-label="Filter by College">
+                                    <option value="all">All Colleges</option>
+                                </select>
+                                <div class="departments-search-wrap">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <input type="text" id="deptSearch" class="departments-search-input" placeholder="Search department or coordinator..." autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="departments-table-shell">
+                            <table class="departments-table">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th class="text-center" style="width: 180px;">Coordinator</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="departmentsTableBody">
+                                    <tr>
+                                        <td colspan="2" class="colleges-loading-cell">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                            <span>Loading departments directory...</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Add Department Modal -->
-    <div id="addDepartmentModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3>Add New Department</h3>
-                <span class="close" onclick="closeAddDepartmentModal()">&times;</span>
+    <div id="addDepartmentModal" class="modal" onclick="if (event.target === this) closeAddDepartmentModal();" role="dialog" aria-modal="true" aria-labelledby="addDepartmentModalTitle">
+        <div class="modal-content college-modal-content">
+            <div class="college-modal-header">
+                <div>
+                    <h3 id="addDepartmentModalTitle">Add New Department</h3>
+                    <p class="college-modal-subtitle">Register a new academic department or degree program under a college.</p>
+                </div>
+                <button type="button" class="college-modal-close" onclick="closeAddDepartmentModal()" aria-label="Close modal">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
             </div>
-            <div class="modal-body">
-                <form id="addDepartmentForm">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #1e4a76;">Department Name *</label>
-                        <input type="text" id="departmentName" name="department_name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+            <form id="addDepartmentForm" onsubmit="event.preventDefault(); submitDepartmentForm();">
+                <div class="college-modal-body">
+                    <div class="form-group">
+                        <label for="departmentName" class="form-label">Department Name <span class="required-star">*</span></label>
+                        <input type="text" id="departmentName" name="department_name" class="form-input" placeholder="e.g. Department of Information Technology" required>
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #1e4a76;">College *</label>
-                        <select id="departmentCollege" name="college_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div class="form-group">
+                        <label for="departmentCollege" class="form-label">Parent College <span class="required-star">*</span></label>
+                        <select id="departmentCollege" name="college_id" class="form-input" required>
                             <option value="">Select a college...</option>
                         </select>
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #1e4a76;">Abbreviation</label>
-                        <input type="text" id="departmentAbbreviation" name="abbreviation" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div class="form-group">
+                        <label for="departmentAbbreviation" class="form-label">Abbreviation / Code</label>
+                        <input type="text" id="departmentAbbreviation" name="abbreviation" class="form-input" placeholder="e.g. DIT" maxlength="20">
+                        <span class="form-helper">Optional short acronym or degree program code.</span>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" onclick="closeAddDepartmentModal()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
-                <button type="button" onclick="submitDepartmentForm()" style="padding: 8px 16px; background: #1e4a76; color: white; border: none; border-radius: 6px; cursor: pointer;">Add Department</button>
-            </div>
+                </div>
+                <div class="college-modal-footer">
+                    <button type="button" class="alumni-btn alumni-btn-secondary" onclick="closeAddDepartmentModal()">Cancel</button>
+                    <button type="submit" id="addDepartmentSubmitBtn" class="alumni-btn alumni-btn-primary">
+                        <i class="fas fa-plus"></i>
+                        <span>Create Department</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

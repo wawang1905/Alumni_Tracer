@@ -33,7 +33,7 @@ class Auth extends BaseController
         if ($identifier === '' || $password === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
-                'message' => 'Please enter both identifier and password.',
+                'message' => 'Please enter your email and password.',
             ]);
         }
 
@@ -85,7 +85,7 @@ class Auth extends BaseController
             $emailKey = (string) ($user['Email'] ?? $identifier);
             $expectedAlumni = $this->alumniModel->builder()
                 ->select('alumni_id, Email')
-                ->where('Email', $emailKey)
+                ->where('LOWER("Email")', strtolower($emailKey))
                 ->get()
                 ->getRowArray();
 
@@ -103,7 +103,7 @@ class Auth extends BaseController
             // Back-compat: older alumni accounts might have NULL account_id.
             // If so, set it automatically from the alumni row.
             if ($providedAccountId === '' && $expectedAccountId !== '') {
-                $this->userAccounts->set('account_id', $expectedAccountId)->where('Email', $emailKey)->update();
+                $this->userAccounts->set('account_id', $expectedAccountId)->where('LOWER("Email")', strtolower($emailKey))->update();
                 $user['account_id'] = $expectedAccountId;
                 $providedAccountId = $expectedAccountId;
             }
@@ -348,7 +348,10 @@ class Auth extends BaseController
         }
 
         // Provision/sync the newly registered alumni account in Supabase Auth (with app_metadata role & account_id)
-        $this->supabaseAuth->syncLocalUserToSupabase($accountPayload, $password);
+        $syncResult = $this->supabaseAuth->syncLocalUserToSupabase($accountPayload, $password);
+        if (! ($syncResult['success'] ?? false)) {
+            log_message('warning', 'Signup Supabase sync notice: ' . ($syncResult['error'] ?? 'unknown'));
+        }
 
         session()->remove(['email_otp_data', 'email_verified_email']);
 
@@ -672,6 +675,10 @@ class Auth extends BaseController
     {
         $user = session('auth_user');
         $supabaseSession = session('supabase_session');
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
 
         return $this->response->setJSON([
             'loggedIn' => $user !== null,

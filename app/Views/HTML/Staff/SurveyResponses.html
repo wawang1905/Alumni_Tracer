@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer</title>
+    <title>Survey Responses | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -19,8 +20,13 @@
     <div class="dashboard-container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
                 <div class="menu-item" onclick="location.href='Dashboard.html'">
@@ -88,76 +94,75 @@
 
             <div class="response-page-context" aria-label="Selected survey and actions">
                 <div class="response-context-copy">
-                    <span class="response-context-icon"><i class="fas fa-clipboard-list" aria-hidden="true"></i></span>
+                    <span class="response-context-icon"><i class="fas fa-file-lines" aria-hidden="true"></i></span>
                     <div>
-                        <span>Selected survey</span>
+                        <span>Selected Survey</span>
                         <strong id="responseSurveyContextTitle">Loading survey…</strong>
                     </div>
                 </div>
                 <div class="response-context-actions">
-                    <button class="response-context-button is-secondary" type="button" onclick="location.href='Surveys.html'"><i class="fas fa-arrow-left" aria-hidden="true"></i> All surveys</button>
-                    <button id="responseEditSurveyButton" class="response-context-button is-primary" type="button"><i class="fas fa-pen" aria-hidden="true"></i> Edit survey</button>
+                    <button class="response-context-button is-secondary" type="button" onclick="location.href='Surveys.html'" title="Back to all surveys">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                        <span>Surveys</span>
+                    </button>
+                    <button id="responseEditSurveyButton" class="response-context-button is-primary" type="button" title="Edit survey">
+                        <i class="fas fa-pen" aria-hidden="true"></i>
+                        <span>Edit</span>
+                    </button>
                 </div>
             </div>
 
             <div class="section-card response-stats-card">
-                <div class="section-header">
-                    <div>
-                        <h3><i class="fas fa-chart-pie"></i> Survey Statistics</h3>
-                        <p class="response-section-description">A quick summary of participation for this survey.</p>
-                    </div>
-                </div>
                 <div id="surveyStats"></div>
             </div>
 
-            <div class="section-card">
-                <div class="section-header">
-                    <div>
-                        <h3><i class="fas fa-table"></i> Response Records</h3>
-                        <p class="response-section-description">Find a respondent, review submission details, or open their full answers.</p>
+            <div class="section-card response-records-card">
+                <div class="response-records-header">
+                    <div class="response-records-title-group">
+                        <h3>Responses</h3>
+                        <span id="surveyResponseResultCount" class="response-count-badge" aria-live="polite">Loading…</span>
                     </div>
-                    <span id="surveyResponseResultCount" class="response-count-badge" aria-live="polite">Loading responses…</span>
-                </div>
-                <div class="response-toolbar" aria-label="Response filters">
-                    <label class="response-search">
-                        <span class="sr-only">Search responses</span>
-                        <i class="fas fa-search" aria-hidden="true"></i>
-                        <input id="surveyResponseSearch" type="search" placeholder="Search name, ID, college, or course…" autocomplete="off" oninput="renderSurveyResponsesTable()">
-                    </label>
-                    <label class="response-filter-field">
-                        <span>College</span>
-                        <select id="surveyResponseCollegeFilter" onchange="renderSurveyResponsesTable()">
-                            <option value="">All colleges</option>
-                        </select>
-                    </label>
-                    <label class="response-filter-field">
-                        <span>Status</span>
-                        <select id="surveyResponseStatusFilter" onchange="renderSurveyResponsesTable()">
-                            <option value="">All statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="reviewed">Reviewed</option>
-                            <option value="needs_revision">Needs Revision</option>
-                        </select>
-                    </label>
-                    <label class="response-filter-field">
-                        <span>Sort by</span>
-                        <select id="surveyResponseSort" onchange="renderSurveyResponsesTable()">
-                            <option value="newest">Newest first</option>
-                            <option value="oldest">Oldest first</option>
-                            <option value="name">Respondent A–Z</option>
-                        </select>
-                    </label>
+                    <div class="response-toolbar" aria-label="Response filters">
+                        <label class="response-search">
+                            <span class="sr-only">Search responses</span>
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <input id="surveyResponseSearch" type="search" placeholder="Search respondent, ID, college…" autocomplete="off" oninput="handleSurveyResponseFilterChange()">
+                        </label>
+                        <label class="response-filter-field">
+                            <span class="sr-only">College</span>
+                            <select id="surveyResponseCollegeFilter" onchange="handleSurveyResponseFilterChange()" aria-label="Filter by college">
+                                <option value="">All Colleges</option>
+                            </select>
+                        </label>
+                        <label class="response-filter-field">
+                            <span class="sr-only">Status</span>
+                            <select id="surveyResponseStatusFilter" onchange="handleSurveyResponseFilterChange()" aria-label="Filter by status">
+                                <option value="">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="reviewed">Reviewed</option>
+                                <option value="needs_revision">Needs Revision</option>
+                            </select>
+                        </label>
+                        <label class="response-filter-field">
+                            <span class="sr-only">Sort by</span>
+                            <select id="surveyResponseSort" onchange="handleSurveyResponseFilterChange()" aria-label="Sort responses">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="name">Name A–Z</option>
+                            </select>
+                        </label>
+                    </div>
                 </div>
                 <div class="response-table-wrap">
                     <table class="response-records-table">
                         <thead>
                             <tr>
                                 <th>Respondent</th>
-                                <th>College &amp; course</th>
+                                <th>College &amp; Course</th>
                                 <th>Answers</th>
                                 <th>Status</th>
                                 <th>Submitted</th>
-                                <th><span class="sr-only">Actions</span></th>
+                                <th style="text-align: right;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="surveyResponsesBody">
@@ -165,12 +170,10 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-            <div class="sidebar-footer">
-                <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
-                    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Log Out</span>
-                </button>
+                <div class="response-pagination-footer" id="surveyResponsesPaginationFooter">
+                    <div class="response-pagination-info" id="surveyResponsesPaginationInfo">Showing 0 responses</div>
+                    <div class="response-pagination-controls" id="surveyResponsesPaginationControls"></div>
+                </div>
             </div>
         </div>
     </div>

@@ -52,16 +52,22 @@ class PaymentModel extends Model
         $builder = $this->db->table($this->table . ' p');
         $builder->select('
             p.*,
+            COALESCE(NULLIF(p.student_number, \'\'), a.alumni_id, NULLIF(ua_payer.account_id, \'\')) AS resolved_student_number,
             pp.name AS payment_purpose_name,
             pp.code AS payment_purpose_code,
-            c.College_Name AS college_name,
+            COALESCE(c."College_Name", ac."College_Name", NULLIF(ua_payer."College", \'\')) AS college_name,
             c.Abbreviation AS college_abbr,
+            COALESCE(ad."Department_Name", NULLIF(ua_payer."Department", \'\')) AS department_name,
             cmp.Campus AS campus_name,
             ua.First_Name AS verifier_first_name,
             ua.Last_Name AS verifier_last_name
         ');
         $builder->join('payment_purposes pp', 'pp.id = p.payment_purpose_id', 'left');
         $builder->join('colleges c', 'c.College_ID = p.college_id', 'left');
+        $builder->join('alumni a', 'a.id = p.alumni_id', 'left');
+        $builder->join('colleges ac', 'ac.College_ID = a.College_ID', 'left');
+        $builder->join('departments ad', 'ad.Department_ID = a.Department_ID', 'left');
+        $builder->join('user_accounts ua_payer', 'LOWER(ua_payer."Email") = LOWER(p.payer_email)', 'left');
         $builder->join('campuses cmp', 'cmp.Campus_ID = p.campus_id', 'left');
         $builder->join('user_accounts ua', 'ua.id = p.verified_by', 'left');
 
@@ -92,6 +98,28 @@ class PaymentModel extends Model
         // Campus filter
         if (!empty($filters['campus_id']) && $filters['campus_id'] !== 'all') {
             $builder->where('p.campus_id', (int) $filters['campus_id']);
+        }
+
+        // Strict Department filter (used to isolate coordinator records to their assigned department)
+        $deptIdFilter = !empty($filters['department_id']) ? (int) $filters['department_id'] : 0;
+        $deptNameFilter = trim((string) ($filters['department_name'] ?? ''));
+        $coordUserIdFilter = !empty($filters['coordinator_user_id']) ? (int) $filters['coordinator_user_id'] : 0;
+        if ($deptIdFilter > 0 || $deptNameFilter !== '') {
+            $builder->groupStart();
+            if ($deptIdFilter > 0) {
+                $builder->where('a."Department_ID"', $deptIdFilter);
+            }
+            if ($deptNameFilter !== '') {
+                $builder->orWhere('LOWER(ad."Department_Name")', strtolower($deptNameFilter));
+                $builder->orWhere('LOWER(ua_payer."Department")', strtolower($deptNameFilter));
+            }
+            if ($coordUserIdFilter > 0) {
+                $builder->orGroupStart()
+                    ->where('p.alumni_id IS NULL', null, false)
+                    ->where('p.coordinator_id', $coordUserIdFilter)
+                    ->groupEnd();
+            }
+            $builder->groupEnd();
         }
 
         // Payment method filter
@@ -142,10 +170,10 @@ class PaymentModel extends Model
             p.transaction_ref,
             p.created_at,
             p.payer_name,
-            p.student_number,
+            COALESCE(NULLIF(p.student_number, \'\'), a.alumni_id, NULLIF(ua_payer.account_id, \'\')) AS student_number,
             p.alumni_id,
             cmp.Campus AS campus_name,
-            c.College_Name AS college_name,
+            COALESCE(c."College_Name", ac."College_Name", NULLIF(ua_payer."College", \'\')) AS college_name,
             p.payment_type,
             p.payment_purpose_id,
             pp.name AS payment_purpose_name,
@@ -164,10 +192,13 @@ class PaymentModel extends Model
             st.Last_Name AS st_last_name
         ');
 
-        // Joins with payment_purposes, campuses, colleges, user_accounts, and staffs
+        // Joins with payment_purposes, campuses, colleges, alumni, user_accounts, and staffs
         $builder->join('payment_purposes pp', 'pp.id = p.payment_purpose_id', 'left');
         $builder->join('campuses cmp', 'cmp.Campus_ID = p.campus_id', 'left');
         $builder->join('colleges c', 'c.College_ID = p.college_id', 'left');
+        $builder->join('alumni a', 'a.id = p.alumni_id', 'left');
+        $builder->join('colleges ac', 'ac.College_ID = a.College_ID', 'left');
+        $builder->join('user_accounts ua_payer', 'LOWER(ua_payer."Email") = LOWER(p.payer_email)', 'left');
         $builder->join('user_accounts ua', 'ua.id = p.verified_by', 'left');
         $builder->join('staffs st', 'st.Staff_ID = p.verified_by', 'left');
 
@@ -236,7 +267,7 @@ class PaymentModel extends Model
     /**
      * Get aggregate statistics for payments
      */
-    public function getPaymentStatistics(?int $campus_id = null): array
+    public function getPaymentStatistics(?int $campus_id = null, array $departmentScope = []): array
     {
         $builder = $this->db->table($this->table . ' p');
         $builder->select('p.amount, p.status, p.payment_type, p.payment_purpose_id, pp.code AS purpose_code');
@@ -244,6 +275,30 @@ class PaymentModel extends Model
 
         if ($campus_id !== null) {
             $builder->where('p.campus_id', $campus_id);
+        }
+
+        $deptIdFilter = (int) ($departmentScope['department_id'] ?? 0);
+        $deptNameFilter = trim((string) ($departmentScope['department_name'] ?? ''));
+        $coordUserIdFilter = (int) ($departmentScope['coordinator_user_id'] ?? 0);
+        if ($deptIdFilter > 0 || $deptNameFilter !== '') {
+            $builder->join('alumni a', 'a.id = p.alumni_id', 'left');
+            $builder->join('departments ad', 'ad.Department_ID = a.Department_ID', 'left');
+            $builder->join('user_accounts ua_payer', 'LOWER(ua_payer."Email") = LOWER(p.payer_email)', 'left');
+            $builder->groupStart();
+            if ($deptIdFilter > 0) {
+                $builder->where('a."Department_ID"', $deptIdFilter);
+            }
+            if ($deptNameFilter !== '') {
+                $builder->orWhere('LOWER(ad."Department_Name")', strtolower($deptNameFilter));
+                $builder->orWhere('LOWER(ua_payer."Department")', strtolower($deptNameFilter));
+            }
+            if ($coordUserIdFilter > 0) {
+                $builder->orGroupStart()
+                    ->where('p.alumni_id IS NULL', null, false)
+                    ->where('p.coordinator_id', $coordUserIdFilter)
+                    ->groupEnd();
+            }
+            $builder->groupEnd();
         }
 
         $allPayments = $builder->get()->getResultArray();

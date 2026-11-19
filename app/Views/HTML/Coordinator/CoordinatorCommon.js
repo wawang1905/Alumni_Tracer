@@ -95,8 +95,6 @@ document.addEventListener('DOMContentLoaded', initCoordinatorSidebarCollapse);
 document.addEventListener('DOMContentLoaded', () => {
     const navItems = document.querySelectorAll('.nav-item[data-section]');
     const sections = document.querySelectorAll('.workspace-section');
-    const collegeSelect = document.getElementById('collegeSelect');
-    const title = document.querySelector('.topbar h2');
 
     navItems.forEach((item) => {
         item.addEventListener('click', () => {
@@ -110,13 +108,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    collegeSelect?.addEventListener('change', () => {
-        title.textContent = collegeSelect.value;
-    });
-
+    void loadCoordinatorSessionProfile();
     void initializeCoordinatorSurveyResponses();
     void initializeCoordinatorResponseDetails();
 });
+
+async function loadCoordinatorSessionProfile() {
+    try {
+        const res = await fetch(coordinatorApiUrl('coordinator/session'), {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data?.success) return null;
+
+        const name = String(data.name || '').trim() || 'Coordinator';
+        const dept = String(data.department || '').trim();
+        const college = String(data.college || '').trim();
+
+        document.querySelectorAll('.sidebar-user-name').forEach((el) => {
+            el.textContent = name;
+        });
+        document.querySelectorAll('.sidebar-user-role').forEach((el) => {
+            el.textContent = dept || 'Unassigned Department';
+            if (dept) el.title = dept;
+        });
+
+        const lockedDeptEl = document.getElementById('coordLockedDeptLabel');
+        if (lockedDeptEl) {
+            lockedDeptEl.textContent = dept || 'Unassigned Department';
+        }
+
+        const topbarTitleEl = document.getElementById('topbarTitle');
+        const topbarCollegeEyebrow = document.getElementById('topbarCollegeEyebrow');
+        if (topbarCollegeEyebrow) {
+            topbarCollegeEyebrow.textContent = college ? `${college} · Assigned Department` : 'Assigned Department';
+        }
+        if (topbarTitleEl && dept && document.getElementById('graduatesYearChart')) {
+            topbarTitleEl.textContent = dept;
+        }
+
+        const topbarDeptEl = document.getElementById('topbarDept');
+        if (topbarDeptEl && dept) {
+            topbarDeptEl.textContent = dept;
+        }
+
+        const topbarEyebrow = document.querySelector('.coordinator-main > .topbar .eyebrow');
+        if (topbarEyebrow && dept && !topbarEyebrow.id) {
+            topbarEyebrow.textContent = dept;
+        }
+
+        return data;
+    } catch {
+        return null;
+    }
+}
 
 let coordinatorSurveys = [];
 let coordinatorResponses = [];
@@ -644,213 +692,158 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ============================================================
-   Coordinator Overview Dashboard - Charts & Interactive Controls
+   Coordinator Overview Dashboard - Department-Scoped Analytics
    ============================================================ */
 
 let coordGradChart = null;
 let coordStatusChart = null;
-let coordTimeToJobChart = null;
-let coordRelevanceChart = null;
-
-const coordMockData = {
-    all: {
-        totalGraduates: '1,284',
-        gradTrend: '▲ 3.1%',
-        gradNote: '98.2% traced & verified',
-        employmentRate: '81.4%',
-        empTrend: '▲ 2.5%',
-        empNote: '1,045 employed / 1,284 total',
-        alignmentRate: '87.2%',
-        alignTrend: '▲ 1.8%',
-        alignNote: 'Degree-relevant employment',
-        timeToJob: '2.8 Mos',
-        timeTrend: '▼ 0.4 mos',
-        timeNote: '66.9% placed in ≤ 90 days',
-        yearCohorts: {
-            labels: ['2019', '2020', '2021', '2022', '2023', '2024'],
-            employed: [165, 198, 212, 228, 245, 197],
-            unemployed: [55, 112, 48, 72, 85, 32]
-        },
-        status: {
-            counts: [931, 114, 177, 62],
-            pcts: ['72.5%', '8.9%', '13.8%', '4.8%']
-        },
-        timeToJobDistribution: [358, 501, 269, 103, 53]
-    },
-    '2024': {
-        totalGraduates: '229',
-        gradTrend: 'Newest',
-        gradNote: 'Current tracer cycle',
-        employmentRate: '86.0%',
-        empTrend: '▲ 4.6%',
-        empNote: '197 employed / 229 total',
-        alignmentRate: '91.2%',
-        alignTrend: '▲ 4.0%',
-        alignNote: 'High curriculum relevance',
-        timeToJob: '2.1 Mos',
-        timeTrend: '▼ 0.7 mos',
-        timeNote: '74.2% placed in ≤ 90 days',
-        yearCohorts: {
-            labels: ['2024 (Target)', '2024 (Actual)'],
-            employed: [180, 197],
-            unemployed: [49, 32]
-        },
-        status: {
-            counts: [175, 22, 24, 8],
-            pcts: ['76.4%', '9.6%', '10.5%', '3.5%']
-        },
-        timeToJobDistribution: [82, 88, 38, 14, 7]
-    },
-    '2023': {
-        totalGraduates: '330',
-        gradTrend: 'Peak Cohort',
-        gradNote: 'Highest class size',
-        employmentRate: '74.2%',
-        empTrend: '▼ 1.8%',
-        empNote: '245 employed / 330 total',
-        alignmentRate: '84.5%',
-        alignTrend: '▲ 0.9%',
-        alignNote: 'Solid industry match',
-        timeToJob: '3.1 Mos',
-        timeTrend: '▲ 0.2 mos',
-        timeNote: '63.0% placed in ≤ 90 days',
-        yearCohorts: {
-            labels: ['Q1', 'Q2', 'Q3', 'Q4'],
-            employed: [60, 68, 62, 55],
-            unemployed: [22, 20, 23, 20]
-        },
-        status: {
-            counts: [215, 30, 65, 20],
-            pcts: ['65.2%', '9.1%', '19.7%', '6.0%']
-        },
-        timeToJobDistribution: [85, 123, 72, 34, 16]
-    },
-    '2022': {
-        totalGraduates: '300',
-        gradTrend: 'Stable',
-        gradNote: 'Established cohort',
-        employmentRate: '76.0%',
-        empTrend: '▲ 1.2%',
-        empNote: '228 employed / 300 total',
-        alignmentRate: '86.0%',
-        alignTrend: '▲ 1.5%',
-        alignNote: 'Accreditation compliant',
-        timeToJob: '2.9 Mos',
-        timeTrend: '▼ 0.1 mos',
-        timeNote: '67.4% placed in ≤ 90 days',
-        yearCohorts: {
-            labels: ['Sem 1', 'Sem 2', 'Midyear'],
-            employed: [110, 98, 20],
-            unemployed: [35, 30, 7]
-        },
-        status: {
-            counts: [205, 23, 54, 18],
-            pcts: ['68.3%', '7.7%', '18.0%', '6.0%']
-        },
-        timeToJobDistribution: [78, 124, 61, 25, 12]
-    },
-    '2021': {
-        totalGraduates: '260',
-        gradTrend: 'Post-Pandemic',
-        gradNote: 'Strong recovery cohort',
-        employmentRate: '81.5%',
-        empTrend: '▲ 17.6%',
-        empNote: '212 employed / 260 total',
-        alignmentRate: '88.1%',
-        alignTrend: '▲ 3.2%',
-        alignNote: 'Strong technical roles',
-        timeToJob: '2.6 Mos',
-        timeTrend: '▼ 0.5 mos',
-        timeNote: '71.5% placed in ≤ 90 days',
-        yearCohorts: {
-            labels: ['Cohort A', 'Cohort B'],
-            employed: [115, 97],
-            unemployed: [25, 23]
-        },
-        status: {
-            counts: [190, 22, 38, 10],
-            pcts: ['73.1%', '8.5%', '14.6%', '3.8%']
-        },
-        timeToJobDistribution: [75, 111, 48, 18, 8]
-    },
-    '2020': {
-        totalGraduates: '310',
-        gradTrend: 'Pandemic Year',
-        gradNote: 'Resilient cohort',
-        employmentRate: '63.9%',
-        empTrend: 'Stabilized',
-        empNote: '198 employed / 310 total',
-        alignmentRate: '83.2%',
-        alignTrend: '▲ 1.1%',
-        alignNote: 'Diversified career paths',
-        timeToJob: '3.6 Mos',
-        timeTrend: '▲ 0.8 mos',
-        timeNote: '54.2% placed in ≤ 90 days',
-        yearCohorts: {
-            labels: ['Graduation', '6-Mo Track', '1-Yr Track', '2-Yr Track'],
-            employed: [80, 120, 160, 198],
-            unemployed: [230, 190, 150, 112]
-        },
-        status: {
-            counts: [180, 18, 92, 20],
-            pcts: ['58.1%', '5.8%', '29.7%', '6.4%']
-        },
-        timeToJobDistribution: [52, 98, 85, 48, 27]
-    }
-};
-
+let coordDashboardPayload = null;
 let currentBatchFilter = 'all';
 let currentBarMode = 'grouped'; // 'grouped' | 'stacked'
-let currentRelevanceMode = 'relevance'; // 'relevance' | 'sectors'
 
 function initCoordinatorDashboardCharts() {
     const canvasGrads = document.getElementById('graduatesYearChart');
     if (!canvasGrads) return;
 
-    if (typeof Chart === 'undefined') {
-        console.warn('Chart.js library is not loaded.');
-        return;
-    }
-
-    // Chart.js global defaults for clean modern aesthetic
-    Chart.defaults.font.family = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    Chart.defaults.color = '#64748b';
-
-    // 1. Graduates by Year & Employment Cohorts Chart
-    renderGraduatesYearChart();
-
-    // 2. Current Employment Status Donut Chart
-    renderEmploymentStatusChart();
-
-    // 3. Time to First Job Horizontal Bar Chart
-    renderTimeToJobChart();
-
-    // 4. Curriculum Relevance & Industry Chart
-    renderRelevanceIndustryChart();
-
-    // Setup interactive controls
     setupCoordinatorControls();
+    void loadCoordinatorDashboardData('all');
 }
 
-function renderGraduatesYearChart() {
+async function loadCoordinatorDashboardData(batch = 'all') {
+    currentBatchFilter = batch || 'all';
+    try {
+        const query = currentBatchFilter !== 'all' ? `?batch=${encodeURIComponent(currentBatchFilter)}` : '';
+        const res = await fetch(coordinatorApiUrl(`coordinator/dashboard-data${query}`), {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error('Unable to load department dashboard data.');
+        const data = await res.json();
+        if (!data?.success) throw new Error(data?.message || 'Unable to load department dashboard data.');
+
+        coordDashboardPayload = data;
+        renderCoordinatorBatchPills(Array.isArray(data.batches) ? data.batches : []);
+        applyDepartmentDashboardData(data);
+    } catch (err) {
+        const bannerSub = document.getElementById('coordHeaderSubtitle');
+        if (bannerSub) bannerSub.textContent = 'Unable to load department records right now.';
+    }
+}
+
+function renderCoordinatorBatchPills(batches) {
+    const pillList = document.getElementById('coordBatchPills');
+    if (!pillList) return;
+
+    const buttons = [
+        `<button class="coord-batch-pill ${currentBatchFilter === 'all' ? 'active' : ''}" data-batch="all" type="button">All Batches</button>`,
+        ...batches.map((yr) => {
+            const safeYr = escapeCoordinatorHtml(yr);
+            return `<button class="coord-batch-pill ${currentBatchFilter === String(yr) ? 'active' : ''}" data-batch="${safeYr}" type="button">${safeYr}</button>`;
+        }),
+    ];
+    pillList.innerHTML = buttons.join('');
+
+    pillList.querySelectorAll('.coord-batch-pill').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const nextBatch = btn.dataset.batch || 'all';
+            if (nextBatch === currentBatchFilter) return;
+            void loadCoordinatorDashboardData(nextBatch);
+        });
+    });
+}
+
+function applyDepartmentDashboardData(data) {
+    const deptLabel = data.department || 'Unassigned Department';
+    const setText = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+
+    setText('coordLockedDeptLabel', deptLabel);
+    setText('coordHeaderSubtitle', data.department
+        ? `Showing alumni, employment, survey, and payment records strictly for ${data.department}.`
+        : 'No department is assigned to this coordinator account.');
+
+    const totalGrad = Number(data.totalGraduates || 0);
+    const tracedCount = Number(data.tracedCount || 0);
+    const tracedRate = Number(data.tracedRate || 0);
+    const employedCount = Number(data.employedCount || 0);
+    const unemployedCount = Number(data.unemployedCount || 0);
+    const notTrackedCount = Number(data.notTrackedCount || 0);
+    const employmentRate = Number(data.employmentRate || 0);
+    const survey = data.surveySummary || {};
+    const payment = data.paymentSummary || {};
+
+    setText('kpiTotalGraduates', totalGrad.toLocaleString());
+    setText('kpiGradTrend', `${tracedRate.toFixed(1)}% traced`);
+    setText('kpiGradNote', `${tracedCount.toLocaleString()} traced of ${totalGrad.toLocaleString()} in department`);
+
+    setText('kpiEmploymentRate', `${employmentRate.toFixed(1)}%`);
+    setText('kpiEmpTrend', `${employedCount.toLocaleString()} employed`);
+    setText('kpiEmpNote', `${employedCount.toLocaleString()} employed / ${tracedCount.toLocaleString()} traced`);
+
+    setText('kpiSurveyResponses', Number(survey.totalResponses || 0).toLocaleString());
+    setText('kpiSurveyTrend', `${Number(survey.pendingCount || 0).toLocaleString()} pending`);
+    setText('kpiSurveyNote', `${Number(survey.reviewedCount || 0).toLocaleString()} reviewed · ${Number(survey.needsRevisionCount || 0).toLocaleString()} needs revision`);
+
+    setText('kpiDeptPayments', Number(payment.totalTransactions || 0).toLocaleString());
+    setText('kpiPayTrend', `${Number(payment.pendingCount || 0).toLocaleString()} pending`);
+    setText('kpiPayNote', `${Number(payment.verifiedCount || 0).toLocaleString()} verified transactions`);
+
+    setText('chartTotalRecordsBadge', `${totalGrad.toLocaleString()} Department Alumni`);
+
+    // Survey snapshot progress bars
+    const respRate = Number(survey.responseRate || 0);
+    const reviewDenom = Number(survey.totalResponses || 0);
+    const reviewPct = reviewDenom > 0 ? Math.round((Number(survey.reviewedCount || 0) / reviewDenom) * 100) : 0;
+    const payDenom = Number(payment.totalTransactions || 0);
+    const payPct = payDenom > 0 ? Math.round((Number(payment.verifiedCount || 0) / payDenom) * 100) : 0;
+
+    setText('snapResponseRate', `${respRate.toFixed(1)}%`);
+    setText('snapReviewRate', `${reviewPct}%`);
+    setText('snapPaymentRate', `${Number(payment.verifiedCount || 0)} / ${payDenom}`);
+
+    const barResp = document.getElementById('snapResponseBar');
+    const barRev = document.getElementById('snapReviewBar');
+    const barPay = document.getElementById('snapPaymentBar');
+    if (barResp) barResp.style.width = `${Math.min(100, Math.max(0, respRate))}%`;
+    if (barRev) barRev.style.width = `${Math.min(100, Math.max(0, reviewPct))}%`;
+    if (barPay) barPay.style.width = `${Math.min(100, Math.max(0, payPct))}%`;
+
+    // Task queue badges
+    setText('taskPendingSurveys', `${Number(survey.pendingCount || 0)} Pending`);
+    setText('taskRevisionSurveys', `${Number(survey.needsRevisionCount || 0)} Revision`);
+    setText('taskNotTrackedAlumni', `${notTrackedCount.toLocaleString()} Untraced`);
+    setText('taskPendingPayments', `${Number(payment.pendingCount || 0)} Pending`);
+
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.font.family = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        Chart.defaults.color = '#64748b';
+        renderGraduatesYearChart(data);
+        renderEmploymentStatusChart(data);
+    }
+}
+
+function renderGraduatesYearChart(data = coordDashboardPayload) {
     const ctx = document.getElementById('graduatesYearChart')?.getContext('2d');
-    if (!ctx) return;
+    if (!ctx || !data) return;
 
     if (coordGradChart) {
         coordGradChart.destroy();
     }
 
-    const data = coordMockData[currentBatchFilter] || coordMockData.all;
+    const cohorts = data.yearCohorts || { labels: [], employed: [], unemployed: [], notTracked: [] };
     const isStacked = currentBarMode === 'stacked';
 
     coordGradChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: data.yearCohorts.labels,
+            labels: cohorts.labels.length ? cohorts.labels : ['No Cohorts'],
             datasets: [
                 {
                     label: 'Employed',
-                    data: data.yearCohorts.employed,
+                    data: cohorts.labels.length ? cohorts.employed : [0],
                     backgroundColor: '#10b981',
                     hoverBackgroundColor: '#059669',
                     borderRadius: 6,
@@ -859,10 +852,20 @@ function renderGraduatesYearChart() {
                     categoryPercentage: 0.8
                 },
                 {
-                    label: 'Unemployed / Seeking',
-                    data: data.yearCohorts.unemployed,
+                    label: 'Unemployed',
+                    data: cohorts.labels.length ? cohorts.unemployed : [0],
                     backgroundColor: '#f43f5e',
                     hoverBackgroundColor: '#e11d48',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    barPercentage: isStacked ? 0.6 : 0.7,
+                    categoryPercentage: 0.8
+                },
+                {
+                    label: 'Not Tracked',
+                    data: cohorts.labels.length ? cohorts.notTracked : [0],
+                    backgroundColor: '#94a3b8',
+                    hoverBackgroundColor: '#64748b',
                     borderRadius: 6,
                     borderSkipped: false,
                     barPercentage: isStacked ? 0.6 : 0.7,
@@ -873,7 +876,7 @@ function renderGraduatesYearChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 600 },
+            animation: { duration: 500 },
             interaction: {
                 mode: 'index',
                 intersect: false
@@ -889,21 +892,6 @@ function renderGraduatesYearChart() {
                         useBorderRadius: true,
                         font: { size: 12, weight: '600' }
                     }
-                },
-                tooltip: {
-                    backgroundColor: '#0f172a',
-                    padding: 12,
-                    cornerRadius: 8,
-                    titleFont: { size: 13, weight: '700' },
-                    bodyFont: { size: 12 },
-                    callbacks: {
-                        footer: (items) => {
-                            const total = items.reduce((acc, curr) => acc + curr.raw, 0);
-                            const emp = items.find(i => i.dataset.label === 'Employed')?.raw || 0;
-                            const rate = total > 0 ? Math.round((emp / total) * 100) : 0;
-                            return `Total Graduates: ${total} (Employment: ${rate}%)`;
-                        }
-                    }
                 }
             },
             scales: {
@@ -923,29 +911,24 @@ function renderGraduatesYearChart() {
     });
 }
 
-function renderEmploymentStatusChart() {
+function renderEmploymentStatusChart(data = coordDashboardPayload) {
     const ctx = document.getElementById('employmentStatusChart')?.getContext('2d');
-    if (!ctx) return;
+    if (!ctx || !data) return;
 
     if (coordStatusChart) {
         coordStatusChart.destroy();
     }
 
-    const data = coordMockData[currentBatchFilter] || coordMockData.all;
+    const status = data.statusBreakdown || { counts: [0, 0, 0], pcts: ['0.0%', '0.0%', '0.0%'] };
+    const total = status.counts.reduce((acc, n) => acc + Number(n || 0), 0);
 
     coordStatusChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: [
-                'Employed Full-Time',
-                'Self-Employed / Freelance',
-                'Unemployed Seeking',
-                'Further Studies / Board Prep'
-            ],
+            labels: ['Employed', 'Unemployed', 'Not Tracked'],
             datasets: [{
-                data: data.status.counts,
-                backgroundColor: ['#10b981', '#0284c7', '#f43f5e', '#f59e0b'],
-                hoverBackgroundColor: ['#059669', '#0369a1', '#e11d48', '#d97706'],
+                data: total > 0 ? status.counts : [0, 0, 1],
+                backgroundColor: total > 0 ? ['#10b981', '#f43f5e', '#94a3b8'] : ['#e2e8f0', '#e2e8f0', '#e2e8f0'],
                 borderWidth: 2,
                 borderColor: '#ffffff',
                 hoverOffset: 6
@@ -955,317 +938,58 @@ function renderEmploymentStatusChart() {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '72%',
-            animation: { animateScale: true, animateRotate: true, duration: 650 },
+            animation: { duration: 550 },
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    enabled: total > 0,
                     backgroundColor: '#0f172a',
                     padding: 12,
-                    cornerRadius: 8,
-                    callbacks: {
-                        label: (item) => {
-                            const total = item.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((item.raw / total) * 100).toFixed(1) : 0;
-                            return ` ${item.label}: ${item.raw} alumni (${pct}%)`;
-                        }
-                    }
+                    cornerRadius: 8
                 }
             }
         }
     });
 
-    // Update legend values & center metric
-    updateEmploymentLegendAndCenter(data);
-}
-
-function updateEmploymentLegendAndCenter(data) {
     const centerEl = document.getElementById('donutCenterPct');
     if (centerEl) {
-        centerEl.textContent = data.employmentRate;
+        centerEl.textContent = `${Number(data.employmentRate || 0).toFixed(1)}%`;
     }
 
     const countEls = document.querySelectorAll('[data-status-count]');
     const pctEls = document.querySelectorAll('[data-status-pct]');
-
-    data.status.counts.forEach((count, i) => {
-        if (countEls[i]) countEls[i].textContent = count;
-        if (pctEls[i]) pctEls[i].textContent = data.status.pcts[i];
+    status.counts.forEach((count, i) => {
+        if (countEls[i]) countEls[i].textContent = Number(count || 0).toLocaleString();
+        if (pctEls[i]) pctEls[i].textContent = status.pcts[i] || '0.0%';
     });
-}
-
-function renderTimeToJobChart() {
-    const ctx = document.getElementById('timeToJobChart')?.getContext('2d');
-    if (!ctx) return;
-
-    if (coordTimeToJobChart) {
-        coordTimeToJobChart.destroy();
-    }
-
-    const data = coordMockData[currentBatchFilter] || coordMockData.all;
-
-    coordTimeToJobChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['< 1 Month', '1 - 3 Months', '3 - 6 Months', '6 - 12 Months', '> 1 Year'],
-            datasets: [{
-                label: 'Graduates',
-                data: data.timeToJobDistribution,
-                backgroundColor: [
-                    '#10b981',
-                    '#0284c7',
-                    '#38bdf8',
-                    '#f59e0b',
-                    '#94a3b8'
-                ],
-                borderRadius: 6,
-                borderSkipped: false,
-                barPercentage: 0.65
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 600 },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#0f172a',
-                    padding: 12,
-                    cornerRadius: 8,
-                    callbacks: {
-                        label: (item) => {
-                            const total = item.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((item.raw / total) * 100).toFixed(1) : 0;
-                            return ` ${item.raw} alumni (${pct}% of traced cohort)`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    grid: { color: '#f1f5f9' },
-                    ticks: { precision: 0 }
-                },
-                y: {
-                    grid: { display: false },
-                    ticks: { font: { weight: '600' } }
-                }
-            }
-        }
-    });
-}
-
-function renderRelevanceIndustryChart() {
-    const ctx = document.getElementById('relevanceIndustryChart')?.getContext('2d');
-    if (!ctx) return;
-
-    if (coordRelevanceChart) {
-        coordRelevanceChart.destroy();
-    }
-
-    if (currentRelevanceMode === 'relevance') {
-        coordRelevanceChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Directly Related', 'Moderately Related', 'Unrelated / Career Shift'],
-                datasets: [{
-                    label: 'Degree Relevance (%)',
-                    data: [70.8, 16.4, 12.8],
-                    backgroundColor: ['#10b981', '#6366f1', '#94a3b8'],
-                    hoverBackgroundColor: ['#059669', '#4f46e5', '#64748b'],
-                    borderRadius: 8,
-                    barPercentage: 0.55
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: { duration: 600 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#0f172a',
-                        padding: 12,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: (item) => ` ${item.raw}% of employed graduates`
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { weight: '600' } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        grid: { color: '#f1f5f9' },
-                        ticks: {
-                            callback: (val) => `${val}%`
-                        }
-                    }
-                }
-            }
-        });
-    } else {
-        coordRelevanceChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: [
-                    'Software & Tech',
-                    'Civil & Infrastructure',
-                    'Energy & Manufacturing',
-                    'Government & Public',
-                    'Academia & Research'
-                ],
-                datasets: [{
-                    label: 'Industry Absorption (%)',
-                    data: [36.2, 21.4, 17.5, 13.1, 11.8],
-                    backgroundColor: [
-                        '#0284c7',
-                        '#0ea5e9',
-                        '#6366f1',
-                        '#8b5cf6',
-                        '#94a3b8'
-                    ],
-                    borderRadius: 6,
-                    barPercentage: 0.6
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: { duration: 600 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#0f172a',
-                        padding: 12,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: (item) => ` ${item.raw}% of employed alumni in this sector`
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        max: 45,
-                        grid: { color: '#f1f5f9' },
-                        ticks: { callback: (val) => `${val}%` }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: { font: { weight: '600' } }
-                    }
-                }
-            }
-        });
-    }
 }
 
 function setupCoordinatorControls() {
-    // 1. Batch Filter Pills
-    document.querySelectorAll('.coord-batch-pill').forEach(btn => {
+    document.querySelectorAll('[data-bar-mode]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.coord-batch-pill').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('[data-bar-mode]').forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
-            const batch = btn.dataset.batch || 'all';
-            currentBatchFilter = batch;
-            applyBatchFilter(batch);
-        });
-    });
-
-    // 2. Bar Chart Mode Toggle (Grouped vs Stacked)
-    document.querySelectorAll('[data-bar-mode]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-bar-mode]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentBarMode = btn.dataset.barMode;
+            currentBarMode = btn.dataset.barMode || 'grouped';
             renderGraduatesYearChart();
         });
     });
 
-    // 3. Relevance vs Sectors Mode Toggle
-    document.querySelectorAll('[data-relevance-mode]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-relevance-mode]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentRelevanceMode = btn.dataset.relevanceMode;
-            renderRelevanceIndustryChart();
-        });
-    });
-
-    // 4. Program Dropdown Filter
-    const programSelect = document.getElementById('coordProgramFilter');
-    programSelect?.addEventListener('change', () => {
-        const program = programSelect.value;
-        const bannerSub = document.getElementById('coordHeaderSubtitle');
-        if (bannerSub) {
-            bannerSub.textContent = program === 'all'
-                ? 'College-wide cohort insights, graduate career trajectory, employability metrics, and alumni tracking overview.'
-                : `Focused analytics and graduate employment trajectory for ${programSelect.options[programSelect.selectedIndex].text}.`;
-        }
-        // Refresh charts with animation
-        renderGraduatesYearChart();
-        renderEmploymentStatusChart();
-        renderTimeToJobChart();
-        renderRelevanceIndustryChart();
-    });
-
-    // 5. Export Report Button
     document.getElementById('btnExportOverview')?.addEventListener('click', () => {
-        alert('Exporting College Alumni Tracer Overview Report (PDF/Excel)...');
+        if (!coordDashboardPayload) return;
+        const rows = [
+            ['Department', coordDashboardPayload.department || 'Unassigned'],
+            ['Batch Filter', currentBatchFilter],
+            ['Total Graduates', coordDashboardPayload.totalGraduates || 0],
+            ['Traced Alumni', coordDashboardPayload.tracedCount || 0],
+            ['Employed', coordDashboardPayload.employedCount || 0],
+            ['Unemployed', coordDashboardPayload.unemployedCount || 0],
+            ['Not Tracked', coordDashboardPayload.notTrackedCount || 0],
+            ['Employment Rate (%)', coordDashboardPayload.employmentRate || 0],
+        ];
+        downloadCoordinatorCsv('department-overview-summary.csv', rows);
     });
 }
 
-function applyBatchFilter(batch) {
-    const data = coordMockData[batch] || coordMockData.all;
-
-    // Update KPI Card Numbers
-    const gradNum = document.getElementById('kpiTotalGraduates');
-    const gradTrend = document.getElementById('kpiGradTrend');
-    const gradNote = document.getElementById('kpiGradNote');
-
-    const empNum = document.getElementById('kpiEmploymentRate');
-    const empTrend = document.getElementById('kpiEmpTrend');
-    const empNote = document.getElementById('kpiEmpNote');
-
-    const alignNum = document.getElementById('kpiAlignmentRate');
-    const alignTrend = document.getElementById('kpiAlignTrend');
-    const alignNote = document.getElementById('kpiAlignNote');
-
-    const timeNum = document.getElementById('kpiTimeToJob');
-    const timeTrend = document.getElementById('kpiTimeTrend');
-    const timeNote = document.getElementById('kpiTimeNote');
-
-    if (gradNum) gradNum.textContent = data.totalGraduates;
-    if (gradTrend) gradTrend.innerHTML = `<i class="fas fa-arrow-up"></i> ${data.gradTrend}`;
-    if (gradNote) gradNote.textContent = data.gradNote;
-
-    if (empNum) empNum.textContent = data.employmentRate;
-    if (empTrend) empTrend.innerHTML = `<i class="fas fa-arrow-up"></i> ${data.empTrend}`;
-    if (empNote) empNote.textContent = data.empNote;
-
-    if (alignNum) alignNum.textContent = data.alignmentRate;
-    if (alignTrend) alignTrend.innerHTML = `<i class="fas fa-arrow-up"></i> ${data.alignTrend}`;
-    if (alignNote) alignNote.textContent = data.alignNote;
-
-    if (timeNum) timeNum.textContent = data.timeToJob;
-    if (timeTrend) timeTrend.innerHTML = `<i class="fas fa-arrow-down"></i> ${data.timeTrend}`;
-    if (timeNote) timeNote.textContent = data.timeNote;
-
-    // Re-render charts for selected cohort
-    renderGraduatesYearChart();
-    renderEmploymentStatusChart();
-    renderTimeToJobChart();
-}
-
-// Auto-initialize charts on DOM load
 document.addEventListener('DOMContentLoaded', () => {
     initCoordinatorDashboardCharts();
 });

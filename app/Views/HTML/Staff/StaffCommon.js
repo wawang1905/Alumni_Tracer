@@ -42,8 +42,14 @@ function getLogActivityUrl() {
     return new URL('../activity/log', window.location.href).toString();
 }
 
-function getAlumniListUrl(sort = 'last_name_asc') {
-    return new URL(`../alumni/list?sort=${encodeURIComponent(sort)}`, window.location.href).toString();
+function getAlumniListUrl(sort = 'last_name_asc', filters = {}) {
+    const url = new URL('../alumni/list', window.location.href);
+    url.searchParams.set('sort', sort);
+    if (filters.year) url.searchParams.set('year', String(filters.year));
+    if (filters.college) url.searchParams.set('college', String(filters.college));
+    if (filters.course) url.searchParams.set('course', String(filters.course));
+    if (filters.status) url.searchParams.set('status', String(filters.status));
+    return url.toString();
 }
 
 function getCreateAlumniUrl() {
@@ -221,80 +227,124 @@ function initStaffSidebarCollapse() {
     if (!sidebar || !sidebarHeader) return;
 
     const sidebarMenu = document.querySelector('.sidebar-menu');
-    if (sidebarMenu && !sidebarMenu.querySelector('[data-page="colleges"]')) {
-        const items = Array.from(sidebarMenu.querySelectorAll('.menu-item'));
-        const coordinatorsItem = items.find(item => 
-            item.getAttribute('data-page') === 'coordinators' || 
-            (item.getAttribute('onclick') && item.getAttribute('onclick').includes('Coordinators.html')) ||
-            item.textContent.includes('Coordinators')
-        );
+    if (sidebarMenu) {
+        // Tag existing items that might be missing data-page attribute
+        Array.from(sidebarMenu.querySelectorAll('.menu-item')).forEach(item => {
+            const onclick = (item.getAttribute('onclick') || '').toLowerCase();
+            const text = item.textContent.trim().toLowerCase();
+            if (!item.getAttribute('data-page')) {
+                if (onclick.includes('dashboard.html') || text === 'dashboard') item.setAttribute('data-page', 'dashboard');
+                else if (onclick.includes('alumnimanagement.html') || text.includes('alumni management')) item.setAttribute('data-page', 'alumni');
+                else if (onclick.includes('colleges.html') || text === 'colleges') item.setAttribute('data-page', 'colleges');
+                else if (onclick.includes('departments.html') || text === 'departments') item.setAttribute('data-page', 'departments');
+                else if (onclick.includes('coordinators.html') || text === 'coordinators') item.setAttribute('data-page', 'coordinators');
+                else if (onclick.includes('events.html') || text === 'events') item.setAttribute('data-page', 'events');
+                else if (onclick.includes('news.html') || text === 'news') item.setAttribute('data-page', 'news');
+                else if (onclick.includes('surveys.html') || text === 'surveys') item.setAttribute('data-page', 'surveys');
+                else if (onclick.includes('payments.html') || text === 'payments') item.setAttribute('data-page', 'payments');
+                else if (onclick.includes('reports.html') || text === 'reports') item.setAttribute('data-page', 'reports');
+                else if (onclick.includes('settings.html') || text === 'settings') item.setAttribute('data-page', 'settings');
+            }
+        });
 
-        const collegesItem = document.createElement('div');
-        collegesItem.className = 'menu-item';
-        collegesItem.setAttribute('data-page', 'colleges');
-        collegesItem.onclick = () => { window.location.href = 'Colleges.html'; };
-        collegesItem.innerHTML = `
-            <i class="fas fa-building-columns"></i>
-            <span>Colleges</span>
-        `;
+        // Deduplicate any repeated menu items
+        const seenPages = new Set();
+        Array.from(sidebarMenu.querySelectorAll('.menu-item')).forEach(item => {
+            const page = item.getAttribute('data-page') || item.getAttribute('onclick') || item.textContent.trim();
+            if (page) {
+                if (seenPages.has(page)) {
+                    item.remove();
+                } else {
+                    seenPages.add(page);
+                }
+            }
+        });
 
-        const departmentsItem = document.createElement('div');
-        departmentsItem.className = 'menu-item';
-        departmentsItem.setAttribute('data-page', 'departments');
-        departmentsItem.onclick = () => { window.location.href = 'Departments.html'; };
-        departmentsItem.innerHTML = `
-            <i class="fas fa-network-wired"></i>
-            <span>Departments</span>
-        `;
+        // If colleges or departments are still missing from a legacy page, insert them
+        if (!sidebarMenu.querySelector('[data-page="colleges"]')) {
+            const items = Array.from(sidebarMenu.querySelectorAll('.menu-item'));
+            const coordinatorsItem = items.find(item => item.getAttribute('data-page') === 'coordinators');
 
-        if (coordinatorsItem) {
-            coordinatorsItem.insertAdjacentElement('afterend', collegesItem);
-            collegesItem.insertAdjacentElement('afterend', departmentsItem);
-        } else {
-            sidebarMenu.appendChild(collegesItem);
-            sidebarMenu.appendChild(departmentsItem);
+            const collegesItem = document.createElement('div');
+            collegesItem.className = 'menu-item';
+            collegesItem.setAttribute('data-page', 'colleges');
+            collegesItem.onclick = () => { window.location.href = 'Colleges.html'; };
+            collegesItem.innerHTML = `
+                <i class="fas fa-building-columns"></i>
+                <span>Colleges</span>
+            `;
+
+            const departmentsItem = document.createElement('div');
+            departmentsItem.className = 'menu-item';
+            departmentsItem.setAttribute('data-page', 'departments');
+            departmentsItem.onclick = () => { window.location.href = 'Departments.html'; };
+            departmentsItem.innerHTML = `
+                <i class="fas fa-network-wired"></i>
+                <span>Departments</span>
+            `;
+
+            if (coordinatorsItem) {
+                coordinatorsItem.insertAdjacentElement('afterend', collegesItem);
+                collegesItem.insertAdjacentElement('afterend', departmentsItem);
+            } else {
+                sidebarMenu.appendChild(collegesItem);
+                sidebarMenu.appendChild(departmentsItem);
+            }
         }
 
-        const currentUrl = window.location.pathname;
-        if (currentUrl.includes('Colleges.html')) {
-            collegesItem.classList.add('active');
-            items.forEach(item => item.classList.remove('active'));
-        } else if (currentUrl.includes('Departments.html')) {
-            departmentsItem.classList.add('active');
-            items.forEach(item => item.classList.remove('active'));
-        }
-    }
+        // If payments is still missing from a legacy page, insert it
+        if (!sidebarMenu.querySelector('[data-page="payments"]')) {
+            const allItems = Array.from(sidebarMenu.querySelectorAll('.menu-item'));
+            const surveysItem = allItems.find(item => item.getAttribute('data-page') === 'surveys');
 
-    if (sidebarMenu && !sidebarMenu.querySelector('[data-page="payments"]')) {
-        const allItems = Array.from(sidebarMenu.querySelectorAll('.menu-item'));
-        const reportsItem = allItems.find(item => 
-            item.getAttribute('data-page') === 'reports' || 
-            (item.getAttribute('onclick') && item.getAttribute('onclick').includes('Reports.html')) ||
-            item.textContent.includes('Reports')
-        );
+            const paymentsItem = document.createElement('div');
+            paymentsItem.className = 'menu-item';
+            paymentsItem.setAttribute('data-page', 'payments');
+            paymentsItem.onclick = () => { window.location.href = 'Payments.html'; };
+            paymentsItem.innerHTML = `
+                <i class="fas fa-receipt"></i>
+                <span>Payments</span>
+            `;
 
-        const paymentsItem = document.createElement('div');
-        paymentsItem.className = 'menu-item';
-        paymentsItem.setAttribute('data-page', 'payments');
-        paymentsItem.onclick = () => { window.location.href = 'Payments.html'; };
-        paymentsItem.innerHTML = `
-            <i class="fas fa-receipt"></i>
-            <span>Payments</span>
-        `;
-
-        if (reportsItem) {
-            reportsItem.insertAdjacentElement('afterend', paymentsItem);
-        } else {
-            sidebarMenu.appendChild(paymentsItem);
+            if (surveysItem) {
+                surveysItem.insertAdjacentElement('afterend', paymentsItem);
+            } else {
+                sidebarMenu.appendChild(paymentsItem);
+            }
         }
 
-        const currentUrl = window.location.pathname;
-        if (currentUrl.includes('Payments.html')) {
-            paymentsItem.classList.add('active');
-            Array.from(sidebarMenu.querySelectorAll('.menu-item')).forEach(item => {
-                if (item !== paymentsItem) item.classList.remove('active');
-            });
-        }
+        // Hide Reports module from Head Admin sidebar
+        Array.from(sidebarMenu.querySelectorAll('.menu-item')).forEach(item => {
+            if (
+                item.getAttribute('data-page') === 'reports' ||
+                (item.getAttribute('onclick') && item.getAttribute('onclick').includes('Reports.html'))
+            ) {
+                item.style.display = 'none';
+            }
+        });
+
+        // Sync active state based on current page URL
+        const currentPath = window.location.pathname.toLowerCase();
+        Array.from(sidebarMenu.querySelectorAll('.menu-item')).forEach(item => {
+            const page = item.getAttribute('data-page');
+            const isActive = (
+                (currentPath.includes('dashboard.html') && page === 'dashboard') ||
+                (currentPath.includes('alumnimanagement.html') && page === 'alumni') ||
+                (currentPath.includes('colleges.html') && page === 'colleges') ||
+                (currentPath.includes('departments.html') && page === 'departments') ||
+                (currentPath.includes('coordinators.html') && page === 'coordinators') ||
+                (currentPath.includes('events.html') && page === 'events') ||
+                (currentPath.includes('news.html') && page === 'news') ||
+                (currentPath.includes('surveys.html') && page === 'surveys') ||
+                (currentPath.includes('payments.html') && page === 'payments') ||
+                (currentPath.includes('settings.html') && page === 'settings')
+            );
+            if (isActive) {
+                item.classList.add('active');
+            } else if (page) {
+                item.classList.remove('active');
+            }
+        });
     }
 
     if (sidebarHeader.querySelector('.sidebar-toggle')) return;
@@ -340,17 +390,31 @@ function initStaffSidebarCollapse() {
 
 document.addEventListener('DOMContentLoaded', initStaffSidebarCollapse);
 
-async function fetchSession() {
-    const response = await fetch(getSessionUrl(), {
-        credentials: 'include',
-        cache: 'no-store'
-    });
+let inFlightSessionPromise = null;
 
-    if (!response.ok) {
-        throw new Error('Unable to verify session.');
+async function fetchSession() {
+    if (inFlightSessionPromise) {
+        return inFlightSessionPromise;
     }
 
-    return response.json();
+    inFlightSessionPromise = (async () => {
+        const response = await fetch(getSessionUrl(), {
+            credentials: 'include',
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error('Unable to verify session.');
+        }
+
+        return response.json();
+    })();
+
+    try {
+        return await inFlightSessionPromise;
+    } finally {
+        inFlightSessionPromise = null;
+    }
 }
 
 async function requireAuth() {
@@ -400,8 +464,10 @@ function injectLogoutButton(currentUser) {
     staffInfo.appendChild(logoutButton);
 }
 
-window.addEventListener('pageshow', async () => {
-    await requireAuth();
+window.addEventListener('pageshow', async (event) => {
+    if (event.persisted) {
+        await requireAuth();
+    }
 });
 
 // Sample Data
@@ -462,9 +528,12 @@ let activities = [];
 let surveysData = [];
 let surveyResponses = ensureArray(stored?.surveyResponses, sampleSurveyResponses);
 let currentSurveyResponses = [];
+let currentSurveyResponsesPage = 1;
+const SURVEY_RESPONSES_PER_PAGE = 15;
 let currentSurveyStats = null;
 let currentSurveyBatchStats = null;
 let alumniBatches = [];
+let alumniBatchesSummary = null;
 const SURVEY_WIZARD_STORAGE_KEY = 'surveyWizardData';
 let surveyWizardData = null;
 let surveyWizardCurrentStep = 1;
@@ -482,6 +551,7 @@ let alumniSort = 'last_name_asc';
 let selectedAlumniBatchYear = null;
 let selectedAlumniCollege = null;
 let selectedAlumniCourse = null;
+let selectedDashboardBatchFilter = 'all';
 let selectedCollegeBatchFilter = 'all';
 let selectedCourseBatchFilter = 'all';
 let selectedCourseCollegeFilter = 'all';
@@ -512,6 +582,16 @@ function updateAlumniManagementStats() {
     const totalBatchYearsEl = document.getElementById('totalBatchYearsStat');
     // Only update on the AlumniManagement page
     if (!totalAlumniEl || !totalCollegesEl || !totalCoursesEl || !totalBatchYearsEl) return;
+
+    if (alumniBatchesSummary && typeof alumniBatchesSummary === 'object') {
+        totalAlumniEl.textContent = Number(alumniBatchesSummary.totalAlumni ?? 0);
+        totalCollegesEl.textContent = Number(alumniBatchesSummary.totalColleges ?? 0);
+        totalCoursesEl.textContent = Number(alumniBatchesSummary.totalCourses ?? 0);
+        totalBatchYearsEl.textContent = alumniBatches.length > 0
+            ? alumniBatches.length
+            : Number(alumniBatchesSummary.totalBatches ?? 0);
+        return;
+    }
 
     totalAlumniEl.textContent = alumniData.length;
 
@@ -584,6 +664,15 @@ function renderAlumniTable() {
     });
 
     tbody.innerHTML = '';
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="alumni-table-empty-cell">No matching alumni records found.</td>
+            </tr>
+        `;
+        return;
+    }
+
     filtered.forEach(alumni => {
         const row = tbody.insertRow();
         const st = String(alumni.status ?? '').toLowerCase();
@@ -595,15 +684,15 @@ function renderAlumniTable() {
                     : st === 'incomplete'
                         ? 'incomplete'
                         : 'pending';
+        const statusLabel = st ? st.charAt(0).toUpperCase() + st.slice(1) : 'Pending';
         row.innerHTML = `
-            <td>${alumni.alumniId ?? ''}</td>
-            <td>${alumni.lastName ?? ''}</td>
-            <td>${alumni.firstName ?? ''}</td>
-            <td>${alumni.email}</td>
-            <td><span class="status-badge status-${badgeClass}">${alumni.status}</span></td>
-            <td><span class="alumni-status-badge ${badgeClass}">${alumni.status}</span></td>
-            <td>${alumni.college ?? ''}</td>
-            <td>${alumni.course ?? ''}</td>
+            <td><span class="alumni-id-code">${escapeHtml(alumni.alumniId || '—')}</span></td>
+            <td style="font-weight: 600; color: #0f172a;">${escapeHtml(alumni.lastName || '—')}</td>
+            <td>${escapeHtml(alumni.firstName || '—')}</td>
+            <td style="color: #64748b;">${escapeHtml(alumni.email || '—')}</td>
+            <td>${escapeHtml(alumni.college || '—')}</td>
+            <td>${escapeHtml(alumni.course || '—')}</td>
+            <td><span class="alumni-status-badge ${badgeClass}">${escapeHtml(statusLabel)}</span></td>
         `;
     });
 }
@@ -685,7 +774,7 @@ function getCollegeCourseSummaries() {
 }
 
 function buildBreadcrumbChip(label, iconClass, href) {
-    return `<a class="alumni-breadcrumb-chip" href="${escapeHtml(href)}"><i class="${escapeHtml(iconClass)}"></i> ${escapeHtml(label)}</a>`;
+    return `<a class="alumni-breadcrumb-chip" href="${escapeHtml(href)}"><span>${escapeHtml(label)}</span></a>`;
 }
 
 function getAlumniManagementPageUrl() {
@@ -711,13 +800,10 @@ function selectAlumniCourse(course) {
 
 async function loadAlumniBatches() {
     const container = document.getElementById('alumniBatchGrid');
+    const dashboardBatchFilter = document.getElementById('dashboardBatchFilter');
     const collegeFilter = document.getElementById('collegeBatchFilter');
     const courseFilter = document.getElementById('courseBatchFilter');
-    const courseCollegeFilter = document.getElementById('courseCollegeFilter');
-    const batchDetailsState = document.getElementById('alumniBatchDetailsState');
-    const collegeDetailsState = document.getElementById('alumniCollegeDetailsState');
-    const courseDetailsState = document.getElementById('alumniCourseDetailsState');
-    if (!container && !collegeFilter && !courseFilter && !courseCollegeFilter && !batchDetailsState && !collegeDetailsState && !courseDetailsState) return;
+    if (!container && !dashboardBatchFilter && !collegeFilter && !courseFilter) return;
 
     const requestUrl = getAlumniBatchesUrl();
     try {
@@ -738,15 +824,19 @@ async function loadAlumniBatches() {
                 : Array.isArray(result)
                     ? result
                     : [];
+        alumniBatchesSummary = result && typeof result.summary === 'object' ? result.summary : null;
     } catch (error) {
         console.error('Failed to load alumni batches.', {
             url: requestUrl,
             error: error instanceof Error ? error.message : error
         });
         alumniBatches = [];
+        alumniBatchesSummary = null;
     }
 
     populateDashboardBatchFilters();
+    renderAlumniBatchCards();
+    updateAlumniManagementStats();
 }
 
 function renderAlumniBatchCards() {
@@ -754,7 +844,7 @@ function renderAlumniBatchCards() {
     if (!container) return;
 
     if (!Array.isArray(alumniBatches) || alumniBatches.length === 0) {
-        container.innerHTML = '<div class="event-state-card"><i class="fas fa-layer-group"></i><h4>No batches yet</h4><p>No graduation years are stored in the alumni table yet. Choose Add New Batch to start a new batch year, then add or import alumni into it.</p></div>';
+        container.innerHTML = '<div class="alumni-batch-empty">No graduation batches yet. Click "New Batch" to create a batch year, then add or import alumni into it.</div>';
         return;
     }
 
@@ -769,13 +859,14 @@ function renderAlumniBatchCards() {
                         <i class="fas fa-graduation-cap"></i>
                     </div>
                     <div class="alumni-card-title">
-                        <h4>Class of ${year}</h4>
-                        <p>Batch Year</p>
+                        <h4>Class of ${escapeHtml(year)}</h4>
+                        <p>Graduation Batch</p>
                     </div>
+                    <i class="fas fa-arrow-right alumni-card-arrow" aria-hidden="true"></i>
                 </div>
                 <div class="alumni-card-metadata">
                     <span class="alumni-card-tag">${Number(batch.alumniCount || 0)} alumni</span>
-                    <span class="alumni-card-tag">${Number(batch.activeCount || 0)} active</span>
+                    <span class="alumni-card-tag alumni-card-tag-active">${Number(batch.activeCount || 0)} active</span>
                 </div>
             </article>
         `;
@@ -795,7 +886,7 @@ function renderBatchCollegePage() {
     if (!state || !title || !copy || !collegeSection || !collegeGrid || !addBtn || !importBtn) return;
 
     if (selectedAlumniBatchYear === null) {
-        title.innerHTML = '<i class="fas fa-layer-group"></i> Batch Colleges';
+        title.textContent = 'Batch Colleges';
         copy.textContent = 'Select a batch first.';
         if (breadcrumb) {
             breadcrumb.hidden = true;
@@ -812,13 +903,13 @@ function renderBatchCollegePage() {
     const members = getBatchAlumniRecords();
     const colleges = getBatchCollegeSummaries();
 
-    title.innerHTML = `<i class="fas fa-layer-group"></i> Batch ${escapeHtml(getBatchYearLabel(selectedAlumniBatchYear))}`;
-    copy.textContent = `${members.length} alumni record(s) are in this batch. Choose a college to continue.`;
+    title.textContent = `Batch ${getBatchYearLabel(selectedAlumniBatchYear)} — Colleges`;
+    copy.textContent = `${members.length} alumni record(s) in this batch. Select a college to view its departments.`;
     if (breadcrumb) {
         breadcrumb.hidden = false;
         breadcrumb.innerHTML = [
             buildBreadcrumbChip(
-                'Alumni Batches',
+                'Batches',
                 'fas fa-users',
                 getAlumniManagementPageUrl()
             ),
@@ -827,7 +918,7 @@ function renderBatchCollegePage() {
                 'fas fa-layer-group',
                 getAlumniBatchDetailsPageUrl(selectedAlumniBatchYear)
             )
-        ].join('');
+        ].join('<i class="fas fa-chevron-right alumni-bc-sep" aria-hidden="true"></i>');
     }
 
     state.innerHTML = members.length === 0
@@ -845,6 +936,7 @@ function renderBatchCollegePage() {
                     <h4>${escapeHtml(entry.college)}</h4>
                     <p>College</p>
                 </div>
+                <i class="fas fa-arrow-right alumni-card-arrow" aria-hidden="true"></i>
             </div>
             <div class="alumni-card-metadata">
                 <span class="alumni-card-tag">${Number(entry.alumniCount || 0)} alumni</span>
@@ -924,13 +1016,13 @@ function renderCollegeCoursePage() {
     };
 
     if (selectedAlumniBatchYear === null || !selectedAlumniCollege) {
-        title.innerHTML = '<i class="fas fa-building-columns"></i> College Courses';
+        title.textContent = 'College Departments';
         copy.textContent = 'Select a batch and college first.';
         if (breadcrumb) {
             breadcrumb.hidden = true;
             breadcrumb.innerHTML = '';
         }
-        state.innerHTML = '<div class="alumni-batch-empty">Open a batch, then choose a college to view its courses.</div>';
+        state.innerHTML = '<div class="alumni-batch-empty">Open a batch, then choose a college to view its departments.</div>';
         courseSection.hidden = true;
         addBtn.hidden = true;
         importBtn.hidden = true;
@@ -944,13 +1036,13 @@ function renderCollegeCoursePage() {
         selectedAlumniCourse = null;
     }
 
-    title.innerHTML = `<i class="fas fa-building-columns"></i> ${escapeHtml(selectedAlumniCollege)}`;
-    copy.textContent = `${members.length} alumni record(s) are under this college for batch ${escapeHtml(getBatchYearLabel(selectedAlumniBatchYear))}. Choose a course to continue.`;
+    title.textContent = `${selectedAlumniCollege} — Departments`;
+    copy.textContent = `${members.length} alumni record(s) under this college for Batch ${getBatchYearLabel(selectedAlumniBatchYear)}. Select a department to view alumni.`;
     if (breadcrumb) {
         breadcrumb.hidden = false;
         breadcrumb.innerHTML = [
             buildBreadcrumbChip(
-                'Alumni Batches',
+                'Batches',
                 'fas fa-users',
                 getAlumniManagementPageUrl()
             ),
@@ -964,7 +1056,7 @@ function renderCollegeCoursePage() {
                 'fas fa-building-columns',
                 getAlumniCollegeDetailsPageUrl(selectedAlumniBatchYear, selectedAlumniCollege)
             )
-        ].join('');
+        ].join('<i class="fas fa-chevron-right alumni-bc-sep" aria-hidden="true"></i>');
     }
 
     state.innerHTML = members.length === 0
@@ -976,12 +1068,13 @@ function renderCollegeCoursePage() {
         <article class="alumni-card alumni-nested-card" onclick='selectAlumniCourse(${JSON.stringify(entry.course)})'>
             <div class="alumni-card-header">
                 <div class="alumni-card-icon">
-                    <i class="fas fa-book"></i>
+                    <i class="fas fa-network-wired"></i>
                 </div>
                 <div class="alumni-card-title">
                     <h4>${escapeHtml(entry.course)}</h4>
-                    <p>Course</p>
+                    <p>Department</p>
                 </div>
+                <i class="fas fa-arrow-right alumni-card-arrow" aria-hidden="true"></i>
             </div>
             <div class="alumni-card-metadata">
                 <span class="alumni-card-tag">${Number(entry.alumniCount || 0)} alumni</span>
@@ -1013,13 +1106,13 @@ function renderCourseAlumniPage() {
     };
 
     if (selectedAlumniBatchYear === null || !selectedAlumniCollege || !selectedAlumniCourse) {
-        title.innerHTML = '<i class="fas fa-book"></i> Course Alumni';
-        copy.textContent = 'Select a batch, college, and course first.';
+        title.textContent = 'Department Alumni';
+        copy.textContent = 'Select a batch, college, and department first.';
         if (breadcrumb) {
             breadcrumb.hidden = true;
             breadcrumb.innerHTML = '';
         }
-        state.innerHTML = '<div class="alumni-batch-empty">Open a batch, choose a college, then choose a course to view the alumni list.</div>';
+        state.innerHTML = '<div class="alumni-batch-empty">Open a batch, choose a college, then choose a department to view the alumni list.</div>';
         wrap.hidden = true;
         addBtn.hidden = true;
         importBtn.hidden = true;
@@ -1028,13 +1121,13 @@ function renderCourseAlumniPage() {
     }
 
     const members = getSelectedCourseAlumniRecords();
-    title.innerHTML = `<i class="fas fa-book"></i> ${escapeHtml(selectedAlumniCourse)}`;
-    copy.textContent = `${members.length} alumni record(s) are under ${escapeHtml(selectedAlumniCollege)} / ${escapeHtml(selectedAlumniCourse)} for batch ${escapeHtml(getBatchYearLabel(selectedAlumniBatchYear))}.`;
+    title.textContent = selectedAlumniCourse;
+    copy.textContent = `${members.length} alumni record(s) in ${selectedAlumniCollege} • Batch ${getBatchYearLabel(selectedAlumniBatchYear)}`;
     if (breadcrumb) {
         breadcrumb.hidden = false;
         breadcrumb.innerHTML = [
             buildBreadcrumbChip(
-                'Alumni Batches',
+                'Batches',
                 'fas fa-users',
                 getAlumniManagementPageUrl()
             ),
@@ -1050,14 +1143,14 @@ function renderCourseAlumniPage() {
             ),
             buildBreadcrumbChip(
                 selectedAlumniCourse,
-                'fas fa-book',
+                'fas fa-network-wired',
                 getAlumniCourseDetailsPageUrl(selectedAlumniBatchYear, selectedAlumniCollege, selectedAlumniCourse)
             )
-        ].join('');
+        ].join('<i class="fas fa-chevron-right alumni-bc-sep" aria-hidden="true"></i>');
     }
 
     state.innerHTML = members.length === 0
-        ? '<div class="alumni-batch-empty">No alumni were found for the selected course.</div>'
+        ? '<div class="alumni-batch-empty">No alumni were found for the selected department.</div>'
         : '';
     wrap.hidden = members.length === 0;
     addBtn.hidden = false;
@@ -1174,7 +1267,6 @@ async function deleteBatch(year) {
 async function loadAlumni(sort = alumniSort) {
     const hasAlumniUi = Boolean(
         document.getElementById('totalAlumni') ||
-        document.getElementById('alumniBatchGrid') ||
         document.getElementById('alumniTableBody') ||
         document.getElementById('alumniBatchDetailsState') ||
         document.getElementById('alumniCollegeDetailsState') ||
@@ -1188,8 +1280,22 @@ async function loadAlumni(sort = alumniSort) {
 
     alumniSort = sort;
 
+    const filters = {};
+    if (isAlumniBatchPage() || isAlumniCollegePage() || isAlumniCoursePage()) {
+        const yearParam = selectedAlumniBatchYear || getSelectedBatchYearFromUrl();
+        if (yearParam) filters.year = yearParam;
+    }
+    if (isAlumniCollegePage() || isAlumniCoursePage()) {
+        const collegeParam = selectedAlumniCollege || getSelectedCollegeFromUrl();
+        if (collegeParam) filters.college = collegeParam;
+    }
+    if (isAlumniCoursePage()) {
+        const courseParam = selectedAlumniCourse || getSelectedCourseFromUrl();
+        if (courseParam) filters.course = courseParam;
+    }
+
     try {
-        const response = await fetch(getAlumniListUrl(sort), {
+        const response = await fetch(getAlumniListUrl(sort, filters), {
             credentials: 'include',
             cache: 'no-store'
         });
@@ -1205,7 +1311,7 @@ async function loadAlumni(sort = alumniSort) {
     }
 
     const groupedYears = alumniBatches.map((batch) => String(batch.graduationYear ?? ''));
-    if (selectedAlumniBatchYear !== null && !groupedYears.includes(String(selectedAlumniBatchYear))) {
+    if (selectedAlumniBatchYear !== null && groupedYears.length > 0 && !groupedYears.includes(String(selectedAlumniBatchYear))) {
         const yearFromUrl = getSelectedBatchYearFromUrl();
         if (!yearFromUrl || String(selectedAlumniBatchYear) !== yearFromUrl) {
             selectedAlumniBatchYear = null;
@@ -1229,6 +1335,7 @@ async function loadAlumni(sort = alumniSort) {
     renderSelectedBatchDetails();
     updateStats();
     updateAlumniManagementStats();
+    populateDashboardBatchFilters();
     populateCourseCollegeFilter();
     renderAlumniStatusChart();
     renderYearDistribution();
@@ -1336,6 +1443,7 @@ function formatActivityReference(activity) {
 }
 
 async function loadRecentActivities(limit = 5) {
+    if (!document.getElementById('recentActivities')) return;
     try {
         const response = await fetch(getRecentActivitiesUrl(limit), {
             credentials: 'include',
@@ -1355,7 +1463,23 @@ async function loadRecentActivities(limit = 5) {
     renderActivities();
 }
 
+function hasSurveyPageUi() {
+    return Boolean(
+        document.getElementById('surveyWizard') ||
+        document.getElementById('staffSurveyList') ||
+        document.getElementById('surveySelector') ||
+        document.getElementById('surveyResponsesBody') ||
+        document.getElementById('surveyStats') ||
+        document.getElementById('surveyDetails') ||
+        document.getElementById('surveyQuestionsList') ||
+        document.getElementById('surveyResponseFormFields') ||
+        document.getElementById('surveyStatusPanel')
+    );
+}
+
 async function loadSurveys() {
+    if (!hasSurveyPageUi()) return;
+
     try {
         const response = await fetch(getSurveyListUrl(), {
             credentials: 'include',
@@ -1381,12 +1505,18 @@ async function loadSurveys() {
         }
     }
     initializeSurveyEditorPage();
-    onSurveySelectionChange();
+    await onSurveySelectionChange();
     renderStaffSurveyFeed();
 }
 
 async function loadSurveyResponsesAndStats(surveyId) {
-    if (!surveyId) {
+    currentSurveyResponsesPage = 1;
+    const needsResponsesUi = Boolean(
+        document.getElementById('surveyResponsesBody') ||
+        document.getElementById('surveyStats') ||
+        document.getElementById('surveyResponseFormFields')
+    );
+    if (!surveyId || !needsResponsesUi) {
         currentSurveyResponses = [];
         currentSurveyStats = null;
         currentSurveyBatchStats = null;
@@ -1394,25 +1524,20 @@ async function loadSurveyResponsesAndStats(surveyId) {
     }
 
     try {
-        const [responsesResponse, statsResponse, batchStatsResponse] = await Promise.all([
-            fetch(getSurveyResponsesUrl(surveyId), { credentials: 'include', cache: 'no-store' }),
-            fetch(getSurveyStatisticsUrl(surveyId), { credentials: 'include', cache: 'no-store' }),
-            fetch(getSurveyBatchStatisticsUrl(surveyId), { credentials: 'include', cache: 'no-store' }),
-        ]);
+        const responsesResponse = await fetch(getSurveyResponsesUrl(surveyId), {
+            credentials: 'include',
+            cache: 'no-store'
+        });
 
         const responsesResult = await responsesResponse.json();
-        const statsResult = await statsResponse.json();
-        const batchStatsResult = await batchStatsResponse.json();
 
         currentSurveyResponses = responsesResponse.ok && responsesResult.success && Array.isArray(responsesResult.responses)
             ? responsesResult.responses
             : [];
-        currentSurveyStats = statsResponse.ok && statsResult.success
-            ? (statsResult.data || null)
-            : null;
-        currentSurveyBatchStats = batchStatsResponse.ok && batchStatsResult.success
-            ? (batchStatsResult.data || null)
-            : null;
+        currentSurveyStats = {
+            totalResponses: currentSurveyResponses.length
+        };
+        currentSurveyBatchStats = null;
     } catch (error) {
         currentSurveyResponses = [];
         currentSurveyStats = null;
@@ -1448,60 +1573,145 @@ function renderYearDistribution() {
     const container = document.getElementById('yearDistribution');
     if (!container) return;
 
+    const heroMetaEl = document.getElementById('yearDistributionHeroMeta');
+
     const distribution = {};
-    alumniData.forEach(alumni => {
+    alumniBatches.forEach((batch) => {
+        const year = getBatchYearLabel(batch.graduationYear);
+        if (year && !(year in distribution)) {
+            distribution[year] = 0;
+        }
+    });
+    alumniData.forEach((alumni) => {
         const year = String(alumni.graduationYear || 'Unassigned').trim() || 'Unassigned';
         distribution[year] = (distribution[year] || 0) + 1;
     });
 
     const entries = Object.entries(distribution)
         .sort(([yearA], [yearB]) => String(yearA).localeCompare(String(yearB), undefined, { numeric: true }))
-        .slice(-8);
+        .slice(-10);
 
     if (entries.length === 0) {
+        if (heroMetaEl) heroMetaEl.innerHTML = '';
         container.innerHTML = '<div class="chart-empty-state">No alumni records yet.</div>';
         return;
     }
 
+    const totalAcrossBatches = entries.reduce((sum, [, count]) => sum + count, 0);
+    const peakEntry = entries.reduce((best, curr) => (curr[1] > best[1] ? curr : best), entries[0]);
+    const avgPerBatch = Math.round(totalAcrossBatches / entries.length);
+
+    if (heroMetaEl) {
+        heroMetaEl.innerHTML = `
+            <div class="hero-chart-stat">
+                <span class="hero-chart-stat-label">Batches</span>
+                <strong class="hero-chart-stat-value">${entries.length}</strong>
+            </div>
+            <div class="hero-chart-stat">
+                <span class="hero-chart-stat-label">Peak Class</span>
+                <strong class="hero-chart-stat-value">${escapeHtml(peakEntry[0])} <em>(${peakEntry[1]})</em></strong>
+            </div>
+            <div class="hero-chart-stat">
+                <span class="hero-chart-stat-label">Avg / Batch</span>
+                <strong class="hero-chart-stat-value">${avgPerBatch}</strong>
+            </div>
+        `;
+    }
+
     const maxCount = Math.max(...entries.map(([, count]) => count), 1);
-    const yAxisMax = Math.max(Math.ceil(maxCount / 100) * 100, 100);
+    let majorStep = 25;
+    if (maxCount <= 10) majorStep = 2;
+    else if (maxCount <= 25) majorStep = 5;
+    else if (maxCount <= 50) majorStep = 10;
+    else if (maxCount <= 100) majorStep = 25;
+    else if (maxCount <= 250) majorStep = 50;
+    else majorStep = Math.ceil(maxCount / 400) * 100;
+
+    const yAxisMax = Math.max(Math.ceil((maxCount * 1.15) / majorStep) * majorStep, majorStep * 4);
 
     let gridLinesHtml = '';
-    for (let step = 0; step <= yAxisMax; step += 25) {
+    for (let step = 0; step <= yAxisMax; step += majorStep) {
         const bottomPct = (step / yAxisMax) * 100;
-        const isMajor = step % 100 === 0;
-        const cls = isMajor ? 'vbar-grid-line vbar-grid-major' : 'vbar-grid-line vbar-grid-minor';
-        gridLinesHtml += `<div class="${cls}" style="bottom: ${bottomPct}%;"></div>`;
+        gridLinesHtml += `<div class="vbar-grid-line vbar-grid-major" style="bottom: ${bottomPct}%;"></div>`;
     }
 
     let yLabelsHtml = '';
-    for (let step = yAxisMax; step >= 0; step -= 100) {
+    for (let step = yAxisMax; step >= 0; step -= majorStep) {
         yLabelsHtml += `<div class="vbar-y-label">${step}</div>`;
     }
 
-    let barsHtml = '';
-    entries.forEach(([year, count]) => {
-        const heightPct = (count / yAxisMax) * 100;
-        barsHtml += `<div class="vbar-bar" style="height: ${heightPct}%;" title="${escapeHtml(year)}: ${count} alumni"></div>`;
+    const padX = entries.length === 1 ? 50 : 6;
+    const points = entries.map(([year, count], index) => {
+        const xPct = entries.length === 1
+            ? 50
+            : padX + (index / (entries.length - 1)) * (100 - padX * 2);
+        const yPct = Math.max(Math.min((count / yAxisMax) * 100, 98), 0);
+        const svgX = Number(xPct.toFixed(2));
+        const svgY = Number((100 - yPct).toFixed(2));
+        return { year, count, xPct, yPct, svgX, svgY };
+    });
+
+    const polylinePoints = points.length === 1
+        ? `0,${points[0].svgY} 100,${points[0].svgY}`
+        : points.map((pt) => `${pt.svgX},${pt.svgY}`).join(' ');
+
+    const firstX = points.length === 1 ? 0 : points[0].svgX;
+    const lastX = points.length === 1 ? 100 : points[points.length - 1].svgX;
+    const areaPoints = `${firstX},100 ${polylinePoints} ${lastX},100`;
+
+    let nodesHtml = '';
+    points.forEach((pt) => {
+        const isSelectedBatch = selectedDashboardBatchFilter !== 'all' && String(selectedDashboardBatchFilter) === String(pt.year);
+        const isDimmedBatch = selectedDashboardBatchFilter !== 'all' && !isSelectedBatch;
+        nodesHtml += `
+            <div class="line-chart-node ${isSelectedBatch ? 'is-selected' : ''} ${isDimmedBatch ? 'is-dimmed' : ''}"
+                 style="left: ${pt.xPct}%;"
+                 title="Class of ${escapeHtml(pt.year)}: ${pt.count} alumni (click to filter by this batch)"
+                 onclick='toggleDashboardBatchFromBar(${JSON.stringify(String(pt.year))})'>
+                <div class="line-chart-guide"></div>
+                <div class="line-chart-point-anchor" style="bottom: ${pt.yPct}%;">
+                    <span class="line-chart-val">${pt.count}</span>
+                    <span class="line-chart-dot"></span>
+                </div>
+            </div>
+        `;
     });
 
     let xLabelsHtml = '';
-    entries.forEach(([year]) => {
-        xLabelsHtml += `<div class="vbar-x-label">${escapeHtml(year)}</div>`;
+    points.forEach((pt) => {
+        const isSelectedBatch = selectedDashboardBatchFilter !== 'all' && String(selectedDashboardBatchFilter) === String(pt.year);
+        xLabelsHtml += `
+            <button type="button"
+                    class="line-chart-x-label ${isSelectedBatch ? 'is-selected' : ''}"
+                    style="left: ${pt.xPct}%;"
+                    onclick='toggleDashboardBatchFromBar(${JSON.stringify(String(pt.year))})'>
+                ${escapeHtml(pt.year)}
+            </button>
+        `;
     });
 
     container.innerHTML = `
-        <div class="vertical-bar-chart">
+        <div class="hero-line-chart">
             <div class="vbar-y-axis">
                 <div class="vbar-y-labels">${yLabelsHtml}</div>
                 <div class="vbar-y-spacer"></div>
             </div>
-            <div class="vbar-plot-wrap">
-                <div class="vbar-plot">
+            <div class="line-chart-plot-wrap">
+                <div class="line-chart-plot">
                     ${gridLinesHtml}
-                    <div class="vbar-bars">${barsHtml}</div>
+                    <svg class="line-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="heroLineAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#2563eb" stop-opacity="0.18"/>
+                                <stop offset="100%" stop-color="#2563eb" stop-opacity="0.0"/>
+                            </linearGradient>
+                        </defs>
+                        <polygon class="line-chart-area" points="${areaPoints}" fill="url(#heroLineAreaGrad)"></polygon>
+                        <polyline class="line-chart-path" points="${polylinePoints}" fill="none" vector-effect="non-scaling-stroke"></polyline>
+                    </svg>
+                    <div class="line-chart-nodes">${nodesHtml}</div>
                 </div>
-                <div class="vbar-x-axis">${xLabelsHtml}</div>
+                <div class="line-chart-x-axis">${xLabelsHtml}</div>
             </div>
         </div>
     `;
@@ -1518,12 +1728,43 @@ function getDashboardBatchOptions() {
     return years;
 }
 
+function updateDashboardBatchFilterMeta() {
+    const isFiltered = selectedDashboardBatchFilter !== 'all';
+    const filteredRecords = getFilteredDashboardAlumni(selectedDashboardBatchFilter);
+    const badgeLabel = isFiltered ? `Batch ${selectedDashboardBatchFilter}` : 'All Batches';
+
+    document.querySelectorAll('[data-dashboard-batch-badge]').forEach((badge) => {
+        badge.textContent = badgeLabel;
+        badge.classList.toggle('is-filtered', isFiltered);
+    });
+
+    const summaryEl = document.getElementById('dashboardBatchScopeSummary');
+    if (summaryEl) {
+        summaryEl.textContent = isFiltered
+            ? `${filteredRecords.length} of ${alumniData.length} alumni`
+            : `${alumniData.length} total alumni`;
+    }
+
+    const resetBtn = document.getElementById('dashboardResetBatchBtn');
+    if (resetBtn) {
+        resetBtn.hidden = !isFiltered;
+    }
+}
+
 function populateDashboardBatchFilters() {
+    const options = getDashboardBatchOptions();
+
+    if (selectedDashboardBatchFilter !== 'all' && !options.includes(selectedDashboardBatchFilter)) {
+        selectedDashboardBatchFilter = 'all';
+    }
+    selectedCollegeBatchFilter = selectedDashboardBatchFilter;
+    selectedCourseBatchFilter = selectedDashboardBatchFilter;
+
     const dropdowns = [
+        { element: document.getElementById('dashboardBatchFilter'), value: selectedDashboardBatchFilter },
         { element: document.getElementById('collegeBatchFilter'), value: selectedCollegeBatchFilter },
         { element: document.getElementById('courseBatchFilter'), value: selectedCourseBatchFilter }
     ];
-    const options = getDashboardBatchOptions();
 
     dropdowns.forEach(({ element, value }) => {
         if (!element) return;
@@ -1533,16 +1774,16 @@ function populateDashboardBatchFilters() {
         element.value = options.includes(value) || value === 'all' ? value : 'all';
     });
 
-    if (!options.includes(selectedCollegeBatchFilter)) selectedCollegeBatchFilter = 'all';
-    if (!options.includes(selectedCourseBatchFilter)) selectedCourseBatchFilter = 'all';
+    updateDashboardBatchFilterMeta();
 }
 
 function populateCourseCollegeFilter() {
     const select = document.getElementById('courseCollegeFilter');
     if (!select) return;
 
+    const batchScopedRecords = getFilteredDashboardAlumni(selectedDashboardBatchFilter);
     const colleges = Array.from(new Set(
-        alumniData
+        batchScopedRecords
             .map((alumni) => String(alumni?.college || '').trim())
             .filter(Boolean)
     )).sort((a, b) => a.localeCompare(b));
@@ -1557,7 +1798,7 @@ function populateCourseCollegeFilter() {
     select.value = selectedCourseCollegeFilter;
 }
 
-function getFilteredDashboardAlumni(batchFilter = 'all') {
+function getFilteredDashboardAlumni(batchFilter = selectedDashboardBatchFilter) {
     if (!Array.isArray(alumniData)) return [];
     if (!batchFilter || batchFilter === 'all') return alumniData;
 
@@ -1565,7 +1806,7 @@ function getFilteredDashboardAlumni(batchFilter = 'all') {
 }
 
 function getFilteredCourseDashboardAlumni() {
-    let records = getFilteredDashboardAlumni(selectedCourseBatchFilter);
+    let records = getFilteredDashboardAlumni(selectedDashboardBatchFilter);
 
     if (selectedCourseCollegeFilter !== 'all') {
         records = records.filter((alumni) => String(alumni?.college || '').trim() === selectedCourseCollegeFilter);
@@ -1587,7 +1828,7 @@ function buildDistributionEntries(records, key) {
 }
 
 function getChartPalette() {
-    return ['#1e4a76', '#3f6ea1', '#5f8fbe', '#7ba6cd', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'];
+    return ['#0f172a', '#2563eb', '#0284c7', '#0d9488', '#4f46e5', '#d97706', '#64748b', '#94a3b8'];
 }
 
 function renderDistributionChart(containerId, records, titleLabel) {
@@ -1671,15 +1912,22 @@ function renderPieDistributionChart(containerId, records, titleLabel) {
                 </div>
             </div>
             <div class="status-legend chart-legend-scroll">
-                <div class="distribution-chart-summary">Showing ${records.length} alumni record(s).</div>
+                <div class="distribution-chart-summary">Showing ${records.length} record${records.length === 1 ? '' : 's'}</div>
                 ${segments.map((segment) => `
                     <div class="status-legend-item">
                         <span class="status-legend-swatch" style="background:${segment.color};"></span>
                         <div class="status-legend-copy">
-                            <strong>${escapeHtml(segment.label)}</strong>
-                            <span>${segment.percentage}% of selected alumni</span>
+                            <div class="status-legend-line">
+                                <strong>${escapeHtml(segment.label)}</strong>
+                                <div class="status-legend-metrics">
+                                    <span class="status-legend-value">${segment.count}</span>
+                                    <span class="status-legend-pct">${segment.percentage}%</span>
+                                </div>
+                            </div>
+                            <div class="status-legend-bar">
+                                <div class="status-legend-bar-fill" style="width:${Math.max(segment.percentage, segment.count > 0 ? 3 : 0)}%;background:${segment.color};"></div>
+                            </div>
                         </div>
-                        <div class="status-legend-value">${segment.count}</div>
                     </div>
                 `).join('')}
             </div>
@@ -1690,7 +1938,7 @@ function renderPieDistributionChart(containerId, records, titleLabel) {
 function renderCollegeDistributionChart() {
     renderPieDistributionChart(
         'collegeDistributionChart',
-        getFilteredDashboardAlumni(selectedCollegeBatchFilter),
+        getFilteredDashboardAlumni(selectedDashboardBatchFilter),
         'college'
     );
 }
@@ -1703,16 +1951,48 @@ function renderCourseDistributionChart() {
     );
 }
 
+function applyCentralizedDashboardBatchFilter(nextBatch = 'all') {
+    selectedDashboardBatchFilter = nextBatch || 'all';
+    selectedCollegeBatchFilter = selectedDashboardBatchFilter;
+    selectedCourseBatchFilter = selectedDashboardBatchFilter;
+
+    const batchSelect = document.getElementById('dashboardBatchFilter');
+    if (batchSelect && batchSelect.value !== selectedDashboardBatchFilter) {
+        batchSelect.value = selectedDashboardBatchFilter;
+    }
+
+    populateCourseCollegeFilter();
+    updateDashboardBatchFilterMeta();
+    renderYearDistribution();
+    renderAlumniStatusChart();
+    renderCollegeDistributionChart();
+    renderCourseDistributionChart();
+}
+
+function handleDashboardBatchFilterChange() {
+    const select = document.getElementById('dashboardBatchFilter');
+    applyCentralizedDashboardBatchFilter(select ? select.value : 'all');
+}
+
+function resetDashboardBatchFilter() {
+    applyCentralizedDashboardBatchFilter('all');
+}
+
+function toggleDashboardBatchFromBar(year) {
+    const normalized = String(year || '').trim();
+    if (!normalized) return;
+    const nextBatch = selectedDashboardBatchFilter === normalized ? 'all' : normalized;
+    applyCentralizedDashboardBatchFilter(nextBatch);
+}
+
 function handleDashboardCollegeBatchChange() {
     const select = document.getElementById('collegeBatchFilter');
-    selectedCollegeBatchFilter = select ? select.value : 'all';
-    renderCollegeDistributionChart();
+    applyCentralizedDashboardBatchFilter(select ? select.value : 'all');
 }
 
 function handleDashboardCourseBatchChange() {
     const select = document.getElementById('courseBatchFilter');
-    selectedCourseBatchFilter = select ? select.value : 'all';
-    renderCourseDistributionChart();
+    applyCentralizedDashboardBatchFilter(select ? select.value : 'all');
 }
 
 function handleDashboardCourseCollegeChange() {
@@ -1725,22 +2005,24 @@ function renderAlumniStatusChart() {
     const container = document.getElementById('alumniStatusChart');
     if (!container) return;
 
-    if (!Array.isArray(alumniData) || alumniData.length === 0) {
-        container.innerHTML = '<div class="chart-empty-state">No alumni records yet.</div>';
+    const records = getFilteredDashboardAlumni(selectedDashboardBatchFilter);
+
+    if (!Array.isArray(records) || records.length === 0) {
+        container.innerHTML = `<div class="chart-empty-state">${selectedDashboardBatchFilter === 'all' ? 'No alumni records yet.' : `No alumni records found for Batch ${escapeHtml(selectedDashboardBatchFilter)}.`}</div>`;
         return;
     }
 
     const segments = [
-        { key: 'active', label: 'Active', color: '#1e4a76' },
-        { key: 'pending', label: 'Pending', color: '#f59e0b' },
+        { key: 'active', label: 'Active', color: '#0f172a' },
+        { key: 'pending', label: 'Pending', color: '#d97706' },
         { key: 'inactive', label: 'Inactive', color: '#94a3b8' },
-        { key: 'incomplete', label: 'Incomplete', color: '#075985' }
+        { key: 'incomplete', label: 'Incomplete', color: '#2563eb' }
     ].map((segment) => ({
         ...segment,
-        count: alumniData.filter((alumni) => String(alumni.status || '').toLowerCase() === segment.key).length
+        count: records.filter((alumni) => String(alumni.status || '').toLowerCase() === segment.key).length
     }));
 
-    const total = alumniData.length;
+    const total = records.length;
     let start = 0;
     const gradientParts = segments.map((segment) => {
         const size = total > 0 ? (segment.count / total) * 100 : 0;
@@ -1755,7 +2037,7 @@ function renderAlumniStatusChart() {
             <div class="status-donut" style="background: conic-gradient(${gradientParts.join(', ')});">
                 <div class="status-donut-center">
                     <span class="status-donut-total">${total}</span>
-                    <span class="status-donut-label">Alumni</span>
+                    <span class="status-donut-label">Total</span>
                 </div>
             </div>
             <div class="status-legend chart-legend-scroll">
@@ -1765,10 +2047,17 @@ function renderAlumniStatusChart() {
                         <div class="status-legend-item">
                             <span class="status-legend-swatch" style="background:${segment.color};"></span>
                             <div class="status-legend-copy">
-                                <strong>${segment.label}</strong>
-                                <span>${percentage}% of alumni</span>
+                                <div class="status-legend-line">
+                                    <strong>${segment.label}</strong>
+                                    <div class="status-legend-metrics">
+                                        <span class="status-legend-value">${segment.count}</span>
+                                        <span class="status-legend-pct">${percentage}%</span>
+                                    </div>
+                                </div>
+                                <div class="status-legend-bar">
+                                    <div class="status-legend-bar-fill" style="width:${Math.max(percentage, segment.count > 0 ? 3 : 0)}%;background:${segment.color};"></div>
+                                </div>
                             </div>
-                            <div class="status-legend-value">${segment.count}</div>
                         </div>
                     `;
                 }).join('')}
@@ -3139,6 +3428,7 @@ function renderSurveyResponsesTable() {
                 <strong>Survey unavailable</strong>
                 <span>Return to the survey builder and choose a survey to review.</span>
             </td></tr>`;
+        renderSurveyResponsesPagination(0, 1);
         return;
     }
 
@@ -3152,7 +3442,7 @@ function renderSurveyResponsesTable() {
             .sort((a, b) => a.localeCompare(b));
         const optionSignature = colleges.join('|');
         if (collegeFilter.dataset.options !== optionSignature) {
-            collegeFilter.innerHTML = '<option value="">All colleges</option>' + colleges
+            collegeFilter.innerHTML = '<option value="">All Colleges</option>' + colleges
                 .map((college) => `<option value="${escapeHtml(college)}">${escapeHtml(college)}</option>`)
                 .join('');
             collegeFilter.dataset.options = optionSignature;
@@ -3168,6 +3458,7 @@ function renderSurveyResponsesTable() {
                 <strong>No responses yet</strong>
                 <span>New submissions will appear here as soon as alumni complete this survey.</span>
             </td></tr>`;
+        renderSurveyResponsesPagination(0, 1);
         return;
     }
 
@@ -3197,6 +3488,15 @@ function renderSurveyResponsesTable() {
             return sortMode === 'oldest' ? aTime - bTime : bTime - aTime;
         });
 
+    const totalRecords = visibleResponses.length;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / SURVEY_RESPONSES_PER_PAGE));
+    if (currentSurveyResponsesPage > totalPages) {
+        currentSurveyResponsesPage = totalPages;
+    }
+    if (currentSurveyResponsesPage < 1) {
+        currentSurveyResponsesPage = 1;
+    }
+
     if (resultCount) {
         resultCount.textContent = visibleResponses.length === responses.length
             ? `${responses.length} ${responses.length === 1 ? 'response' : 'responses'}`
@@ -3211,10 +3511,14 @@ function renderSurveyResponsesTable() {
                 <span>Try a different search term or college filter.</span>
                 <button type="button" class="response-clear-button" onclick="clearSurveyResponseFilters()">Clear filters</button>
             </td></tr>`;
+        renderSurveyResponsesPagination(0, 1);
         return;
     }
 
-    tableBody.innerHTML = visibleResponses.map((response, index) => {
+    const startIdx = (currentSurveyResponsesPage - 1) * SURVEY_RESPONSES_PER_PAGE;
+    const paginatedResponses = visibleResponses.slice(startIdx, startIdx + SURVEY_RESPONSES_PER_PAGE);
+
+    tableBody.innerHTML = paginatedResponses.map((response, index) => {
         const name = String(response.alumniName || response.userName || 'Alumni respondent');
         const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || 'AR';
         const answerCount = Array.isArray(response.answers) ? response.answers.length : 0;
@@ -3240,33 +3544,99 @@ function renderSurveyResponsesTable() {
                     <span class="response-person-avatar" aria-hidden="true">${escapeHtml(initials)}</span>
                     <span class="response-person-copy">
                         <strong>${escapeHtml(name)}</strong>
-                        <small>${recordId ? `Alumni ID: ${escapeHtml(recordId)}` : 'Alumni ID unavailable'}</small>
+                        <small>${recordId ? escapeHtml(recordId) : 'No ID'}</small>
                     </span>
                 </div>
             </td>
             <td data-label="College & course">
                 <div class="response-academic-info">
-                    <strong>${escapeHtml(college || 'College unavailable')}</strong>
-                    <span>${escapeHtml(course || 'Course unavailable')}</span>
+                    <strong>${escapeHtml(college || '—')}</strong>
+                    <span>${escapeHtml(course || '—')}</span>
                 </div>
             </td>
             <td data-label="Answers">
-                <span class="response-answer-count"><i class="far fa-message" aria-hidden="true"></i> ${answerCount} ${answerCount === 1 ? 'answer' : 'answers'}</span>
+                <span class="response-answer-count">${answerCount} ${answerCount === 1 ? 'item' : 'items'}</span>
             </td>
             <td data-label="Status">
                 ${statusBadge}
             </td>
             <td data-label="Submitted">
-                <div class="response-submitted"><i class="far fa-clock" aria-hidden="true"></i><span>${escapeHtml(submittedAt)}</span></div>
+                <div class="response-submitted"><span>${escapeHtml(submittedAt)}</span></div>
             </td>
             <td class="response-action-cell">
-                <button class="response-view-button" type="button" onclick="viewSurveyResponseDetails(${Number(response.id)})" aria-label="View complete response from ${escapeHtml(name)}">
-                    View response <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                <button class="response-view-button" type="button" onclick="viewSurveyResponseDetails(${Number(response.id)})" title="View complete response" aria-label="View complete response from ${escapeHtml(name)}">
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
                 </button>
             </td>
         </tr>
     `;
     }).join('');
+
+    renderSurveyResponsesPagination(totalRecords, totalPages);
+}
+
+function handleSurveyResponseFilterChange() {
+    currentSurveyResponsesPage = 1;
+    renderSurveyResponsesTable();
+}
+
+function renderSurveyResponsesPagination(totalRecords, totalPages) {
+    const infoEl = document.getElementById('surveyResponsesPaginationInfo');
+    const controlsEl = document.getElementById('surveyResponsesPaginationControls');
+    if (!infoEl || !controlsEl) return;
+
+    if (totalRecords === 0) {
+        infoEl.textContent = 'Showing 0 responses';
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    const startRecord = (currentSurveyResponsesPage - 1) * SURVEY_RESPONSES_PER_PAGE + 1;
+    const endRecord = Math.min(currentSurveyResponsesPage * SURVEY_RESPONSES_PER_PAGE, totalRecords);
+    infoEl.textContent = `Showing ${startRecord}–${endRecord} of ${totalRecords} responses`;
+
+    let buttonsHtml = `
+        <button type="button" class="response-page-btn" onclick="goToSurveyResponsesPage(${currentSurveyResponsesPage - 1})" ${currentSurveyResponsesPage <= 1 ? 'disabled' : ''} title="Previous Page" aria-label="Previous Page">
+            <i class="fas fa-chevron-left" style="font-size: 10px;"></i>
+        </button>
+    `;
+
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentSurveyResponsesPage - 1 && i <= currentSurveyResponsesPage + 1)) {
+            pages.push(i);
+        } else if (pages[pages.length - 1] !== '...') {
+            pages.push('...');
+        }
+    }
+
+    pages.forEach((p) => {
+        if (p === '...') {
+            buttonsHtml += `<span class="response-page-ellipsis">…</span>`;
+        } else {
+            buttonsHtml += `
+                <button type="button" class="response-page-btn ${p === currentSurveyResponsesPage ? 'active' : ''}" onclick="goToSurveyResponsesPage(${p})" title="Page ${p}">
+                    ${p}
+                </button>
+            `;
+        }
+    });
+
+    buttonsHtml += `
+        <button type="button" class="response-page-btn" onclick="goToSurveyResponsesPage(${currentSurveyResponsesPage + 1})" ${currentSurveyResponsesPage >= totalPages ? 'disabled' : ''} title="Next Page" aria-label="Next Page">
+            <i class="fas fa-chevron-right" style="font-size: 10px;"></i>
+        </button>
+    `;
+
+    controlsEl.innerHTML = buttonsHtml;
+}
+
+function goToSurveyResponsesPage(page) {
+    if (page < 1 || page === currentSurveyResponsesPage) return;
+    currentSurveyResponsesPage = page;
+    renderSurveyResponsesTable();
+    const tableWrap = document.querySelector('.response-table-wrap');
+    if (tableWrap) tableWrap.scrollTop = 0;
 }
 
 function clearSurveyResponseFilters() {
@@ -3278,6 +3648,7 @@ function clearSurveyResponseFilters() {
     if (collegeFilter) collegeFilter.value = '';
     if (statusFilter) statusFilter.value = '';
     if (sortSelect) sortSelect.value = 'newest';
+    currentSurveyResponsesPage = 1;
     renderSurveyResponsesTable();
 }
 
@@ -3769,6 +4140,192 @@ function wizardInitChangeTracker() {
     });
 }
 
+const WIZARD_PREMADE_CATEGORIES = [
+    {
+        id: 'cat_premade_employment_status',
+        name: 'Employment Status',
+        isPreMade: true,
+        questions: [
+            {
+                id: 'q_premade_employment_status',
+                text: 'What is your employment status?',
+                type: 'multiple_choice',
+                required: true,
+                isPreMade: true,
+                options: ['Employed', 'Unemployed'],
+            },
+        ],
+    },
+    {
+        id: 'cat_premade_employment_info',
+        name: 'Employment Information',
+        isPreMade: true,
+        questions: [
+            {
+                id: 'q_premade_time_to_first_job',
+                text: 'How long did it take you to find your first job after graduation?',
+                type: 'multiple_choice',
+                required: true,
+                isPreMade: true,
+                options: [
+                    'Less than 1 month',
+                    '1 to 3 months',
+                    '3 to 6 months',
+                    '6 to 12 months',
+                    'More than a year',
+                ],
+            },
+            {
+                id: 'q_premade_job_related_to_degree',
+                text: 'Is your job related to your degree?',
+                type: 'multiple_choice',
+                required: true,
+                isPreMade: true,
+                options: [
+                    'Related',
+                    'Moderately Related',
+                    'Unrelated',
+                ],
+            },
+        ],
+    },
+];
+
+function wizardNormalizeLookupText(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function wizardGetPreMadeCategorySpec(categoryOrName) {
+    const rawName = typeof categoryOrName === 'string'
+        ? categoryOrName
+        : (categoryOrName?.name || '');
+    const norm = wizardNormalizeLookupText(rawName);
+    if (!norm) return null;
+    if (norm === 'employement information') {
+        return WIZARD_PREMADE_CATEGORIES[1];
+    }
+    return WIZARD_PREMADE_CATEGORIES.find(
+        (spec) => wizardNormalizeLookupText(spec.name) === norm
+    ) || null;
+}
+
+function wizardGetPreMadeQuestionSpec(questionOrText) {
+    const rawText = typeof questionOrText === 'string'
+        ? questionOrText
+        : (questionOrText?.text || questionOrText?.question_text || '');
+    const norm = wizardNormalizeLookupText(rawText);
+    if (!norm) return null;
+    for (const catSpec of WIZARD_PREMADE_CATEGORIES) {
+        for (const qSpec of catSpec.questions) {
+            if (wizardNormalizeLookupText(qSpec.text) === norm) {
+                return qSpec;
+            }
+        }
+    }
+    return null;
+}
+
+function wizardIsPreMadeQuestion(question) {
+    if (!question) return false;
+    return Boolean(question.isPreMade || wizardGetPreMadeQuestionSpec(question));
+}
+
+function wizardIsPreMadeCategory(category) {
+    if (!category) return false;
+    if (category.isPreMade || wizardGetPreMadeCategorySpec(category)) return true;
+    return Array.isArray(category.questions) && category.questions.some((q) => wizardIsPreMadeQuestion(q));
+}
+
+function wizardClonePreMadeCategories() {
+    return WIZARD_PREMADE_CATEGORIES.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        isPreMade: true,
+        questions: cat.questions.map((q) => ({
+            id: q.id,
+            text: q.text,
+            type: q.type,
+            required: true,
+            isPreMade: true,
+            options: [...q.options],
+        })),
+    }));
+}
+
+function wizardEnsurePreMadeStructure(data) {
+    if (!data || typeof data !== 'object') return data;
+    if (!Array.isArray(data.categories)) {
+        data.categories = [];
+    }
+
+    // Remove legacy empty default "General" placeholder if it has no questions
+    data.categories = data.categories.filter((cat) => {
+        const isEmptyGeneral = wizardNormalizeLookupText(cat?.name) === 'general'
+            && (!Array.isArray(cat?.questions) || cat.questions.length === 0);
+        return !isEmptyGeneral;
+    });
+
+    const prependCategories = [];
+
+    WIZARD_PREMADE_CATEGORIES.forEach((catSpec) => {
+        let targetCat = data.categories.find(
+            (c) => wizardGetPreMadeCategorySpec(c)?.id === catSpec.id || String(c?.id) === catSpec.id
+        );
+
+        if (!targetCat) {
+            targetCat = {
+                id: catSpec.id,
+                name: catSpec.name,
+                isPreMade: true,
+                questions: [],
+            };
+            prependCategories.push(targetCat);
+        } else {
+            targetCat.name = catSpec.name;
+            targetCat.isPreMade = true;
+            if (!Array.isArray(targetCat.questions)) {
+                targetCat.questions = [];
+            }
+        }
+
+        const missingPreMadeQuestions = [];
+        catSpec.questions.forEach((qSpec) => {
+            const existingQ = targetCat.questions.find(
+                (q) => wizardGetPreMadeQuestionSpec(q)?.id === qSpec.id || String(q?.id) === qSpec.id
+            );
+            if (existingQ) {
+                existingQ.text = qSpec.text;
+                existingQ.type = qSpec.type;
+                existingQ.required = true;
+                existingQ.isPreMade = true;
+                existingQ.options = [...qSpec.options];
+            } else {
+                missingPreMadeQuestions.push({
+                    id: qSpec.id,
+                    text: qSpec.text,
+                    type: qSpec.type,
+                    required: true,
+                    isPreMade: true,
+                    options: [...qSpec.options],
+                });
+            }
+        });
+
+        if (missingPreMadeQuestions.length > 0) {
+            targetCat.questions = [...missingPreMadeQuestions, ...targetCat.questions];
+        }
+    });
+
+    if (prependCategories.length > 0) {
+        data.categories = [...prependCategories, ...data.categories];
+    }
+
+    return data;
+}
+
 function wizardDefaultData() {
     return {
         surveyId: null,
@@ -3776,11 +4333,7 @@ function wizardDefaultData() {
         formDetails: '',
         dateOpen: '',
         dateClose: '',
-        categories: [{
-            id: `cat_${Date.now()}`,
-            name: 'General',
-            questions: [],
-        }],
+        categories: wizardClonePreMadeCategories(),
     };
 }
 
@@ -4088,6 +4641,7 @@ function wizardSyncStep1ToData() {
     }
     Object.assign(surveyWizardData, fields);
     surveyWizardData.categories = surveyWizardData.categories || [];
+    wizardEnsurePreMadeStructure(surveyWizardData);
     wizardPersistData();
 }
 
@@ -4270,6 +4824,7 @@ function wizardRenderCategories() {
 
     categories.forEach((category, catIndex) => {
         const isCollapsed = surveyWizardCollapsedCategories.has(category.id);
+        const isLockedCategory = wizardIsPreMadeCategory(category);
         const qCount = (category.questions || []).length;
         let questionsHtml = '';
 
@@ -4279,8 +4834,9 @@ function wizardRenderCategories() {
             let counter = surveyWizardData.categories.slice(0, catIndex).reduce((sum, c) => sum + (c.questions?.length || 0), 0);
             questionsHtml = (category.questions || []).map((question) => {
                 counter += 1;
+                const isLockedQuestion = wizardIsPreMadeQuestion(question);
                 const optionsNote = question.type === 'multiple_choice' && question.options?.length
-                    ? `<div style="margin-top:6px;font-size:12px;color:#94a3b8;">${question.options.length} options</div>`
+                    ? `<div style="margin-top:6px;font-size:12px;color:#64748b;">Options: ${question.options.map((o) => escapeHtml(o)).join(' • ')}</div>`
                     : '';
                 const ratingNote = question.type === 'rating'
                     ? `<div style="margin-top:6px;font-size:12px;color:#94a3b8;">Scale: ${question.ratingMin ?? 1}–${question.ratingMax ?? 5}</div>`
@@ -4288,6 +4844,12 @@ function wizardRenderCategories() {
                 const logicBadge = question.type === 'multiple_choice' && question.logic?.enabled
                     ? `<span class="wizard-logic-badge"><i class="fas fa-code-branch"></i> Section logic</span>`
                     : '';
+                const preMadeBadge = isLockedQuestion
+                    ? `<span class="survey-wizard-premade-badge" title="Pre-made question — cannot be deleted"><i class="fas fa-lock"></i> Pre-made</span>`
+                    : '';
+                const deleteBtnHtml = isLockedQuestion
+                    ? `<button type="button" class="survey-wizard-icon-btn is-locked" title="Pre-made question cannot be deleted" disabled aria-disabled="true"><i class="fas fa-lock"></i></button>`
+                    : `<button type="button" class="survey-wizard-icon-btn del" title="Delete" onclick="wizardDeleteQuestion('${category.id}', '${question.id}')"><i class="fas fa-trash"></i></button>`;
                 return `
                     <div class="survey-wizard-q-item">
                         <div class="survey-wizard-q-num">${counter}</div>
@@ -4297,11 +4859,12 @@ function wizardRenderCategories() {
                             ${(question.required !== false && question.required !== 0 && question.required !== '0')
                                 ? `<span class="survey-wizard-required-badge is-required" title="Mandatory"><i class="fas fa-asterisk"></i> Required</span>`
                                 : `<span class="survey-wizard-required-badge is-optional" title="Optional">Optional</span>`}
+                            ${preMadeBadge}
                             ${optionsNote}${ratingNote}${logicBadge}
                         </div>
                         <div class="survey-wizard-q-actions">
                             <button type="button" class="survey-wizard-icon-btn" title="Edit" onclick="wizardEditQuestion('${category.id}', '${question.id}')"><i class="fas fa-edit"></i></button>
-                            <button type="button" class="survey-wizard-icon-btn del" title="Delete" onclick="wizardDeleteQuestion('${category.id}', '${question.id}')"><i class="fas fa-trash"></i></button>
+                            ${deleteBtnHtml}
                         </div>
                     </div>
                 `;
@@ -4317,12 +4880,18 @@ function wizardRenderCategories() {
                     <i class="fas fa-chevron-down"></i>
                 </button>
                 <i class="fas fa-tag" style="color:#94a3b8;"></i>
-                <input type="text" class="survey-wizard-category-name-input" value="${escapeHtml(category.name)}" data-cat-id="${category.id}">
+                <input type="text" class="survey-wizard-category-name-input" value="${escapeHtml(category.name)}" data-cat-id="${category.id}" ${isLockedCategory ? 'readonly title="Pre-made category name"' : ''}>
                 <span class="survey-wizard-category-summary-badge">${qCount} question${qCount === 1 ? '' : 's'}</span>
-                <span class="survey-wizard-category-badge"><i class="fas fa-folder"></i> Category</span>
-                <button type="button" class="survey-wizard-icon-btn del" style="margin-left:4px;" title="Delete category" onclick="wizardDeleteCategory('${category.id}')">
-                    <i class="fas fa-trash"></i>
-                </button>
+                ${isLockedCategory
+                    ? `<span class="survey-wizard-premade-badge" title="Pre-made category — cannot be deleted"><i class="fas fa-lock"></i> Pre-made</span>`
+                    : `<span class="survey-wizard-category-badge"><i class="fas fa-folder"></i> Category</span>`}
+                ${isLockedCategory
+                    ? `<button type="button" class="survey-wizard-icon-btn is-locked" style="margin-left:4px;" title="Pre-made category cannot be deleted" disabled aria-disabled="true">
+                        <i class="fas fa-lock"></i>
+                    </button>`
+                    : `<button type="button" class="survey-wizard-icon-btn del" style="margin-left:4px;" title="Delete category" onclick="wizardDeleteCategory('${category.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>`}
             </div>
             <div class="survey-wizard-category-body">
                 <div class="survey-wizard-q-editor">
@@ -4353,7 +4922,7 @@ function wizardRenderCategories() {
                         <label class="survey-wizard-label">Answer options <span class="required">*</span></label>
                         <div class="survey-wizard-options-list" data-cat-id="${category.id}"></div>
                         <div class="wizard-mc-actions-row">
-                            <button type="button" class="survey-wizard-icon-btn" onclick="wizardAddAnswerOption('${category.id}')" title="Add option"><i class="fas fa-plus"></i></button>
+                            <button type="button" class="survey-wizard-icon-btn survey-wizard-add-option-btn" onclick="wizardAddAnswerOption('${category.id}')" title="Add option"><i class="fas fa-plus"></i></button>
                             <button type="button" class="wizard-logic-toggle-btn" data-cat-id="${category.id}" onclick="wizardToggleQuestionLogic('${category.id}')" title="Go to section based on answer">
                                 <i class="fas fa-code-branch"></i> Go to section based on answer
                             </button>
@@ -4396,13 +4965,15 @@ function wizardRenderCategories() {
         container.appendChild(card);
 
         const nameInput = card.querySelector('.survey-wizard-category-name-input');
-        nameInput.addEventListener('change', () => {
-            category.name = nameInput.value.trim() || 'Untitled Category';
-            wizardPersistData();
-            wizardMarkChanged();
-            wizardRenderCategories();
-            wizardShowToast('Category updated', 'success');
-        });
+        if (!isLockedCategory) {
+            nameInput.addEventListener('change', () => {
+                category.name = nameInput.value.trim() || 'Untitled Category';
+                wizardPersistData();
+                wizardMarkChanged();
+                wizardRenderCategories();
+                wizardShowToast('Category updated', 'success');
+            });
+        }
     });
 }
 
@@ -4461,6 +5032,10 @@ function wizardDeleteCategory(catId) {
     if (!surveyWizardData?.categories) return;
     const catIndex = surveyWizardData.categories.findIndex(c => c.id === catId);
     if (catIndex === -1) return;
+    if (wizardIsPreMadeCategory(surveyWizardData.categories[catIndex])) {
+        wizardShowToast('Pre-made categories cannot be deleted.', 'warning');
+        return;
+    }
     const catName = surveyWizardData.categories[catIndex].name || 'Category';
     surveyWizardData.categories.splice(catIndex, 1);
     surveyWizardCollapsedCategories.delete(catId);
@@ -4535,6 +5110,14 @@ function wizardUpdateRatingRange(catId) {
 }
 
 function wizardAddAnswerOption(catId) {
+    if (surveyWizardEditingQuestion && surveyWizardEditingQuestion.catId === catId) {
+        const cat = surveyWizardData?.categories?.find(c => c.id === catId);
+        const editQ = cat?.questions?.find(q => q.id === surveyWizardEditingQuestion.qId);
+        if (editQ && wizardIsPreMadeQuestion(editQ)) {
+            wizardShowToast('Options for pre-made questions cannot be modified.', 'warning');
+            return;
+        }
+    }
     const list = document.querySelector(`.survey-wizard-options-list[data-cat-id="${catId}"]`);
     if (!list) return;
     const section = document.querySelector(`.wizard-answer-options-section[data-cat-id="${catId}"]`);
@@ -4553,6 +5136,14 @@ function wizardAddAnswerOption(catId) {
 }
 
 function wizardRemoveAnswerOption(button, catId) {
+    if (surveyWizardEditingQuestion && surveyWizardEditingQuestion.catId === catId) {
+        const cat = surveyWizardData?.categories?.find(c => c.id === catId);
+        const editQ = cat?.questions?.find(q => q.id === surveyWizardEditingQuestion.qId);
+        if (editQ && wizardIsPreMadeQuestion(editQ)) {
+            wizardShowToast('Options for pre-made questions cannot be removed.', 'warning');
+            return;
+        }
+    }
     const group = button.closest('.survey-wizard-option-group');
     if (group) group.remove();
     const list = document.querySelector(`.survey-wizard-options-list[data-cat-id="${catId}"]`);
@@ -4727,33 +5318,49 @@ function wizardAddQuestion(catId) {
     if (wasEditing) {
         const existing = category.questions.find((q) => q.id === surveyWizardEditingQuestion.qId);
         if (existing) {
-            existing.text = questionInput.value.trim();
-            existing.type = typeSelect.value;
-            existing.required = isRequired;
-            if (typeSelect.value === 'multiple_choice') {
-                existing.options = wizardCollectAnswerOptions(catId);
+            const preMadeSpec = wizardGetPreMadeQuestionSpec(existing);
+            if (preMadeSpec) {
+                existing.isPreMade = true;
+                existing.preMadeKey = preMadeSpec.preMadeKey;
+                existing.text = preMadeSpec.text;
+                existing.type = preMadeSpec.type;
+                existing.required = true;
+                existing.options = [...preMadeSpec.options];
                 const mcSec = document.querySelector(`.wizard-answer-options-section[data-cat-id="${catId}"]`);
                 if (mcSec?.dataset.logicEnabled === 'true') {
                     existing.logic = { enabled: true, rules: wizardCollectLogicRules(catId) };
                 } else {
                     existing.logic = { enabled: false, rules: [] };
                 }
-                delete existing.ratingMin; delete existing.ratingMax;
-                delete existing.ratingMinLabel; delete existing.ratingMaxLabel;
-            } else if (typeSelect.value === 'rating') {
-                delete existing.options;
-                const minSel = document.querySelector(`.wizard-rating-min-select[data-cat-id="${catId}"]`);
-                const maxSel = document.querySelector(`.wizard-rating-max-select[data-cat-id="${catId}"]`);
-                const minLbl = document.querySelector(`.wizard-rating-min-label[data-cat-id="${catId}"]`);
-                const maxLbl = document.querySelector(`.wizard-rating-max-label[data-cat-id="${catId}"]`);
-                existing.ratingMin = minSel ? parseInt(minSel.value, 10) : 1;
-                existing.ratingMax = maxSel ? parseInt(maxSel.value, 10) : 5;
-                existing.ratingMinLabel = minLbl ? minLbl.value.trim() : '';
-                existing.ratingMaxLabel = maxLbl ? maxLbl.value.trim() : '';
             } else {
-                delete existing.options;
-                delete existing.ratingMin; delete existing.ratingMax;
-                delete existing.ratingMinLabel; delete existing.ratingMaxLabel;
+                existing.text = questionInput.value.trim();
+                existing.type = typeSelect.value;
+                existing.required = isRequired;
+                if (typeSelect.value === 'multiple_choice') {
+                    existing.options = wizardCollectAnswerOptions(catId);
+                    const mcSec = document.querySelector(`.wizard-answer-options-section[data-cat-id="${catId}"]`);
+                    if (mcSec?.dataset.logicEnabled === 'true') {
+                        existing.logic = { enabled: true, rules: wizardCollectLogicRules(catId) };
+                    } else {
+                        existing.logic = { enabled: false, rules: [] };
+                    }
+                    delete existing.ratingMin; delete existing.ratingMax;
+                    delete existing.ratingMinLabel; delete existing.ratingMaxLabel;
+                } else if (typeSelect.value === 'rating') {
+                    delete existing.options;
+                    const minSel = document.querySelector(`.wizard-rating-min-select[data-cat-id="${catId}"]`);
+                    const maxSel = document.querySelector(`.wizard-rating-max-select[data-cat-id="${catId}"]`);
+                    const minLbl = document.querySelector(`.wizard-rating-min-label[data-cat-id="${catId}"]`);
+                    const maxLbl = document.querySelector(`.wizard-rating-max-label[data-cat-id="${catId}"]`);
+                    existing.ratingMin = minSel ? parseInt(minSel.value, 10) : 1;
+                    existing.ratingMax = maxSel ? parseInt(maxSel.value, 10) : 5;
+                    existing.ratingMinLabel = minLbl ? minLbl.value.trim() : '';
+                    existing.ratingMaxLabel = maxLbl ? maxLbl.value.trim() : '';
+                } else {
+                    delete existing.options;
+                    delete existing.ratingMin; delete existing.ratingMax;
+                    delete existing.ratingMinLabel; delete existing.ratingMaxLabel;
+                }
             }
         } else {
             category.questions.push(wizardBuildNewQuestion(catId, questionInput, typeSelect));
@@ -4763,15 +5370,22 @@ function wizardAddQuestion(catId) {
     }
 
     surveyWizardEditingQuestion = null;
+    questionInput.readOnly = false;
+    typeSelect.disabled = false;
     questionInput.value = '';
     typeSelect.value = '';
-    if (reqCheckbox) reqCheckbox.checked = true;
+    if (reqCheckbox) {
+        reqCheckbox.disabled = false;
+        reqCheckbox.checked = true;
+    }
     const section = document.querySelector(`.wizard-answer-options-section[data-cat-id="${catId}"]`);
     if (section) {
         section.style.display = 'none';
         section.dataset.logicEnabled = 'false';
         const logicBtn = section.querySelector('.wizard-logic-toggle-btn');
         if (logicBtn) logicBtn.classList.remove('active');
+        const addOptBtn = section.querySelector('.survey-wizard-add-option-btn');
+        if (addOptBtn) addOptBtn.style.display = '';
         section.querySelectorAll('.wizard-logic-select').forEach(s => s.remove());
     }
     const ratingSection = document.querySelector(`.wizard-rating-range-section[data-cat-id="${catId}"]`);
@@ -4786,6 +5400,11 @@ function wizardAddQuestion(catId) {
 function wizardDeleteQuestion(catId, qId) {
     const category = surveyWizardData?.categories?.find((item) => item.id === catId);
     if (!category) return;
+    const targetQuestion = (category.questions || []).find((question) => question.id === qId);
+    if (targetQuestion && wizardIsPreMadeQuestion(targetQuestion)) {
+        wizardShowToast('Pre-made questions cannot be deleted.', 'warning');
+        return;
+    }
     category.questions = (category.questions || []).filter((question) => question.id !== qId);
     if (surveyWizardEditingQuestion && surveyWizardEditingQuestion.catId === catId && surveyWizardEditingQuestion.qId === qId) {
         surveyWizardEditingQuestion = null;
@@ -4808,8 +5427,11 @@ function wizardEditQuestion(catId, qId) {
     const typeSelect = document.querySelector(`.wizard-type-select[data-cat-id="${catId}"]`);
     if (!questionInput || !typeSelect) return;
 
+    const isPreMadeQ = wizardIsPreMadeQuestion(question);
     questionInput.value = question.text;
+    questionInput.readOnly = isPreMadeQ;
     typeSelect.value = question.type;
+    typeSelect.disabled = isPreMadeQ;
     surveyWizardEditingQuestion = { catId, qId };
 
     if (question.type === 'multiple_choice') {
@@ -4821,16 +5443,20 @@ function wizardEditQuestion(catId, qId) {
             mcSec.dataset.logicEnabled = String(logicEnabled);
             const logicBtn = mcSec.querySelector('.wizard-logic-toggle-btn');
             if (logicBtn) logicBtn.classList.toggle('active', logicEnabled);
+            const addOptBtn = mcSec.querySelector('.survey-wizard-add-option-btn');
+            if (addOptBtn) addOptBtn.style.display = isPreMadeQ ? 'none' : '';
         }
         if (list) {
             list.innerHTML = (question.options || []).map((option, index) => {
-                const rule = logicEnabled ? (question.logic.rules?.[index] || null) : null;
                 const logicSel = logicEnabled ? wizardBuildLogicSelectHtml(catId) : '';
+                const removeBtnHtml = isPreMadeQ
+                    ? `<button type="button" class="survey-wizard-icon-btn is-locked" disabled title="Pre-made option cannot be removed"><i class="fas fa-lock"></i></button>`
+                    : `<button type="button" class="survey-wizard-icon-btn del" onclick="wizardRemoveAnswerOption(this, '${catId}')"><i class="fas fa-times"></i></button>`;
                 return `
                     <div class="survey-wizard-option-group">
                         <div class="survey-wizard-option-index">${index + 1}</div>
-                        <input type="text" class="wizard-option-input option-input" maxlength="200" value="${escapeHtml(option)}" data-cat-id="${catId}">
-                        <button type="button" class="survey-wizard-icon-btn del" onclick="wizardRemoveAnswerOption(this, '${catId}')"><i class="fas fa-times"></i></button>
+                        <input type="text" class="wizard-option-input option-input" maxlength="200" value="${escapeHtml(option)}" data-cat-id="${catId}" ${isPreMadeQ ? 'readonly' : ''}>
+                        ${removeBtnHtml}
                         ${logicSel}
                     </div>
                 `;
@@ -4861,13 +5487,20 @@ function wizardEditQuestion(catId, qId) {
     questionInput.focus();
     const reqCheckbox = document.querySelector(`.wizard-required-checkbox[data-cat-id="${catId}"]`);
     if (reqCheckbox) {
-        reqCheckbox.checked = question.required !== false && question.required !== 0 && question.required !== '0';
+        reqCheckbox.checked = isPreMadeQ ? true : (question.required !== false && question.required !== 0 && question.required !== '0');
+        reqCheckbox.disabled = isPreMadeQ;
     }
     const addBtn = document.querySelector(`.survey-wizard-category-card[data-cat-id="${catId}"] .survey-wizard-add-question-btn`);
     if (addBtn) {
         addBtn.innerHTML = '<i class="fas fa-check"></i> Save question';
     }
-    wizardShowToast('Viewing question details. You can continue without making changes.', 'info', 3500);
+    wizardShowToast(
+        isPreMadeQ
+            ? 'Pre-made question is locked from deletion, but you can configure section routing logic.'
+            : 'Viewing question details. You can continue without making changes.',
+        'info',
+        3500
+    );
 }
 
 function wizardRenderPreview() {
@@ -5149,30 +5782,46 @@ function wizardStep2Next() {
         const questionInput = document.querySelector(`.wizard-question-input[data-cat-id="${catId}"]`);
         const typeSelect = document.querySelector(`.wizard-type-select[data-cat-id="${catId}"]`);
         if (existing && questionInput && typeSelect && questionInput.value.trim() && typeSelect.value) {
-            const reqCheckbox = document.querySelector(`.wizard-required-checkbox[data-cat-id="${catId}"]`);
-            existing.text = questionInput.value.trim();
-            existing.type = typeSelect.value;
-            existing.required = reqCheckbox ? reqCheckbox.checked : true;
-            if (typeSelect.value === 'multiple_choice') {
-                const opts = wizardCollectAnswerOptions(catId);
-                if (opts.length >= 2) {
-                    existing.options = opts;
-                }
+            const preMadeSpec = wizardGetPreMadeQuestionSpec(existing);
+            if (preMadeSpec) {
+                existing.isPreMade = true;
+                existing.preMadeKey = preMadeSpec.preMadeKey;
+                existing.text = preMadeSpec.text;
+                existing.type = preMadeSpec.type;
+                existing.required = true;
+                existing.options = [...preMadeSpec.options];
                 const mcSec = document.querySelector(`.wizard-answer-options-section[data-cat-id="${catId}"]`);
                 if (mcSec?.dataset.logicEnabled === 'true') {
                     existing.logic = { enabled: true, rules: wizardCollectLogicRules(catId) };
                 } else {
                     existing.logic = { enabled: false, rules: [] };
                 }
-            } else if (typeSelect.value === 'rating') {
-                const minSel = document.querySelector(`.wizard-rating-min-select[data-cat-id="${catId}"]`);
-                const maxSel = document.querySelector(`.wizard-rating-max-select[data-cat-id="${catId}"]`);
-                const minLbl = document.querySelector(`.wizard-rating-min-label[data-cat-id="${catId}"]`);
-                const maxLbl = document.querySelector(`.wizard-rating-max-label[data-cat-id="${catId}"]`);
-                existing.ratingMin = minSel ? parseInt(minSel.value, 10) : (existing.ratingMin ?? 1);
-                existing.ratingMax = maxSel ? parseInt(maxSel.value, 10) : (existing.ratingMax ?? 5);
-                existing.ratingMinLabel = minLbl ? minLbl.value.trim() : (existing.ratingMinLabel ?? '');
-                existing.ratingMaxLabel = maxLbl ? maxLbl.value.trim() : (existing.ratingMaxLabel ?? '');
+            } else {
+                const reqCheckbox = document.querySelector(`.wizard-required-checkbox[data-cat-id="${catId}"]`);
+                existing.text = questionInput.value.trim();
+                existing.type = typeSelect.value;
+                existing.required = reqCheckbox ? reqCheckbox.checked : true;
+                if (typeSelect.value === 'multiple_choice') {
+                    const opts = wizardCollectAnswerOptions(catId);
+                    if (opts.length >= 2) {
+                        existing.options = opts;
+                    }
+                    const mcSec = document.querySelector(`.wizard-answer-options-section[data-cat-id="${catId}"]`);
+                    if (mcSec?.dataset.logicEnabled === 'true') {
+                        existing.logic = { enabled: true, rules: wizardCollectLogicRules(catId) };
+                    } else {
+                        existing.logic = { enabled: false, rules: [] };
+                    }
+                } else if (typeSelect.value === 'rating') {
+                    const minSel = document.querySelector(`.wizard-rating-min-select[data-cat-id="${catId}"]`);
+                    const maxSel = document.querySelector(`.wizard-rating-max-select[data-cat-id="${catId}"]`);
+                    const minLbl = document.querySelector(`.wizard-rating-min-label[data-cat-id="${catId}"]`);
+                    const maxLbl = document.querySelector(`.wizard-rating-max-label[data-cat-id="${catId}"]`);
+                    existing.ratingMin = minSel ? parseInt(minSel.value, 10) : (existing.ratingMin ?? 1);
+                    existing.ratingMax = maxSel ? parseInt(maxSel.value, 10) : (existing.ratingMax ?? 5);
+                    existing.ratingMinLabel = minLbl ? minLbl.value.trim() : (existing.ratingMinLabel ?? '');
+                    existing.ratingMaxLabel = maxLbl ? maxLbl.value.trim() : (existing.ratingMaxLabel ?? '');
+                }
             }
             wizardPersistData();
         }
@@ -5398,6 +6047,7 @@ function wizardLoadDataFromSurvey(survey) {
             }))
             : wizardDefaultData().categories,
     };
+    wizardEnsurePreMadeStructure(surveyWizardData);
     surveyWizardHasChanges = false;
 }
 
@@ -5438,6 +6088,8 @@ function initializeSurveyEditorPage(forceResetStep = false) {
         if (!Array.isArray(surveyWizardData.categories) || surveyWizardData.categories.length === 0) {
             surveyWizardData.categories = wizardDefaultData().categories;
         }
+        wizardEnsurePreMadeStructure(surveyWizardData);
+        wizardPersistData();
         if (pageTitle) pageTitle.textContent = 'Create New Survey';
     }
 
@@ -5553,6 +6205,11 @@ async function addSurveyQuestion() {
 async function deleteSurveyQuestion(questionId) {
     const survey = getSelectedSurvey();
     if (!survey) return;
+    const targetQ = (survey.questions || []).find(q => Number(q.id) === Number(questionId));
+    if (targetQ && wizardIsPreMadeQuestion(targetQ)) {
+        wizardShowToast('Pre-made questions cannot be deleted.', 'warning');
+        return;
+    }
     surveyResponses = surveyResponses.map(response => ({
         ...response,
         answers: response.answers.filter(answer => answer.questionId !== questionId)
@@ -5795,11 +6452,6 @@ async function initStaffPage() {
 
     injectLogoutButton(currentUser);
 
-    if (document.getElementById('surveyWizard')) {
-        await loadSurveys();
-        initializeSurveyEditorPage();
-    }
-
     const yearFromUrl = getSelectedBatchYearFromUrl();
     const collegeFromUrl = getSelectedCollegeFromUrl();
     const courseFromUrl = getSelectedCourseFromUrl();
@@ -5812,17 +6464,20 @@ async function initStaffPage() {
     if (courseFromUrl) {
         selectedAlumniCourse = courseFromUrl;
     }
-    await loadAlumniBatches();
-    await loadAlumni();
-    updateStats();
+
     renderEvents();
-    await loadRecentActivities();
-    renderYearDistribution();
-    if (!document.getElementById('surveyWizard')) {
-        await loadSurveys();
-    }
-    await loadNewsPosts();
     setupNewsForm();
+
+    await Promise.all([
+        loadAlumniBatches(),
+        loadAlumni(),
+        loadRecentActivities(),
+        loadSurveys(),
+        loadNewsPosts(),
+    ]);
+
+    updateStats();
+    renderYearDistribution();
 }
 
 if (document.readyState === 'loading') {
@@ -5949,6 +6604,7 @@ const reportWizardState = {
     },
     colleges: [],
     departments: [],
+    reportType: 'alumni_tracer',
     format: 'pdf',
     liveMatchCount: null,
     isGenerating: false,
@@ -5964,7 +6620,10 @@ function openReportWizardModal(preferredSurveyId = null) {
 
     // Reset or initialize state
     reportWizardState.currentStep = 1;
+    reportWizardState.reportType = 'alumni_tracer';
     reportWizardState.format = 'pdf';
+    wizardOnReportTypeSelect('alumni_tracer');
+    wizardOnFormatSelect('pdf');
     wizardUpdateStepperUI();
     wizardShowPane(1);
 
@@ -6216,6 +6875,27 @@ function isTextQuestion(q) {
     return type === 'text' || type === 'short_text' || type === 'long_text' || type === 'paragraph';
 }
 
+function getSurveyCreatedDateString(survey) {
+    if (!survey) return '';
+    const rawDate = String(survey.createdAt || survey.created_at || survey.openDateTime || survey.open_datetime || '').trim();
+    if (!rawDate) return '';
+
+    const isoMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) {
+        return isoMatch[1];
+    }
+
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) {
+        return '';
+    }
+
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+    const dd = String(parsed.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 function wizardSelectSurvey(surveyId) {
     const survey = reportWizardState.surveys.find((s) => s.id === surveyId);
     if (!survey) return;
@@ -6233,8 +6913,14 @@ function wizardSelectSurvey(surveyId) {
         });
     });
 
-    // Reset dynamic answer filters
+    // Reset dynamic answer filters and default "Submitted From Date" to the survey creation date
     reportWizardState.filters.answer_filters = {};
+    const createdDateStr = getSurveyCreatedDateString(survey);
+    reportWizardState.filters.date_from = createdDateStr;
+    const fromEl = document.getElementById('wizardFilterDateFrom');
+    if (fromEl) {
+        fromEl.value = createdDateStr;
+    }
 
     renderWizardSurveys(reportWizardState.surveys);
     wizardUpdateStepperUI();
@@ -6602,11 +7288,13 @@ function wizardResetFilters() {
     const toEl = document.getElementById('wizardFilterDateTo');
     const searchEl = document.getElementById('wizardFilterSearch');
 
+    const defaultFromDate = getSurveyCreatedDateString(reportWizardState.selectedSurvey);
+
     if (yearEl) yearEl.value = '';
     if (collegeEl) collegeEl.value = '';
     if (courseEl) courseEl.value = '';
     if (statusEl) statusEl.value = 'all';
-    if (fromEl) fromEl.value = '';
+    if (fromEl) fromEl.value = defaultFromDate;
     if (toEl) toEl.value = '';
     if (searchEl) searchEl.value = '';
 
@@ -6615,7 +7303,7 @@ function wizardResetFilters() {
         college: '',
         course: '',
         review_status: 'all',
-        date_from: '',
+        date_from: defaultFromDate,
         date_to: '',
         search_query: '',
         answer_filters: {}
@@ -6654,7 +7342,29 @@ async function wizardFetchLivePreviewCount() {
     }
 }
 
-/* Step 4: Format Selection */
+/* Step 4: Report Type & Format Selection */
+function wizardOnReportTypeSelect(type) {
+    reportWizardState.reportType = type;
+
+    const cards = {
+        alumni_tracer: document.getElementById('wizardReportTypeCardAlumniTracer'),
+        graphs: document.getElementById('wizardReportTypeCardGraphs'),
+        raw_numbers: document.getElementById('wizardReportTypeCardRawNumbers')
+    };
+
+    Object.keys(cards).forEach((k) => {
+        if (cards[k]) {
+            if (k === type) {
+                cards[k].classList.add('is-selected');
+                const radio = cards[k].querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+            } else {
+                cards[k].classList.remove('is-selected');
+            }
+        }
+    });
+}
+
 function wizardOnFormatSelect(format) {
     reportWizardState.format = format;
 
@@ -6680,6 +7390,7 @@ function wizardOnFormatSelect(format) {
 /* Step 5: Review Summary */
 function renderWizardReviewSummary() {
     const surveyTitleEl = document.getElementById('wizardReviewSurveyTitle');
+    const reportTypeEl = document.getElementById('wizardReviewReportType');
     const dataSummaryEl = document.getElementById('wizardReviewDataSummary');
     const formatEl = document.getElementById('wizardReviewFormat');
     const filtersListEl = document.getElementById('wizardReviewFiltersList');
@@ -6689,6 +7400,13 @@ function renderWizardReviewSummary() {
     if (!reportWizardState.selectedSurvey) return;
 
     if (surveyTitleEl) surveyTitleEl.textContent = reportWizardState.selectedSurvey.title || 'Untitled Survey';
+
+    const reportTypeNames = {
+        alumni_tracer: 'Alumni Tracer',
+        graphs: 'Graphs',
+        raw_numbers: 'Raw number of every total number answer gathered'
+    };
+    if (reportTypeEl) reportTypeEl.textContent = reportTypeNames[reportWizardState.reportType] || 'Alumni Tracer';
 
     const selectedQCount = reportWizardState.selectedQuestionIds.size;
     const catCount = (reportWizardState.selectedSurvey.categories || []).filter((c) => {
@@ -6702,7 +7420,7 @@ function renderWizardReviewSummary() {
     const formatNames = {
         pdf: 'PDF Document (.pdf)',
         docx: 'Word Document (.docx)',
-        csv: 'CSV Spreadsheet (.csv)'
+        csv: 'Excel / CSV Spreadsheet (.xlsx)'
     };
     if (formatEl) formatEl.textContent = formatNames[reportWizardState.format] || 'PDF';
 
@@ -6765,6 +7483,7 @@ async function wizardExecuteGeneration() {
 
         const payload = {
             survey_id: reportWizardState.selectedSurveyId,
+            report_type: reportWizardState.reportType,
             selected_questions: sanitizedQuestionIds,
             filters: reportWizardState.filters,
             format: reportWizardState.format
@@ -7224,31 +7943,86 @@ if (document.getElementById('reportSurveySelector')) {
 
 // Colleges Page Logic
 let localCollegesData = [];
+
+function getCollegesDataUrl() {
+    return new URL('../staff/colleges-data', window.location.href).toString();
+}
+
+function getCreateCollegeUrl() {
+    return new URL('../staff/colleges/create', window.location.href).toString();
+}
+
+function generateCollegeAbbreviation(name) {
+    if (!name) return 'COL';
+    const clean = String(name).trim();
+    const words = clean.split(/\s+/).filter(w => !['of', 'and', 'the', 'for', 'in'].includes(w.toLowerCase()));
+    if (words.length > 1) {
+        return words.map(w => w[0].toUpperCase()).slice(0, 4).join('');
+    }
+    return clean.slice(0, 4).toUpperCase();
+}
+
 async function loadCollegesPage() {
+    const tbody = document.getElementById('collegesTableBody');
+    const statsContainer = document.getElementById('collegesStatsContainer');
+
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="colleges-loading-cell">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading colleges directory...</span>
+                </td>
+            </tr>
+        `;
+    }
+    if (statsContainer) {
+        statsContainer.innerHTML = `
+            <div class="colleges-loading-cell">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Loading statistics...</span>
+            </div>
+        `;
+    }
+
     try {
-        console.log('[DEBUG] Attempting to fetch from: /Alumni_Tracer/public/staff/colleges-data');
-        console.log('[DEBUG] Current page URL:', window.location.href);
-        const response = await fetch('/Alumni_Tracer/public/staff/colleges-data');
-        console.log('[DEBUG] Response status:', response.status);
-        console.log('[DEBUG] Response ok:', response.ok);
-        console.log('[DEBUG] Response URL:', response.url);
+        let response = await fetch(getCollegesDataUrl(), {
+            credentials: 'include',
+            cache: 'no-store'
+        }).catch(() => null);
+
+        if (!response || !response.ok) {
+            response = await fetch('/Alumni_Tracer/public/staff/colleges-data', {
+                credentials: 'include',
+                cache: 'no-store'
+            }).catch(() => null);
+        }
+
+        if (!response || !response.ok) {
+            throw new Error(`Unable to load colleges (HTTP ${response ? response.status : 'error'}).`);
+        }
+
         const data = await response.json();
-        console.log('[DEBUG] Response data:', data);
-        if (data.success) {
+        if (data.success && Array.isArray(data.colleges)) {
             localCollegesData = data.colleges;
             renderCollegesData(localCollegesData);
             setupCollegesSearch();
         } else {
-            document.getElementById('collegesTableBody').innerHTML = `
-                <tr><td colspan="4" style="text-align: center; padding: 20px; color: #dc3545;">Error: ${escapeHtml(data.message)}</td></tr>
-            `;
+            throw new Error(data.message || 'Unable to load colleges.');
         }
     } catch (error) {
-        console.error('[DEBUG] Error loading colleges data:', error);
-        console.error('[DEBUG] Error details:', error.message, error.stack);
-        document.getElementById('collegesTableBody').innerHTML = `
-            <tr><td colspan="4" style="text-align: center; padding: 20px; color: #dc3545;">Failed to load colleges data.</td></tr>
-        `;
+        console.error('Error loading colleges data:', error);
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr><td colspan="5" class="colleges-loading-cell" style="color: #b91c1c;">
+                    <i class="fas fa-circle-exclamation"></i>
+                    <span>Failed to load colleges: ${escapeHtml(error.message || 'Network error')}</span>
+                </td></tr>
+            `;
+        }
+        if (statsContainer) {
+            statsContainer.innerHTML = '<div class="colleges-loading-cell">No statistics available</div>';
+        }
     }
 }
 
@@ -7257,11 +8031,20 @@ function renderCollegesData(colleges) {
     const statsContainer = document.getElementById('collegesStatsContainer');
     if (!tbody) return;
 
-    if (colleges.length === 0) {
+    if (!Array.isArray(colleges) || colleges.length === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="4" style="text-align: center; padding: 20px; color: #7f8c8d;">No colleges found.</td></tr>
+            <tr>
+                <td colspan="5" class="colleges-loading-cell">
+                    <i class="fas fa-building-columns"></i>
+                    <span>No colleges found in the database.</span>
+                </td>
+            </tr>
         `;
-        if (statsContainer) statsContainer.innerHTML = '<div style="text-align: center; color: #7f8c8d; padding: 20px;">No statistics available</div>';
+        if (statsContainer) {
+            statsContainer.innerHTML = '<div class="colleges-loading-cell">No colleges registered yet.</div>';
+        }
+        const badgeEl = document.getElementById('collegesCountBadge');
+        if (badgeEl) badgeEl.textContent = '0 Colleges';
         return;
     }
 
@@ -7272,58 +8055,125 @@ function renderCollegesData(colleges) {
     let totalActive = 0;
 
     colleges.forEach(col => {
-        totalCourses += col.totalCourses;
-        totalAlumni += col.totalAlumni;
-        totalActive += col.activeAlumni;
+        totalCourses += Number(col.totalCourses || col.totalDepartments || 0);
+        totalAlumni += Number(col.totalAlumni || 0);
+        totalActive += Number(col.activeAlumni || 0);
     });
 
     const totalCountEl = document.getElementById('totalCollegesCountStat');
     const totalCoursesEl = document.getElementById('totalCollegesCoursesStat');
     const totalAlumniEl = document.getElementById('totalCollegesAlumniStat');
     const totalActiveEl = document.getElementById('totalCollegesActiveStat');
+    const activePercentBadge = document.getElementById('totalCollegesActivePercentBadge');
+    const badgeEl = document.getElementById('collegesCountBadge');
 
-    if (totalCountEl) totalCountEl.textContent = totalColleges;
-    if (totalCoursesEl) totalCoursesEl.textContent = totalCourses;
-    if (totalAlumniEl) totalAlumniEl.textContent = totalAlumni;
-    if (totalActiveEl) totalActiveEl.textContent = totalActive;
+    if (totalCountEl) totalCountEl.textContent = totalColleges.toLocaleString();
+    if (totalCoursesEl) totalCoursesEl.textContent = totalCourses.toLocaleString();
+    if (totalAlumniEl) totalAlumniEl.textContent = totalAlumni.toLocaleString();
+    if (totalActiveEl) totalActiveEl.textContent = totalActive.toLocaleString();
+
+    const overallActiveRate = totalAlumni > 0 ? Math.round((totalActive / totalAlumni) * 100) : 0;
+    if (activePercentBadge) {
+        activePercentBadge.textContent = `${overallActiveRate}% overall rate`;
+    }
+    if (badgeEl) {
+        badgeEl.textContent = `${totalColleges} College${totalColleges === 1 ? '' : 's'}`;
+    }
 
     // Render Table Body
     tbody.innerHTML = colleges.map(col => {
-        const coordinatorsList = col.coordinators && col.coordinators.length > 0 
-            ? col.coordinators.map(c => `${escapeHtml(c.name)} <span style="font-size:11px; color:#6a7b8c;">(${escapeHtml(c.email)})</span>`).join('<br>')
-            : '<span style="color: #cbd5e1; font-style: italic;">No coordinators</span>';
+        const abbr = (col.abbreviation || generateCollegeAbbreviation(col.college)).toUpperCase();
+        const deptsCount = Number(col.totalCourses || col.totalDepartments || 0);
+        const alumniCount = Number(col.totalAlumni || 0);
+        const activeCount = Number(col.activeAlumni || 0);
+        const ratio = alumniCount > 0 ? Math.round((activeCount / alumniCount) * 100) : 0;
+
+        let ratioClass = 'ratio-neutral';
+        if (ratio >= 70) ratioClass = 'ratio-high';
+        else if (ratio >= 40) ratioClass = 'ratio-medium';
+        else if (alumniCount > 0) ratioClass = 'ratio-low';
+
+        const coordCount = Array.isArray(col.coordinators) ? col.coordinators.length : 0;
+        const coordTooltip = coordCount > 0 
+            ? col.coordinators.map(c => c.name ? `${c.name} (${c.email || 'no email'})` : (c.email || 'Coordinator')).join(', ')
+            : 'No coordinators assigned';
+
+        const coordinatorsHtml = coordCount > 0
+            ? `<span class="college-badge-coord" title="${escapeHtml(coordTooltip)}"><i class="fas fa-user-tie" aria-hidden="true"></i> <span>${coordCount} ${coordCount === 1 ? 'Coordinator' : 'Coordinators'}</span></span>`
+            : `<span class="coord-unassigned-pill" title="No coordinators assigned"><i class="fas fa-user-xmark" aria-hidden="true"></i> <span>0 Coordinators</span></span>`;
 
         return `
             <tr class="college-row-item">
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; font-weight: 500; color: #1e4a76;">${escapeHtml(col.college)}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; text-align: center;">${col.totalCourses}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; text-align: center; font-weight: 600;">${col.totalAlumni}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; font-size: 12px; line-height: 1.4;">${coordinatorsList}</td>
+                <td>
+                    <div class="college-cell-title">
+                        <span class="college-avatar-badge">${escapeHtml(abbr.slice(0, 4))}</span>
+                        <div>
+                            <strong class="college-name">${escapeHtml(col.college)}</strong>
+                            ${col.abbreviation ? `<span class="college-sub-code">${escapeHtml(col.abbreviation)}</span>` : ''}
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="college-badge-dept" title="${deptsCount} department(s) under this college">
+                        <i class="fas fa-network-wired" aria-hidden="true"></i>
+                        <span>${deptsCount} ${deptsCount === 1 ? 'dept' : 'depts'}</span>
+                    </span>
+                </td>
+                <td>
+                    <strong class="college-metric-num">${alumniCount.toLocaleString()}</strong>
+                </td>
+                <td>
+                    <div class="college-ratio-stack" title="${activeCount} active of ${alumniCount} alumni (${ratio}%)">
+                        <span class="college-ratio-pill ${ratioClass}">${ratio}%</span>
+                        <div class="college-mini-bar">
+                            <div class="college-mini-fill ${ratioClass}" style="width: ${ratio}%;"></div>
+                        </div>
+                    </div>
+                </td>
+                <td>${coordinatorsHtml}</td>
             </tr>
         `;
     }).join('');
 
-    // Render Stats Module progress bars
+    // Render Stats Module Progress Cards
     if (statsContainer) {
         statsContainer.innerHTML = colleges.map(col => {
-            const ratio = col.totalAlumni > 0 ? Math.round((col.activeAlumni / col.totalAlumni) * 100) : 0;
-            let barColor = '#6a7b8c';
-            if (ratio >= 70) barColor = '#28a745';
-            else if (ratio >= 40) barColor = '#ffc107';
-            else if (col.totalAlumni > 0) barColor = '#dc3545';
+            const abbr = (col.abbreviation || generateCollegeAbbreviation(col.college)).toUpperCase();
+            const deptsCount = Number(col.totalCourses || col.totalDepartments || 0);
+            const alumniCount = Number(col.totalAlumni || 0);
+            const activeCount = Number(col.activeAlumni || 0);
+            const ratio = alumniCount > 0 ? Math.round((activeCount / alumniCount) * 100) : 0;
+
+            let ratioClass = 'ratio-neutral';
+            if (ratio >= 70) ratioClass = 'ratio-high';
+            else if (ratio >= 40) ratioClass = 'ratio-medium';
+            else if (alumniCount > 0) ratioClass = 'ratio-low';
 
             return `
-                <div style="background: white; border: 1px solid #eef2f6; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <strong style="font-size: 13px; color: #2c3e50; max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(col.college)}">${escapeHtml(col.college)}</strong>
-                        <span style="font-size: 12px; font-weight: bold; color: ${barColor};">${ratio}% Active</span>
+                <div class="college-stat-panel">
+                    <div class="college-stat-panel-top">
+                        <div class="college-stat-panel-info">
+                            <span class="college-stat-code">${escapeHtml(abbr.slice(0, 5))}</span>
+                            <strong class="college-stat-name" title="${escapeHtml(col.college)}">${escapeHtml(col.college)}</strong>
+                        </div>
+                        <span class="college-ratio-pill ${ratioClass}">${ratio}% Active</span>
                     </div>
-                    <div style="width: 100%; background: #eef2f6; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
-                        <div style="width: ${ratio}%; background: ${barColor}; height: 100%; border-radius: 4px;"></div>
+                    <div class="college-stat-track" title="${ratio}% active rate">
+                        <div class="college-stat-fill ${ratioClass}" style="width: ${ratio}%;"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6a7b8c;">
-                        <span>Active: ${col.activeAlumni} members</span>
-                        <span>Total: ${col.totalAlumni} alumni</span>
+                    <div class="college-stat-meta">
+                        <span class="college-stat-pill meta-active" title="${activeCount.toLocaleString()} active alumni">
+                            <i class="fas fa-user-check" aria-hidden="true"></i>
+                            <span><strong>${activeCount.toLocaleString()}</strong> active</span>
+                        </span>
+                        <span class="college-stat-pill meta-alumni" title="${alumniCount.toLocaleString()} total alumni">
+                            <i class="fas fa-user-graduate" aria-hidden="true"></i>
+                            <span><strong>${alumniCount.toLocaleString()}</strong> alumni</span>
+                        </span>
+                        <span class="college-stat-pill meta-depts" title="${deptsCount} department(s)">
+                            <i class="fas fa-network-wired" aria-hidden="true"></i>
+                            <span><strong>${deptsCount}</strong> ${deptsCount === 1 ? 'dept' : 'depts'}</span>
+                        </span>
                     </div>
                 </div>
             `;
@@ -7333,26 +8183,59 @@ function renderCollegesData(colleges) {
 
 function setupCollegesSearch() {
     const searchInput = document.getElementById('collegeSearch');
-    if (!searchInput) return;
+    if (!searchInput || searchInput.dataset.bound === 'true') return;
+    searchInput.dataset.bound = 'true';
 
     searchInput.addEventListener('input', function() {
         const query = this.value.toLowerCase().trim();
         const rows = document.querySelectorAll('.college-row-item');
+        let visibleCount = 0;
+
         rows.forEach(row => {
-            const collegeName = row.cells[0].textContent.toLowerCase();
-            const coordinators = row.cells[3].textContent.toLowerCase();
-            if (collegeName.includes(query) || coordinators.includes(query)) {
+            const text = row.textContent.toLowerCase();
+            const coordTooltip = (row.querySelector('.college-badge-coord')?.getAttribute('title') || '').toLowerCase();
+            if (!query || text.includes(query) || coordTooltip.includes(query)) {
                 row.style.display = '';
+                visibleCount++;
             } else {
                 row.style.display = 'none';
             }
+        });
+
+        const tbody = document.getElementById('collegesTableBody');
+        let emptySearchRow = document.getElementById('collegeSearchEmptyRow');
+        if (visibleCount === 0 && rows.length > 0) {
+            if (!emptySearchRow && tbody) {
+                emptySearchRow = document.createElement('tr');
+                emptySearchRow.id = 'collegeSearchEmptyRow';
+                emptySearchRow.innerHTML = `
+                    <td colspan="5" class="colleges-loading-cell">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <span>No colleges match "${escapeHtml(query)}".</span>
+                    </td>
+                `;
+                tbody.appendChild(emptySearchRow);
+            }
+        } else if (emptySearchRow) {
+            emptySearchRow.remove();
+        }
+
+        // Also filter stats cards on the right
+        const statPanels = document.querySelectorAll('.college-stat-panel');
+        statPanels.forEach(panel => {
+            const text = panel.textContent.toLowerCase();
+            panel.style.display = (!query || text.includes(query)) ? '' : 'none';
         });
     });
 }
 
 function openAddCollegeModal() {
     const modal = document.getElementById('addCollegeModal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        const nameInput = document.getElementById('collegeName');
+        if (nameInput) setTimeout(() => nameInput.focus(), 60);
+    }
 }
 
 function closeAddCollegeModal() {
@@ -7363,12 +8246,22 @@ function closeAddCollegeModal() {
 }
 
 async function submitCollegeForm() {
-    const collegeName = document.getElementById('collegeName').value.trim();
-    const abbreviation = document.getElementById('collegeAbbreviation').value.trim();
+    const collegeNameInput = document.getElementById('collegeName');
+    const abbreviationInput = document.getElementById('collegeAbbreviation');
+    const submitBtn = document.getElementById('addCollegeSubmitBtn');
+
+    const collegeName = collegeNameInput ? collegeNameInput.value.trim() : '';
+    const abbreviation = abbreviationInput ? abbreviationInput.value.trim() : '';
 
     if (!collegeName) {
         alert('Please enter a college name.');
+        if (collegeNameInput) collegeNameInput.focus();
         return;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Creating...</span>';
     }
 
     const formData = new FormData();
@@ -7376,26 +8269,37 @@ async function submitCollegeForm() {
     formData.append('abbreviation', abbreviation);
 
     try {
-        const response = await fetch('/Alumni_Tracer/public/staff/colleges/create', {
-            method: 'POST',
-            body: formData
-        });
+        let response;
+        try {
+            response = await fetch(getCreateCollegeUrl(), {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+        } catch (e) {
+            response = await fetch('/Alumni_Tracer/public/staff/colleges/create', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+        }
 
         const result = await response.json();
 
         if (result.success) {
-            alert('College created successfully!');
             closeAddCollegeModal();
-            // Reload the colleges data
-            if (typeof loadCollegesPage === 'function') {
-                loadCollegesPage();
-            }
+            await loadCollegesPage();
         } else {
-            alert('Error: ' + (result.message || 'Failed to create college'));
+            alert('Error: ' + (result.message || 'Failed to create college.'));
         }
     } catch (error) {
         console.error('Error creating college:', error);
         alert('Error: Failed to create college. Please try again.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus"></i><span>Create College</span>';
+        }
     }
 }
 
@@ -7496,20 +8400,45 @@ async function loadDepartmentsPage() {
         const data = await response.json();
         console.log('[DEBUG] Response data:', data);
         if (data.success) {
-            localDepartmentsData = data.departments;
+            localDepartmentsData = Array.isArray(data.departments) ? data.departments : [];
+            populateDepartmentCollegeFilter(localDepartmentsData);
             renderDepartmentsData(localDepartmentsData);
             setupDepartmentsSearch();
         } else {
-            document.getElementById('departmentsTableBody').innerHTML = `
-                <tr><td colspan="4" style="text-align: center; padding: 25px; color: #dc3545;">Error: ${escapeHtml(data.message)}</td></tr>
-            `;
+            const tbody = document.getElementById('departmentsTableBody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr><td colspan="2" style="text-align: center; padding: 25px; color: #dc3545;">Error: ${escapeHtml(data.message || 'Failed to load departments')}</td></tr>
+                `;
+            }
         }
     } catch (error) {
         console.error('[DEBUG] Error loading departments data:', error);
         console.error('[DEBUG] Error details:', error.message, error.stack);
-        document.getElementById('departmentsTableBody').innerHTML = `
-            <tr><td colspan="4" style="text-align: center; padding: 25px; color: #dc3545;">Failed to load departments data: ${escapeHtml(error.message)}</td></tr>
-        `;
+        const tbody = document.getElementById('departmentsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr><td colspan="2" style="text-align: center; padding: 25px; color: #dc3545;">Failed to load departments data: ${escapeHtml(error.message)}</td></tr>
+            `;
+        }
+    }
+}
+
+function populateDepartmentCollegeFilter(departments) {
+    const select = document.getElementById('deptCollegeFilter');
+    if (!select || !Array.isArray(departments)) return;
+
+    const currentVal = select.value;
+    const colleges = Array.from(new Set(departments.map(d => d.college).filter(Boolean))).sort();
+    select.innerHTML = '<option value="all">All Colleges</option>';
+    colleges.forEach(col => {
+        const opt = document.createElement('option');
+        opt.value = col;
+        opt.textContent = col;
+        select.appendChild(opt);
+    });
+    if (colleges.includes(currentVal)) {
+        select.value = currentVal;
     }
 }
 
@@ -7517,21 +8446,30 @@ function renderDepartmentsData(departments) {
     const tbody = document.getElementById('departmentsTableBody');
     if (!tbody) return;
 
-    if (departments.length === 0) {
+    const countBadge = document.getElementById('departmentsCountBadge');
+    const totalDepts = Array.isArray(departments) ? departments.length : 0;
+    if (countBadge) {
+        countBadge.textContent = `${totalDepts} Department${totalDepts === 1 ? '' : 's'}`;
+    }
+
+    if (!Array.isArray(departments) || departments.length === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="4" style="text-align: center; padding: 25px; color: #6a7b8c;">No departments found.</td></tr>
+            <tr>
+                <td colspan="2" class="colleges-loading-cell">
+                    <i class="fas fa-network-wired"></i>
+                    <span>No departments found.</span>
+                </td>
+            </tr>
         `;
         return;
     }
 
-    // Render Stats cards
-    let totalDepts = departments.length;
+    // Render Stats if elements exist in DOM
     let totalCoordinators = 0;
     let totalUsers = 0;
-
     departments.forEach(dept => {
-        totalCoordinators += dept.totalCoordinators;
-        totalUsers += dept.totalUsers;
+        totalCoordinators += Number(dept.totalCoordinators !== undefined ? dept.totalCoordinators : (Array.isArray(dept.coordinators) ? dept.coordinators.length : 0));
+        totalUsers += Number(dept.totalUsers || 0);
     });
 
     const totalDeptsEl = document.getElementById('totalDeptsCountStat');
@@ -7542,122 +8480,87 @@ function renderDepartmentsData(departments) {
     if (totalCoordinatorsEl) totalCoordinatorsEl.textContent = totalCoordinators;
     if (totalUsersEl) totalUsersEl.textContent = totalUsers;
 
-    // Render Table Body
+    // Render Table Body: Only Department and Coordinator columns
     tbody.innerHTML = departments.map((dept, index) => {
-        const coordinatorsList = dept.coordinators && dept.coordinators.length > 0 
-            ? dept.coordinators.map(c => `${escapeHtml(c.name)} <span style="font-size:11px; color:#6a7b8c;">(${escapeHtml(c.email)})</span>`).join('<br>')
-            : '<span style="color: #cbd5e1; font-style: italic;">No coordinators</span>';
+        const coordCount = Number(dept.totalCoordinators !== undefined ? dept.totalCoordinators : (Array.isArray(dept.coordinators) ? dept.coordinators.length : 0));
+        const coordTooltip = coordCount > 0 && Array.isArray(dept.coordinators)
+            ? dept.coordinators.map(c => c.name ? `${c.name} (${c.email || 'no email'})` : (c.email || 'Coordinator')).join(', ')
+            : '0 coordinators assigned';
+
+        const coordDisplay = coordCount > 0
+            ? `<span class="college-badge-coord" title="${escapeHtml(coordTooltip)}"><i class="fas fa-user-tie" aria-hidden="true"></i> <span>${coordCount}</span></span>`
+            : `<span class="coord-unassigned-pill" title="0 coordinators assigned"><i class="fas fa-user-xmark" aria-hidden="true"></i> <span>0</span></span>`;
 
         return `
             <tr class="dept-row-item" id="dept-row-${index}">
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; font-weight: 500; color: #1e4a76;">
-                    ${escapeHtml(dept.department)}
-                    <div style="font-size: 11px; color: #6a7b8c; margin-top: 2px;">${escapeHtml(dept.college)}</div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; font-size: 12px; line-height: 1.4;">${coordinatorsList}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; text-align: center;">${dept.totalUsers}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eef2f6; text-align: center;">
-                    <button class="members-collapse-btn" onclick="toggleDeptMembers(${index})">
-                        <i class="fas fa-eye" id="toggle-icon-${index}"></i>
-                        <span id="toggle-text-${index}">Show Members</span>
-                    </button>
-                </td>
-            </tr>
-            <tr id="members-detail-row-${index}" class="members-row" style="display: none;">
-                <td colspan="4" style="padding: 15px; border-bottom: 1px solid #eef2f6;">
-                    <div class="members-container" style="background: white; border-left: 4px solid #1e4a76; padding: 15px; border-radius: 4px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
-                        <h5 style="margin-bottom: 12px; font-weight: 600; color: #1e4a76; font-size: 14px;">
-                            <i class="fas fa-users-cog"></i> Users & Coordinators in ${escapeHtml(dept.department)}
-                        </h5>
-                        ${dept.members && dept.members.length > 0 ? `
-                            <table class="members-table" style="width:100%; border-collapse:collapse; font-size:13px;">
-                                <thead>
-                                    <tr>
-                                        <th style="text-align: left; background:#f8fafc; padding:8px; border-bottom:1px solid #e2e8f0; font-weight:600;">Name</th>
-                                        <th style="text-align: left; background:#f8fafc; padding:8px; border-bottom:1px solid #e2e8f0; font-weight:600;">Email</th>
-                                        <th style="text-align: left; background:#f8fafc; padding:8px; border-bottom:1px solid #e2e8f0; font-weight:600;">Role</th>
-                                        <th style="text-align: left; background:#f8fafc; padding:8px; border-bottom:1px solid #e2e8f0; font-weight:600;">College</th>
-                                        <th style="text-align: left; background:#f8fafc; padding:8px; border-bottom:1px solid #e2e8f0; font-weight:600;">Campus</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${dept.members.map(m => `
-                                        <tr>
-                                            <td style="font-weight: 500; padding:8px; border-bottom:1px solid #edf2f7;">${escapeHtml(m.name)}</td>
-                                            <td style="padding:8px; border-bottom:1px solid #edf2f7;">${escapeHtml(m.email)}</td>
-                                            <td style="padding:8px; border-bottom:1px solid #edf2f7;"><span class="status-badge ${m.role === 'coordinator' ? 'status-active' : 'status-pending'}">${escapeHtml(m.role)}</span></td>
-                                            <td style="padding:8px; border-bottom:1px solid #edf2f7;">${escapeHtml(m.college)}</td>
-                                            <td style="padding:8px; border-bottom:1px solid #edf2f7;">${escapeHtml(m.campus)}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        ` : `<p style="font-size: 12px; color: #6a7b8c; font-style: italic;">No users or coordinators registered in this department.</p>`}
+                <td>
+                    <div class="college-cell-title">
+                        <span class="college-avatar-badge"><i class="fas fa-network-wired" style="font-size: 13px;"></i></span>
+                        <div>
+                            <strong class="college-name">${escapeHtml(dept.department || 'Unnamed Department')}</strong>
+                            ${dept.college ? `<span class="college-sub-code">${escapeHtml(dept.college)}</span>` : ''}
+                        </div>
                     </div>
+                </td>
+                <td class="text-center">
+                    ${coordDisplay}
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-function toggleDeptMembers(index) {
-    const detailRow = document.getElementById(`members-detail-row-${index}`);
-    const toggleIcon = document.getElementById(`toggle-icon-${index}`);
-    const toggleText = document.getElementById(`toggle-text-${index}`);
-    if (!detailRow) return;
+function filterDepartmentRows() {
+    const searchInput = document.getElementById('deptSearch');
+    const filterSelect = document.getElementById('deptCollegeFilter');
+    const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const selectedCollege = filterSelect ? filterSelect.value : 'all';
 
-    if (detailRow.style.display === 'none') {
-        detailRow.style.display = '';
-        toggleIcon.className = 'fas fa-eye-slash';
-        toggleText.textContent = 'Hide Members';
-    } else {
-        detailRow.style.display = 'none';
-        toggleIcon.className = 'fas fa-eye';
-        toggleText.textContent = 'Show Members';
+    const rows = document.querySelectorAll('.dept-row-item');
+    let visibleCount = 0;
+
+    rows.forEach((row, index) => {
+        const dept = localDepartmentsData[index];
+        const deptName = (dept && dept.department ? dept.department : (row.cells[0]?.textContent || '')).toLowerCase();
+        const deptCollege = dept && dept.college ? dept.college : '';
+        const matchesCollege = (selectedCollege === 'all') || (deptCollege === selectedCollege);
+
+        let matchesQuery = !query || deptName.includes(query) || deptCollege.toLowerCase().includes(query);
+        if (!matchesQuery && dept && Array.isArray(dept.coordinators)) {
+            matchesQuery = dept.coordinators.some(c => 
+                (c.name && c.name.toLowerCase().includes(query)) || 
+                (c.email && c.email.toLowerCase().includes(query))
+            );
+        }
+
+        if (matchesCollege && matchesQuery) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const countBadge = document.getElementById('departmentsCountBadge');
+    if (countBadge) {
+        countBadge.textContent = `${visibleCount} Department${visibleCount === 1 ? '' : 's'}`;
     }
 }
 
 function setupDepartmentsSearch() {
     const searchInput = document.getElementById('deptSearch');
-    if (!searchInput) return;
+    const filterSelect = document.getElementById('deptCollegeFilter');
 
-    searchInput.addEventListener('input', function() {
-        const query = this.value.toLowerCase().trim();
-        const rows = document.querySelectorAll('.dept-row-item');
-        rows.forEach((row, index) => {
-            const deptName = row.cells[0].textContent.toLowerCase();
-            const detailRow = document.getElementById(`members-detail-row-${index}`);
-            
-            // Search inside members as well
-            let matchesMember = false;
-            if (localDepartmentsData[index] && localDepartmentsData[index].members) {
-                matchesMember = localDepartmentsData[index].members.some(m => 
-                    m.name.toLowerCase().includes(query) || 
-                    m.email.toLowerCase().includes(query) ||
-                    m.role.toLowerCase().includes(query)
-                );
-            }
+    if (searchInput && !searchInput.dataset.bound) {
+        searchInput.dataset.bound = 'true';
+        searchInput.addEventListener('input', filterDepartmentRows);
+    }
+    if (filterSelect && !filterSelect.dataset.bound) {
+        filterSelect.dataset.bound = 'true';
+        filterSelect.addEventListener('change', filterDepartmentRows);
+    }
+}
 
-            if (deptName.includes(query) || matchesMember) {
-                row.style.display = '';
-                // Keep detail row displayed if searching inside it and query is not empty
-                if (matchesMember && query !== '') {
-                    detailRow.style.display = '';
-                    const toggleIcon = document.getElementById(`toggle-icon-${index}`);
-                    const toggleText = document.getElementById(`toggle-text-${index}`);
-                    if (toggleIcon) toggleIcon.className = 'fas fa-eye-slash';
-                    if (toggleText) toggleText.textContent = 'Hide Members';
-                } else if (query === '') {
-                    detailRow.style.display = 'none';
-                    const toggleIcon = document.getElementById(`toggle-icon-${index}`);
-                    const toggleText = document.getElementById(`toggle-text-${index}`);
-                    if (toggleIcon) toggleIcon.className = 'fas fa-eye';
-                    if (toggleText) toggleText.textContent = 'Show Members';
-                }
-            } else {
-                row.style.display = 'none';
-                detailRow.style.display = 'none';
-            }
-        });
-    });
+function toggleDeptMembers(index) {
+    // Deprecated: members detail row removed in simplified directory view
 }

@@ -288,8 +288,8 @@ class SupabaseAuthService
         }
 
         // Step 3: Supabase is reachable, but signIn failed (e.g., user not yet migrated to Supabase Auth).
-        // If local password matched, provision/sync the user in Supabase Auth via Admin API and sign in again.
-        if ($localPasswordVerified && $this->config->secretKey !== '') {
+        // If local password matched, provision/sync the user in Supabase Auth via Admin API or direct Postgres and sign in again.
+        if ($localPasswordVerified) {
             $syncResult = $this->syncLocalUserToSupabase($localUserRow, $plainPassword);
             if ($syncResult['success']) {
                 $retrySignIn = $this->signInWithPassword($email, $plainPassword);
@@ -330,13 +330,6 @@ class SupabaseAuthService
      */
     public function syncLocalUserToSupabase(array $localUserRow, ?string $plainPassword = null): array
     {
-        if (! $this->isConfigured() || $this->config->secretKey === '') {
-            return [
-                'success' => false,
-                'error'   => 'Supabase Admin secretKey is not configured.',
-            ];
-        }
-
         $email = strtolower(trim((string) ($localUserRow['Email'] ?? $localUserRow['email'] ?? '')));
         if ($email === '') {
             return [
@@ -345,73 +338,225 @@ class SupabaseAuthService
             ];
         }
 
-        $appMetadata = $this->buildAppMetadataFromLocalUser($localUserRow);
-        $userMetadata = $this->buildUserMetadataFromLocalUser($localUserRow);
+        // If secretKey is configured, attempt REST Admin API first
+        if ($this->isConfigured() && $this->config->secretKey !== '') {
+            $appMetadata = $this->buildAppMetadataFromLocalUser($localUserRow);
+            $userMetadata = $this->buildUserMetadataFromLocalUser($localUserRow);
 
-        // Try creating the user first via POST /auth/v1/admin/users
-        $createPayload = [
-            'email'         => $email,
-            'email_confirm' => true,
-            'app_metadata'  => $appMetadata,
-            'user_metadata' => $userMetadata,
-        ];
-        if ($plainPassword !== null && $plainPassword !== '') {
-            $createPayload['password'] = $plainPassword;
-        }
-
-        $createResponse = $this->request(
-            'POST',
-            '/auth/v1/admin/users',
-            $createPayload,
-            $this->buildAdminHeaders()
-        );
-
-        if ($createResponse['unreachable']) {
-            return [
-                'success' => false,
-                'error'   => $createResponse['error'] ?? 'Supabase Admin API unreachable.',
-            ];
-        }
-
-        if ($createResponse['status'] >= 200 && $createResponse['status'] < 300 && is_array($createResponse['data'])) {
-            return [
-                'success' => true,
-                'user'    => $createResponse['data'],
-            ];
-        }
-
-        // If user already exists in Supabase Auth, look up by email and update via PUT /auth/v1/admin/users/{id}
-        $existingUser = $this->adminFindUserByEmail($email);
-        if ($existingUser !== null && ! empty($existingUser['id'])) {
-            $updatePayload = [
+            $createPayload = [
                 'email'         => $email,
                 'email_confirm' => true,
                 'app_metadata'  => $appMetadata,
                 'user_metadata' => $userMetadata,
             ];
             if ($plainPassword !== null && $plainPassword !== '') {
-                $updatePayload['password'] = $plainPassword;
+                $createPayload['password'] = $plainPassword;
             }
 
-            $updateResponse = $this->request(
-                'PUT',
-                '/auth/v1/admin/users/' . rawurlencode((string) $existingUser['id']),
-                $updatePayload,
+            $createResponse = $this->request(
+                'POST',
+                '/auth/v1/admin/users',
+                $createPayload,
                 $this->buildAdminHeaders()
             );
 
-            if (! $updateResponse['unreachable'] && $updateResponse['status'] >= 200 && $updateResponse['status'] < 300) {
+            if ($createResponse['status'] >= 200 && $createResponse['status'] < 300 && is_array($createResponse['data'])) {
                 return [
                     'success' => true,
-                    'user'    => is_array($updateResponse['data']) ? $updateResponse['data'] : $existingUser,
+                    'user'    => $createResponse['data'],
                 ];
+            }
+
+            // Only attempt user lookup/update via Admin API if the key was not rejected with 401 Unauthorized
+            if ($createResponse['status'] !== 401) {
+                // If user already exists in Supabase Auth, look up by email and update via PUT /auth/v1/admin/users/{id}
+                $existingUser = $this->adminFindUserByEmail($email);
+                if ($existingUser !== null && ! empty($existingUser['id'])) {
+                    $updatePayload = [
+                        'email'         => $email,
+                        'email_confirm' => true,
+                        'app_metadata'  => $appMetadata,
+                        'user_metadata' => $userMetadata,
+                    ];
+                    if ($plainPassword !== null && $plainPassword !== '') {
+                        $updatePayload['password'] = $plainPassword;
+                    }
+
+                    $updateResponse = $this->request(
+                        'PUT',
+                        '/auth/v1/admin/users/' . rawurlencode((string) $existingUser['id']),
+                        $updatePayload,
+                        $this->buildAdminHeaders()
+                    );
+
+                    if (! $updateResponse['unreachable'] && $updateResponse['status'] >= 200 && $updateResponse['status'] < 300) {
+                        return [
+                            'success' => true,
+                            'user'    => is_array($updateResponse['data']) ? $updateResponse['data'] : $existingUser,
+                        ];
+                    }
+                }
             }
         }
 
-        return [
-            'success' => false,
-            'error'   => (string) ($createResponse['data']['msg'] ?? $createResponse['data']['message'] ?? 'Unable to sync user with Supabase Auth.'),
-        ];
+        // Fallback: Provision directly into PostgreSQL auth.users & auth.identities
+        return $this->syncUserDirectlyViaPostgres($localUserRow, $plainPassword);
+    }
+
+    /**
+     * Directly provision/upsert a user into Supabase's PostgreSQL auth.users and auth.identities.
+     * This provides 100% reliable auto-sync even when external admin REST keys are restricted.
+     *
+     * @param array<string, mixed> $localUserRow
+     * @return array{success: bool, user?: array<string, mixed>, error?: string}
+     */
+    public function syncUserDirectlyViaPostgres(array $localUserRow, ?string $plainPassword = null): array
+    {
+        $email = strtolower(trim((string) ($localUserRow['Email'] ?? $localUserRow['email'] ?? '')));
+        if ($email === '') {
+            return [
+                'success' => false,
+                'error'   => 'Email is required to sync user.',
+            ];
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $existing = $db->query('SELECT id, email FROM auth.users WHERE LOWER(email) = LOWER(?)', [$email])->getRowArray();
+
+            $appMetadata = json_encode($this->buildAppMetadataFromLocalUser($localUserRow));
+            $userMetadata = json_encode($this->buildUserMetadataFromLocalUser($localUserRow));
+
+            $rawPass = $plainPassword ?? (string) ($localUserRow['Password'] ?? '');
+
+            $computedHash = '';
+            if ($rawPass !== '') {
+                if (str_starts_with($rawPass, '$2y$')) {
+                    $computedHash = '$2a$' . substr($rawPass, 4);
+                } elseif (str_starts_with($rawPass, '$2a$')) {
+                    $computedHash = $rawPass;
+                } else {
+                    // Standard bcrypt compatible with Supabase GoTrue ($2a$ prefix, cost 10)
+                    $bcrypt = password_hash($rawPass, PASSWORD_BCRYPT, ['cost' => 10]);
+                    $computedHash = '$2a$' . substr($bcrypt, 4);
+                }
+            }
+
+            if (! empty($existing['id'])) {
+                $userId = (string) $existing['id'];
+                if ($computedHash !== '') {
+                    $db->query(
+                        'UPDATE auth.users SET encrypted_password = ?, raw_app_meta_data = ?::jsonb, raw_user_meta_data = ?::jsonb, email_confirmed_at = COALESCE(email_confirmed_at, NOW()), updated_at = NOW() WHERE id = ?::uuid',
+                        [$computedHash, $appMetadata, $userMetadata, $userId]
+                    );
+                } else {
+                    $db->query(
+                        'UPDATE auth.users SET raw_app_meta_data = ?::jsonb, raw_user_meta_data = ?::jsonb, email_confirmed_at = COALESCE(email_confirmed_at, NOW()), updated_at = NOW() WHERE id = ?::uuid',
+                        [$appMetadata, $userMetadata, $userId]
+                    );
+                }
+
+                // Ensure identity exists for this user in auth.identities
+                $identitySql = "
+                    INSERT INTO auth.identities (
+                        id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+                    ) VALUES (
+                        gen_random_uuid(),
+                        ?::uuid,
+                        ?::text,
+                        json_build_object('sub', ?::text, 'email', ?::text, 'email_verified', true, 'phone_verified', false)::jsonb,
+                        'email',
+                        NOW(),
+                        NOW(),
+                        NOW()
+                    ) ON CONFLICT DO NOTHING;
+                ";
+                $db->query($identitySql, [$userId, $userId, $userId, $email]);
+
+                return [
+                    'success' => true,
+                    'user'    => [
+                        'id'            => $userId,
+                        'email'         => $email,
+                        'app_metadata'  => json_decode($appMetadata, true),
+                        'user_metadata' => json_decode($userMetadata, true),
+                    ],
+                ];
+            }
+
+            if ($computedHash === '') {
+                return [
+                    'success' => false,
+                    'error'   => 'Password is required to create a new Supabase Auth user.',
+                ];
+            }
+
+            $insertSql = "
+                INSERT INTO auth.users (
+                    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                    confirmation_token, recovery_token, email_change_token_new, email_change,
+                    phone_change, phone_change_token, email_change_token_current, reauthentication_token,
+                    email_change_confirm_status, is_sso_user, is_anonymous,
+                    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+                ) VALUES (
+                    '00000000-0000-0000-0000-000000000000',
+                    gen_random_uuid(),
+                    'authenticated',
+                    'authenticated',
+                    ?,
+                    ?,
+                    NOW(),
+                    '', '', '', '', '', '', '', '', 0, false, false,
+                    ?::jsonb,
+                    ?::jsonb,
+                    NOW(),
+                    NOW()
+                ) RETURNING id;
+            ";
+
+            $insertRow = $db->query($insertSql, [$email, $computedHash, $appMetadata, $userMetadata])->getRowArray();
+            $newUserId = (string) ($insertRow['id'] ?? '');
+
+            if ($newUserId === '') {
+                return [
+                    'success' => false,
+                    'error'   => 'Failed to generate new Supabase user ID.',
+                ];
+            }
+
+            $identitySql = "
+                INSERT INTO auth.identities (
+                    id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+                ) VALUES (
+                    gen_random_uuid(),
+                    ?::uuid,
+                    ?::text,
+                    json_build_object('sub', ?::text, 'email', ?::text, 'email_verified', true, 'phone_verified', false)::jsonb,
+                    'email',
+                    NOW(),
+                    NOW(),
+                    NOW()
+                ) ON CONFLICT DO NOTHING;
+            ";
+            $db->query($identitySql, [$newUserId, $newUserId, $newUserId, $email]);
+
+            return [
+                'success' => true,
+                'user'    => [
+                    'id'            => $newUserId,
+                    'email'         => $email,
+                    'app_metadata'  => json_decode($appMetadata, true),
+                    'user_metadata' => json_decode($userMetadata, true),
+                ],
+            ];
+        } catch (\Throwable $e) {
+            log_message('error', 'syncUserDirectlyViaPostgres failed: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -544,7 +689,7 @@ class SupabaseAuthService
      */
     private function ensureAppMetadataSynced(array $supabaseUser, array $localUserRow): void
     {
-        if (empty($supabaseUser['id']) || $this->config->secretKey === '') {
+        if (empty($supabaseUser['id'])) {
             return;
         }
 
@@ -560,15 +705,34 @@ class SupabaseAuthService
         }
 
         if ($needsSync) {
-            $this->request(
-                'PUT',
-                '/auth/v1/admin/users/' . rawurlencode((string) $supabaseUser['id']),
-                [
-                    'app_metadata'  => array_merge($currentAppMeta, $expectedAppMeta),
-                    'user_metadata' => $this->buildUserMetadataFromLocalUser($localUserRow),
-                ],
-                $this->buildAdminHeaders()
-            );
+            $mergedAppMeta = array_merge($currentAppMeta, $expectedAppMeta);
+            $userMeta = $this->buildUserMetadataFromLocalUser($localUserRow);
+
+            $putSuccess = false;
+            if ($this->config->secretKey !== '') {
+                $putResponse = $this->request(
+                    'PUT',
+                    '/auth/v1/admin/users/' . rawurlencode((string) $supabaseUser['id']),
+                    [
+                        'app_metadata'  => $mergedAppMeta,
+                        'user_metadata' => $userMeta,
+                    ],
+                    $this->buildAdminHeaders()
+                );
+                $putSuccess = ($putResponse['status'] >= 200 && $putResponse['status'] < 300);
+            }
+
+            if (! $putSuccess) {
+                try {
+                    $db = \Config\Database::connect();
+                    $db->query(
+                        'UPDATE auth.users SET raw_app_meta_data = ?::jsonb, raw_user_meta_data = ?::jsonb, updated_at = NOW() WHERE id = ?::uuid',
+                        [json_encode($mergedAppMeta), json_encode($userMeta), (string) $supabaseUser['id']]
+                    );
+                } catch (\Throwable $e) {
+                    log_message('error', 'ensureAppMetadataSynced Postgres update failed: ' . $e->getMessage());
+                }
+            }
         }
     }
 

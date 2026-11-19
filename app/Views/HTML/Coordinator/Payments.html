@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payments | Coordinator – Alumni Tracer</title>
+    <title>Payments | Coordinator | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="CoordinatorCommon.css">
     <script>
@@ -206,15 +207,18 @@
 <body>
 <div class="coordinator-shell">
     <aside class="coordinator-sidebar">
-        <div class="brand-block">
-            <div class="brand-mark"><i class="fas fa-graduation-cap"></i></div>
-            <div><h1>Alumni Tracker</h1><p>College Coordinator</p></div>
-        </div>
+            <div class="brand-block">
+                <div class="brand-mark"><img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="brand-logo"></div>
+                <div>
+                    <h1>GradVision</h1>
+                    <p>College Coordinator</p>
+                </div>
+            </div>
         <div class="sidebar-user-card">
             <div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div>
             <div class="sidebar-user-info">
-                <span class="sidebar-user-name" id="sidebarName">Coordinator</span>
-                <span class="sidebar-user-role">Coordinator</span>
+                <span class="sidebar-user-name" id="sidebarName">Loading...</span>
+                <span class="sidebar-user-role" id="sidebarDept">Loading...</span>
             </div>
         </div>
         <nav class="coordinator-nav" aria-label="Coordinator sections">
@@ -244,12 +248,8 @@
     <main class="coordinator-main">
         <header class="topbar">
             <div>
-                <p class="eyebrow" id="topbarDept">Assigned College</p>
+                <p class="eyebrow" id="topbarDept">Assigned Department</p>
                 <h2>Payments</h2>
-            </div>
-            <div class="profile-chip">
-                <span id="topbarName">Coordinator</span>
-                <div class="avatar"><i class="fas fa-user"></i></div>
             </div>
         </header>
 
@@ -297,7 +297,7 @@
                 <div class="pay-card-head">
                     <div class="pay-title-grp">
                         <h3><i class="fas fa-file-invoice-dollar" style="color:#1e3a5c;"></i> Payment Transactions</h3>
-                        <p>View and record alumni payment fees for your assigned college</p>
+                        <p>View and record alumni payment fees for your assigned department</p>
                     </div>
                     <div class="pay-actions">
                         <button class="btn-p btn-p-ghost" onclick="loadPayments()" title="Refresh">
@@ -384,7 +384,7 @@
                 </div>
                 <div class="form-g">
                     <label for="recPayerName">Payer / Alumni Name *</label>
-                    <input type="text" id="recPayerName" class="form-ctrl" placeholder="e.g. Maria Santos" required list="alumniDl" oninput="autoFill(this.value)">
+                    <input type="text" id="recPayerName" class="form-ctrl" placeholder="Search alumni name, email, or ID..." required list="alumniDl" oninput="autoFill(this.value)" onchange="autoFill(this.value)">
                     <datalist id="alumniDl"></datalist>
                 </div>
                 <div class="form-row">
@@ -549,6 +549,23 @@
     </div>
 </div>
 
+<!-- Modal: Confirm Payment -->
+<div id="confirmRecordModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box" style="max-width: 400px;">
+        <div class="modal-head">
+            <h3><i class="fas fa-circle-question"></i> Confirm Payment</h3>
+            <button class="modal-close" onclick="resolveCoordConfirm(false)">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="confirmRecordMsg" style="font-size: 13.5px; color: #334155; line-height: 1.5; margin: 0;">Are you sure you want to confirm this payment?</p>
+        </div>
+        <div class="modal-foot">
+            <button type="button" class="btn-p btn-p-ghost" onclick="resolveCoordConfirm(false)">Cancel</button>
+            <button type="button" class="btn-p btn-p-primary" onclick="resolveCoordConfirm(true)"><i class="fas fa-check"></i> Confirm</button>
+        </div>
+    </div>
+</div>
+
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script src="CoordinatorCommon.js"></script>
@@ -574,7 +591,8 @@
                 const name = d.name || 'Coordinator';
                 const dept = d.department || '';
                 document.getElementById('sidebarName').textContent = name;
-                document.getElementById('topbarName').textContent = name;
+                const sDept = document.getElementById('sidebarDept');
+                if (sDept) sDept.textContent = dept || 'Unassigned Department';
                 if (dept) document.getElementById('topbarDept').textContent = dept;
             }
         } catch { /* silent */ }
@@ -701,11 +719,12 @@
     }
 
     function autoFill(val) {
-        const found = alumniDir.find(a => `${a.FirstName} ${a.LastName}`.toLowerCase() === val.trim().toLowerCase());
-        document.getElementById('hidAlumniId').value = found ? found.id : '';
+        const q = (val || '').trim().toLowerCase();
+        const found = alumniDir.find(a => `${a.FirstName || ''} ${a.LastName || ''}`.trim().toLowerCase() === q);
+        document.getElementById('hidAlumniId').value = found ? (found.id || '') : '';
         if (found) {
-            if (found.alumni_id) document.getElementById('recStudentNo').value = found.alumni_id;
-            if (found.Email) document.getElementById('recEmail').value = found.Email;
+            document.getElementById('recStudentNo').value = found.alumni_id || '';
+            document.getElementById('recEmail').value = found.Email || '';
         }
     }
 
@@ -732,6 +751,24 @@
         document.getElementById('recordModal').classList.add('open');
     }
     function closeRecordModal() { document.getElementById('recordModal').classList.remove('open'); }
+
+    let coordConfirmResolver = null;
+    function askCoordConfirm(msg) {
+        return new Promise((resolve) => {
+            coordConfirmResolver = resolve;
+            const msgEl = document.getElementById('confirmRecordMsg');
+            if (msgEl) msgEl.textContent = msg;
+            document.getElementById('confirmRecordModal').classList.add('open');
+        });
+    }
+    function resolveCoordConfirm(ok) {
+        document.getElementById('confirmRecordModal').classList.remove('open');
+        if (coordConfirmResolver) {
+            const r = coordConfirmResolver;
+            coordConfirmResolver = null;
+            r(Boolean(ok));
+        }
+    }
 
     async function handleRecord(e) {
         e.preventDefault();
@@ -766,6 +803,10 @@
             status: 'verified',
             submitted_by_role: 'coordinator'
         };
+        const confirmed = await askCoordConfirm(`Are you sure you want to confirm and record this payment of ${fmtPhp(payload.amount)} for ${payload.payer_name}?`);
+        if (!confirmed) {
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Payment'; return;
+        }
         try {
             const res = await fetch('../coordinator/payments/create', {
                 method: 'POST',
@@ -833,8 +874,10 @@
     }
     function closeReceiptModal() { document.getElementById('receiptModal').classList.remove('open'); }
 
-    function exportCsv() {
+    async function exportCsv() {
         if (!allPayments.length) { showToast('No payments to export.', 'info'); return; }
+        const confirmed = await askCoordConfirm('Are you sure you want to export the payment records?');
+        if (!confirmed) return;
         const headers = ['Transaction Ref','Payer Name','Student No','Email','Purpose','College','Method','Channel Ref','Amount','Status','Date'];
         const rows = allPayments.map(p => [
             p.transaction_ref, p.payer_name, p.student_number || '', p.payer_email || '',

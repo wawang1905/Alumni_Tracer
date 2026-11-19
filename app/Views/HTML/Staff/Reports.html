@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer</title>
+    <title>Reports | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -21,8 +22,13 @@
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
                 <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
@@ -184,7 +190,7 @@
                 <div class="wizard-step-line"></div>
                 <div class="wizard-step-node" data-step="4" onclick="wizardJumpToStep(4)">
                     <span class="step-num"><i class="fas fa-check"></i><b>4</b></span>
-                    <span class="step-label">Format</span>
+                    <span class="step-label">Type &amp; Format</span>
                 </div>
                 <div class="wizard-step-line"></div>
                 <div class="wizard-step-node" data-step="5" onclick="wizardJumpToStep(5)">
@@ -311,8 +317,49 @@
                     </div>
                 </div>
 
-                <!-- STEP 4: Select Document Type -->
+                <!-- STEP 4: Select Report Type & Document Format -->
                 <div class="wizard-step-pane" id="wizardPane4" data-step="4" hidden>
+                    <!-- Section 1: Report Type -->
+                    <div class="wizard-step-intro">
+                        <h4><i class="fas fa-chart-pie"></i> Select Report Type</h4>
+                        <p>What type of report do you want to generate? Choose the presentation style and analytics depth.</p>
+                    </div>
+
+                    <div class="wizard-report-type-grid">
+                        <label class="wizard-report-type-card is-selected" id="wizardReportTypeCardAlumniTracer">
+                            <input type="radio" name="wizardReportType" value="alumni_tracer" checked onchange="wizardOnReportTypeSelect('alumni_tracer')">
+                            <div class="wizard-format-inner">
+                                <div class="format-icon is-tracer"><i class="fas fa-user-graduate"></i></div>
+                                <h4>Alumni Tracer</h4>
+                                <p>Comprehensive institutional tracer outcome report with program demographics, employment metrics, and categorical question tables.</p>
+                                <span class="format-tag is-recommended">Institutional Tracer Report</span>
+                            </div>
+                        </label>
+
+                        <label class="wizard-report-type-card" id="wizardReportTypeCardGraphs">
+                            <input type="radio" name="wizardReportType" value="graphs" onchange="wizardOnReportTypeSelect('graphs')">
+                            <div class="wizard-format-inner">
+                                <div class="format-icon is-graphs"><i class="fas fa-chart-column"></i></div>
+                                <h4>Graphs</h4>
+                                <p>Visual chart report featuring a top overall distribution graph followed by a multi-column College &amp; Department breakdown matrix for every question.</p>
+                                <span class="format-tag">Top Graph + College &amp; Department Breakdown</span>
+                            </div>
+                        </label>
+
+                        <label class="wizard-report-type-card" id="wizardReportTypeCardRawNumbers">
+                            <input type="radio" name="wizardReportType" value="raw_numbers" onchange="wizardOnReportTypeSelect('raw_numbers')">
+                            <div class="wizard-format-inner">
+                                <div class="format-icon is-raw"><i class="fas fa-calculator"></i></div>
+                                <h4>Raw number of every total number answer gathered</h4>
+                                <p>Detailed frequency counts showing the raw total number of answers gathered for each choice, response tallies, and question totals.</p>
+                                <span class="format-tag">Raw Choice Frequency Counts</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="wizard-step-divider"></div>
+
+                    <!-- Section 2: Document Format -->
                     <div class="wizard-step-intro">
                         <h4><i class="fas fa-file-export"></i> Select Export Document Format</h4>
                         <p>Choose the file format for your generated report. Only one format can be selected.</p>
@@ -343,7 +390,7 @@
                             <input type="radio" name="wizardFormat" value="csv" onchange="wizardOnFormatSelect('csv')">
                             <div class="wizard-format-inner">
                                 <div class="format-icon is-csv"><i class="fas fa-file-csv"></i></div>
-                                <h4>CSV Spreadsheet (.csv)</h4>
+                                <h4>CSV / Excel Spreadsheet (.xlsx)</h4>
                                 <p>Tabular raw response data containing selected questions as columns, ready for Excel or SPSS analysis.</p>
                                 <span class="format-tag">Best for statistical analysis &amp; Excel</span>
                             </div>
@@ -364,7 +411,11 @@
                             <div class="review-value" id="wizardReviewSurveyTitle">—</div>
                         </div>
 
-                        <div class="wizard-review-grid-2">
+                        <div class="wizard-review-grid-3">
+                            <div class="wizard-review-section">
+                                <div class="review-label"><i class="fas fa-chart-pie"></i> Report Type</div>
+                                <div class="review-value" id="wizardReviewReportType">Alumni Tracer</div>
+                            </div>
                             <div class="wizard-review-section">
                                 <div class="review-label"><i class="fas fa-layer-group"></i> Data Included</div>
                                 <div class="review-value" id="wizardReviewDataSummary">—</div>

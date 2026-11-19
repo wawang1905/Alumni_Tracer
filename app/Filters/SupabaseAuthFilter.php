@@ -77,6 +77,12 @@ class SupabaseAuthFilter implements FilterInterface
             }
         }
 
+        // Release the PHP session file lock on read-only GET requests so parallel
+        // frontend fetches (Promise.all) and page navigations are not serialized.
+        if (strtoupper($request->getMethod()) === 'GET' && session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         return null;
     }
 

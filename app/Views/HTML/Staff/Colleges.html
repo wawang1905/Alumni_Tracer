@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USTP Alumni Tracer - Colleges</title>
+    <title>Academic Colleges | GradVision</title>
+    <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="StaffCommon.css">
     <!-- Sidebar state pre-applied before paint to prevent transition flash -->
@@ -14,49 +15,62 @@
                 document.documentElement.classList.add('staff-sidebar-collapsed');
             }
         })();
-    </script></head>
+    </script>
+</head>
 <body class="alumni-management-page">
     <div class="dashboard-container">
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Alumni Tracker</h2>
-                <p>Staff Dashboard</p>
+                <div class="sidebar-logo-wrap">
+                    <div class="sidebar-logo-icon">
+                        <img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="sidebar-brand-logo">
+                    </div>
+                    <h2>GradVision</h2>
+                </div>
+                <p>Head Admin</p>
             </div>
             <div class="sidebar-menu">
-                <div class="menu-item" onclick="location.href='Dashboard.html'">
+                <div class="menu-item" data-page="dashboard" onclick="location.href='Dashboard.html'">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </div>
-                <div class="menu-item" onclick="location.href='AlumniManagement.html'">
+                <div class="menu-item" data-page="alumni" onclick="location.href='AlumniManagement.html'">
                     <i class="fas fa-users"></i>
                     <span>Alumni Management</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Coordinators.html'">
+                <div class="menu-item" data-page="coordinators" onclick="location.href='Coordinators.html'">
                     <i class="fas fa-user-tie"></i>
                     <span>Coordinators</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Events.html'">
+                <div class="menu-item active" data-page="colleges" onclick="location.href='Colleges.html'">
+                    <i class="fas fa-building-columns"></i>
+                    <span>Colleges</span>
+                </div>
+                <div class="menu-item" data-page="departments" onclick="location.href='Departments.html'">
+                    <i class="fas fa-network-wired"></i>
+                    <span>Departments</span>
+                </div>
+                <div class="menu-item" data-page="events" onclick="location.href='Events.html'">
                     <i class="fas fa-calendar-alt"></i>
                     <span>Events</span>
                 </div>
-                <div class="menu-item" onclick="location.href='News.html'">
+                <div class="menu-item" data-page="news" onclick="location.href='News.html'">
                     <i class="fas fa-newspaper"></i>
                     <span>News</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Surveys.html'">
+                <div class="menu-item" data-page="surveys" onclick="location.href='Surveys.html'">
                     <i class="fas fa-file-alt"></i>
                     <span>Surveys</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Reports.html'">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Reports</span>
+                <div class="menu-item" data-page="payments" onclick="location.href='Payments.html'">
+                    <i class="fas fa-receipt"></i>
+                    <span>Payments</span>
                 </div>
-                <div class="menu-item" onclick="location.href='Settings.html'">
+                <div class="menu-item" data-page="settings" onclick="location.href='Settings.html'">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </div>
-            
             </div>
             <div class="sidebar-footer">
                 <button id="staffLogoutBtn" class="sidebar-logout-btn" type="button" title="Log Out">
@@ -69,7 +83,7 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="top-bar">
-                <div class="page-title" id="pageTitle">Colleges Directory</div>
+                <div class="page-title" id="pageTitle">Colleges Management</div>
                 <div class="staff-info">
                     <span class="staff-name">Staff Office</span>
                     <div class="staff-avatar">
@@ -78,94 +92,142 @@
                 </div>
             </div>
 
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalCollegesCountStat">—</h3>
-                        <p>Total Colleges</p>
+            <!-- Colleges Workspace -->
+            <div class="dashboard-workspace colleges-workspace">
+                <!-- Minimalist Executive Toolbar -->
+                <div class="dashboard-exec-bar">
+                    <div class="dashboard-exec-copy">
+                        <h2>Academic Colleges Directory</h2>
+                        <p>Institutional oversight of campus colleges, associated academic departments, coordinator leadership, and graduate tracer engagement.</p>
                     </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-building-columns"></i>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalCollegesCoursesStat">—</h3>
-                        <p>Total Departments</p>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-book"></i>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalCollegesAlumniStat">—</h3>
-                        <p>Total Alumni</p>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info">
-                        <h3 id="totalCollegesActiveStat">—</h3>
-                        <p>Active Members</p>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-user-check"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="dashboard-charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-                <!-- Module 1: Colleges List -->
-                <div class="section-card">
-                    <div class="section-header" style="border-bottom: 1px solid #eef2f6; padding-bottom: 15px; margin-bottom: 15px;">
-                        <div>
-                            <h3 style="font-size: 18px; font-weight: 600; color: #1e4a76;">
-                                <i class="fas fa-table" style="margin-right: 8px;"></i> Colleges Directory
-                            </h3>
-                            <p style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Registered academic colleges in the tracer database</p>
-                        </div>
-                        <div style="display: flex; gap: 10px;">
-                            <button onclick="openAddCollegeModal()" style="padding: 6px 12px; background: #1e4a76; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer;">
-                                <i class="fas fa-plus" style="margin-right: 5px;"></i> Add College
-                            </button>
-                            <input type="text" id="collegeSearch" placeholder="Search college..." style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
-                        </div>
-                    </div>
-                    <div style="overflow-x: auto; max-height: 400px;">
-                        <table class="data-table" style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; background: #f8f9fa; font-weight: 600; font-size: 13px;">College</th>
-                                    <th style="padding: 10px; text-align: center; background: #f8f9fa; font-weight: 600; font-size: 13px;">Departments</th>
-                                    <th style="padding: 10px; text-align: center; background: #f8f9fa; font-weight: 600; font-size: 13px;">Alumni</th>
-                                    <th style="padding: 10px; text-align: center; background: #f8f9fa; font-weight: 600; font-size: 13px;">Coordinators</th>
-                                </tr>
-                            </thead>
-                            <tbody id="collegesTableBody">
-                                <tr>
-                                    <td colspan="4" style="text-align: center; padding: 20px; color: #7f8c8d;">Loading colleges data...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="dashboard-exec-actions">
+                        <button type="button" class="alumni-btn alumni-btn-secondary" onclick="location.href='Departments.html'">
+                            <i class="fas fa-network-wired"></i>
+                            <span>View Departments</span>
+                        </button>
+                        <button type="button" class="alumni-btn alumni-btn-secondary" onclick="location.href='Coordinators.html'">
+                            <i class="fas fa-user-tie"></i>
+                            <span>Coordinators</span>
+                        </button>
+                        <button type="button" class="alumni-btn alumni-btn-primary" onclick="openAddCollegeModal()">
+                            <i class="fas fa-plus"></i>
+                            <span>Add College</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Module 2: College Statistics Overview -->
-                <div class="section-card">
-                    <div class="section-header" style="border-bottom: 1px solid #eef2f6; padding-bottom: 15px; margin-bottom: 15px;">
-                        <div>
-                            <h3 style="font-size: 18px; font-weight: 600; color: #1e4a76;">
-                                <i class="fas fa-chart-bar" style="margin-right: 8px;"></i> College Statistics Overview
-                            </h3>
-                            <p style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Employment & active registration ratio by college</p>
+                <!-- Minimalist KPI Strip -->
+                <div class="stats-grid dashboard-kpi-strip">
+                    <div class="stat-card kpi-stat-card">
+                        <div class="kpi-stat-header">
+                            <span class="kpi-stat-title">Colleges</span>
+                            <div class="kpi-stat-icon">
+                                <i class="fas fa-building-columns"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-stat-value" id="totalCollegesCountStat">—</div>
+                        <div class="kpi-stat-subtext">
+                            <span class="kpi-badge-neutral">Academic units</span>
                         </div>
                     </div>
-                    <div id="collegesStatsContainer" style="display: flex; flex-direction: column; gap: 15px; max-height: 400px; overflow-y: auto; padding-right: 5px;">
-                        <div style="text-align: center; padding: 20px; color: #7f8c8d;">Loading statistics...</div>
+
+                    <div class="stat-card kpi-stat-card">
+                        <div class="kpi-stat-header">
+                            <span class="kpi-stat-title">Departments</span>
+                            <div class="kpi-stat-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-stat-value" id="totalCollegesCoursesStat">—</div>
+                        <div class="kpi-stat-subtext">
+                            <span class="kpi-badge-neutral">Degree programs</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card kpi-stat-card">
+                        <div class="kpi-stat-header">
+                            <span class="kpi-stat-title">Registered Alumni</span>
+                            <div class="kpi-stat-icon">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-stat-value" id="totalCollegesAlumniStat">—</div>
+                        <div class="kpi-stat-subtext">
+                            <span class="kpi-badge-neutral">Graduate records</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card kpi-stat-card">
+                        <div class="kpi-stat-header">
+                            <span class="kpi-stat-title">Active Members</span>
+                            <div class="kpi-stat-icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-stat-value" id="totalCollegesActiveStat">—</div>
+                        <div class="kpi-stat-subtext">
+                            <span class="kpi-badge-neutral" id="totalCollegesActivePercentBadge">Verified profiles</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Asymmetric Main Grid: Colleges Table (Primary) & Engagement Ratio (Secondary) -->
+                <div class="colleges-layout-grid">
+                    <!-- Module 1: Colleges Directory Table -->
+                    <div class="section-card colleges-table-card college-table-card">
+                        <div class="section-header colleges-card-header">
+                            <div class="chart-header-title">
+                                <div class="colleges-title-wrap">
+                                    <h3>Colleges Directory</h3>
+                                    <span id="collegesCountBadge" class="colleges-count-pill">0 Colleges</span>
+                                </div>
+                                <span class="chart-header-subtitle">Registered academic colleges, programs, and coordinator assignments</span>
+                            </div>
+                            <div class="colleges-header-controls">
+                                <div class="colleges-search-wrap">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <input type="text" id="collegeSearch" class="colleges-search-input" placeholder="Search college or coordinator..." autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="colleges-table-shell">
+                            <table class="colleges-table">
+                                <thead>
+                                    <tr>
+                                        <th>College</th>
+                                        <th>Departments</th>
+                                        <th>Alumni</th>
+                                        <th>Active Rate</th>
+                                        <th>Coordinators</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="collegesTableBody">
+                                    <tr>
+                                        <td colspan="5" class="colleges-loading-cell">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                            <span>Loading colleges directory...</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Module 2: College Statistics Overview -->
+                    <div class="section-card colleges-stats-card">
+                        <div class="section-header colleges-card-header">
+                            <div class="chart-header-title">
+                                <h3>Alumni Engagement Ratio</h3>
+                                <span class="chart-header-subtitle">Active verification and response rate per academic unit</span>
+                            </div>
+                        </div>
+                        <div id="collegesStatsContainer" class="colleges-stats-list">
+                            <div class="colleges-loading-cell">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span>Loading statistics...</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -173,28 +235,37 @@
     </div>
 
     <!-- Add College Modal -->
-    <div id="addCollegeModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3>Add New College</h3>
-                <span class="close" onclick="closeAddCollegeModal()">&times;</span>
+    <div id="addCollegeModal" class="modal" onclick="if (event.target === this) closeAddCollegeModal();" role="dialog" aria-modal="true" aria-labelledby="addCollegeModalTitle">
+        <div class="modal-content college-modal-content">
+            <div class="college-modal-header">
+                <div>
+                    <h3 id="addCollegeModalTitle">Add New College</h3>
+                    <p class="college-modal-subtitle">Register a new academic college to the campus tracer database.</p>
+                </div>
+                <button type="button" class="college-modal-close" onclick="closeAddCollegeModal()" aria-label="Close modal">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
             </div>
-            <div class="modal-body">
-                <form id="addCollegeForm">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #1e4a76;">College Name *</label>
-                        <input type="text" id="collegeName" name="college_name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+            <form id="addCollegeForm" onsubmit="event.preventDefault(); submitCollegeForm();">
+                <div class="college-modal-body">
+                    <div class="form-group">
+                        <label for="collegeName" class="form-label">College Name <span class="required-star">*</span></label>
+                        <input type="text" id="collegeName" name="college_name" class="form-input" placeholder="e.g. College of Science and Mathematics" required>
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #1e4a76;">Abbreviation</label>
-                        <input type="text" id="collegeAbbreviation" name="abbreviation" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div class="form-group">
+                        <label for="collegeAbbreviation" class="form-label">Abbreviation / Code</label>
+                        <input type="text" id="collegeAbbreviation" name="abbreviation" class="form-input" placeholder="e.g. CSM" maxlength="20">
+                        <span class="form-helper">Optional short acronym or campus division code.</span>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" onclick="closeAddCollegeModal()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
-                <button type="button" onclick="submitCollegeForm()" style="padding: 8px 16px; background: #1e4a76; color: white; border: none; border-radius: 6px; cursor: pointer;">Add College</button>
-            </div>
+                </div>
+                <div class="college-modal-footer">
+                    <button type="button" class="alumni-btn alumni-btn-secondary" onclick="closeAddCollegeModal()">Cancel</button>
+                    <button type="submit" id="addCollegeSubmitBtn" class="alumni-btn alumni-btn-primary">
+                        <i class="fas fa-plus"></i>
+                        <span>Create College</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
