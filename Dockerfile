@@ -50,10 +50,13 @@ RUN sed -i 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
     CustomLog /dev/stdout combined\n\
 </VirtualHost>\n' > /etc/apache2/sites-available/000-default.conf
 
-# Set writable permissions
-RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writable/backups writable/debugbar \
-    && chown -R www-data:www-data writable \
-    && chmod -R 775 writable
+# Allow larger photo/document uploads (default PHP limit is 2M)
+RUN printf "upload_max_filesize = 20M\npost_max_size = 25M\n" > /usr/local/etc/php/conf.d/uploads.ini
+
+# Set writable permissions (including public/uploads/news for news photo uploads)
+RUN mkdir -p writable/cache writable/logs writable/session writable/uploads/profile_pictures writable/uploads/survey_answers writable/backups writable/debugbar public/uploads/news \
+    && chown -R www-data:www-data writable public/uploads \
+    && chmod -R 775 writable public/uploads
 
 EXPOSE 10000
 

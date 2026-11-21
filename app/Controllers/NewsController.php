@@ -72,7 +72,14 @@ class NewsController extends BaseController
 
         $imagePath = null;
         $image = $this->request->getFile('image');
-        if ($image && $image->isValid() && ! $image->hasMoved()) {
+        if ($image && $image->getError() !== UPLOAD_ERR_NO_FILE) {
+            if (! $image->isValid()) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => 'Image upload failed: ' . $image->getErrorString(),
+                ]);
+            }
+
             $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
             if (! in_array($image->getMimeType(), $allowedMimeTypes, true)) {
                 return $this->response->setStatusCode(422)->setJSON([
@@ -82,13 +89,25 @@ class NewsController extends BaseController
             }
 
             $uploadDirectory = ROOTPATH . 'public/uploads/news';
-            if (! is_dir($uploadDirectory)) {
-                mkdir($uploadDirectory, 0777, true);
+            if (! is_dir($uploadDirectory) && ! @mkdir($uploadDirectory, 0775, true)) {
+                log_message('error', 'News image upload failed: unable to create directory {dir}', ['dir' => $uploadDirectory]);
+                return $this->response->setStatusCode(500)->setJSON([
+                    'success' => false,
+                    'message' => 'Server upload folder is not writable. Please contact the administrator.',
+                ]);
             }
 
-            $newName = $image->getRandomName();
-            $image->move($uploadDirectory, $newName);
-            $imagePath = 'uploads/news/' . $newName;
+            try {
+                $newName = $image->getRandomName();
+                $image->move($uploadDirectory, $newName);
+                $imagePath = 'uploads/news/' . $newName;
+            } catch (\Throwable $e) {
+                log_message('error', 'News image move failed: {msg}', ['msg' => $e->getMessage()]);
+                return $this->response->setStatusCode(500)->setJSON([
+                    'success' => false,
+                    'message' => 'Unable to save the uploaded image. Please try again.',
+                ]);
+            }
         }
 
         $user = session('auth_user');
@@ -163,7 +182,14 @@ class NewsController extends BaseController
 
         $imagePath = (string) ($post['image_path'] ?? '');
         $image = $this->request->getFile('image');
-        if ($image && $image->isValid() && ! $image->hasMoved()) {
+        if ($image && $image->getError() !== UPLOAD_ERR_NO_FILE) {
+            if (! $image->isValid()) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => 'Image upload failed: ' . $image->getErrorString(),
+                ]);
+            }
+
             $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
             if (! in_array($image->getMimeType(), $allowedMimeTypes, true)) {
                 return $this->response->setStatusCode(422)->setJSON([
@@ -173,13 +199,25 @@ class NewsController extends BaseController
             }
 
             $uploadDirectory = ROOTPATH . 'public/uploads/news';
-            if (! is_dir($uploadDirectory)) {
-                mkdir($uploadDirectory, 0777, true);
+            if (! is_dir($uploadDirectory) && ! @mkdir($uploadDirectory, 0775, true)) {
+                log_message('error', 'News image update failed: unable to create directory {dir}', ['dir' => $uploadDirectory]);
+                return $this->response->setStatusCode(500)->setJSON([
+                    'success' => false,
+                    'message' => 'Server upload folder is not writable. Please contact the administrator.',
+                ]);
             }
 
-            $newName = $image->getRandomName();
-            $image->move($uploadDirectory, $newName);
-            $newImagePath = 'uploads/news/' . $newName;
+            try {
+                $newName = $image->getRandomName();
+                $image->move($uploadDirectory, $newName);
+                $newImagePath = 'uploads/news/' . $newName;
+            } catch (\Throwable $e) {
+                log_message('error', 'News image update move failed: {msg}', ['msg' => $e->getMessage()]);
+                return $this->response->setStatusCode(500)->setJSON([
+                    'success' => false,
+                    'message' => 'Unable to save the uploaded image. Please try again.',
+                ]);
+            }
 
             if ($imagePath !== '') {
                 $oldImageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $imagePath);
