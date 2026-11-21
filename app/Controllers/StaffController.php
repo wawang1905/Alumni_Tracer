@@ -141,9 +141,10 @@ class StaffController extends BaseController
                 'count' => $totalAlumni,
             ]);
         } catch (\Throwable $e) {
+            log_message('error', 'Error calculating preview count: {msg}', ['msg' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Error calculating preview count: ' . $e->getMessage(),
+                'message' => 'Unable to calculate preview count right now. Please try again later.',
                 'count' => 0,
             ]);
         }
@@ -185,9 +186,10 @@ class StaffController extends BaseController
             return $this->generateLegacyAlumniReport($jsonData);
 
         } catch (\Throwable $e) {
+            log_message('error', 'Error generating report: {msg}', ['msg' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Error generating report: ' . $e->getMessage(),
+                'message' => 'Unable to generate the report right now. Please try again later.',
             ]);
         }
     }

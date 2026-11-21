@@ -69,9 +69,19 @@ class Activity_Model extends Model
 
     public function getActivitiesByDateRange(string $startDate, string $endDate): array
     {
-        return $this->builder()
-            ->where('DATE(created_at) >=', $startDate)
-            ->where('DATE(created_at) <=', $endDate)
+        $builder = $this->builder();
+
+        $cleanStart = $this->normalizeIsoDate($startDate);
+        if ($cleanStart !== null) {
+            $builder->where('DATE(created_at) >=', $cleanStart);
+        }
+
+        $cleanEnd = $this->normalizeIsoDate($endDate);
+        if ($cleanEnd !== null) {
+            $builder->where('DATE(created_at) <=', $cleanEnd);
+        }
+
+        return $builder
             ->orderBy('created_at', 'DESC')
             ->get()
             ->getResultArray();
@@ -130,12 +140,14 @@ class Activity_Model extends Model
         $builder = $this->builder();
         $builder->select('*');
 
-        if (! empty($filters['date_from'])) {
-            $builder->where('DATE(created_at) >=', $filters['date_from']);
+        $dateFrom = $this->normalizeIsoDate($filters['date_from'] ?? null);
+        if ($dateFrom !== null) {
+            $builder->where('DATE(created_at) >=', $dateFrom);
         }
 
-        if (! empty($filters['date_to'])) {
-            $builder->where('DATE(created_at) <=', $filters['date_to']);
+        $dateTo = $this->normalizeIsoDate($filters['date_to'] ?? null);
+        if ($dateTo !== null) {
+            $builder->where('DATE(created_at) <=', $dateTo);
         }
 
         return $builder
@@ -157,30 +169,45 @@ class Activity_Model extends Model
         return $action;
     }
 
+    private function normalizeIsoDate(mixed $input): ?string
+    {
+        $raw = trim((string) ($input ?? ''));
+        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return null;
+        }
+        $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $raw);
+        return ($dt !== false && $dt->format('Y-m-d') === $raw) ? $raw : null;
+    }
+
     private function applyFilters($builder, array $filters): void
     {
         if (! empty($filters['category']) && $filters['category'] !== 'all') {
-            $builder->where('category', $filters['category']);
+            $builder->where('category', trim((string) $filters['category']));
         }
 
         if (! empty($filters['user_type']) && $filters['user_type'] !== 'all') {
-            $builder->where('user_type', $filters['user_type']);
+            $builder->where('user_type', trim((string) $filters['user_type']));
         }
 
-        if (! empty($filters['date_from'])) {
-            $builder->where('DATE(created_at) >=', $filters['date_from']);
+        $dateFrom = $this->normalizeIsoDate($filters['date_from'] ?? null);
+        if ($dateFrom !== null) {
+            $builder->where('DATE(created_at) >=', $dateFrom);
         }
 
-        if (! empty($filters['date_to'])) {
-            $builder->where('DATE(created_at) <=', $filters['date_to']);
+        $dateTo = $this->normalizeIsoDate($filters['date_to'] ?? null);
+        if ($dateTo !== null) {
+            $builder->where('DATE(created_at) <=', $dateTo);
         }
 
         if (! empty($filters['search'])) {
-            $builder->groupStart()
-                ->like('action', $filters['search'])
-                ->orLike('description', $filters['search'])
-                ->orLike('details', $filters['search'])
-                ->groupEnd();
+            $search = mb_substr(trim((string) $filters['search']), 0, 100);
+            if ($search !== '') {
+                $builder->groupStart()
+                    ->like('action', $search)
+                    ->orLike('description', $search)
+                    ->orLike('details', $search)
+                    ->groupEnd();
+            }
         }
     }
 }

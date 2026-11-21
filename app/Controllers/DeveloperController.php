@@ -600,6 +600,10 @@ class DeveloperController extends BaseController
         try {
             $dumpResult = $this->generateSupabaseSqlDump();
             file_put_contents($filepath, $dumpResult['sql']);
+            file_put_contents(
+                $filepath . '.sha256',
+                hash_hmac('sha256', $dumpResult['sql'], $this->getBackupSigningKey())
+            );
             $bytes = filesize($filepath) ?: strlen($dumpResult['sql']);
 
             $backupEntry = [
@@ -621,9 +625,10 @@ class DeveloperController extends BaseController
                 'backups' => $this->getStoredBackupsList(),
             ]);
         } catch (\Throwable $e) {
+            log_message('error', 'Failed to generate Supabase backup: {msg}', ['msg' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Failed to generate Supabase backup: ' . $e->getMessage(),
+                'message' => 'Failed to generate Supabase backup. Please check server logs.',
             ]);
         }
     }
@@ -691,6 +696,9 @@ class DeveloperController extends BaseController
         $filepath = WRITEPATH . 'backups' . DIRECTORY_SEPARATOR . $safeName;
         if ($safeName !== '' && str_ends_with(strtolower($safeName), '.sql') && is_file($filepath)) {
             @unlink($filepath);
+            if (is_file($filepath . '.sha256')) {
+                @unlink($filepath . '.sha256');
+            }
         }
 
         return $this->response->setJSON([
@@ -723,7 +731,7 @@ class DeveloperController extends BaseController
         }
 
         $safeName = basename(trim((string) ($payload['filename'] ?? $payload['backup'] ?? '')));
-        if ($safeName === '' || ! str_ends_with(strtolower($safeName), '.sql')) {
+        if ($safeName === '' || ! preg_match('/^supabase_backup_\d{4}_\d{2}_\d{2}_\d{6}\.sql$/', $safeName)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'Please select a valid .sql backup snapshot to restore.',
@@ -740,6 +748,17 @@ class DeveloperController extends BaseController
 
         try {
             $sql = (string) file_get_contents($filepath);
+            $sigPath = $filepath . '.sha256';
+            $expectedSig = is_file($sigPath) ? trim((string) file_get_contents($sigPath)) : '';
+            $actualSig = hash_hmac('sha256', $sql, $this->getBackupSigningKey());
+
+            if ($expectedSig === '' || ! hash_equals($expectedSig, $actualSig)) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => 'Backup integrity verification failed. Please create a fresh signed backup before restoring.',
+                ]);
+            }
+
             $db = \Config\Database::connect();
             $db->initialize();
 
@@ -758,9 +777,13 @@ class DeveloperController extends BaseController
                 'message' => "Backup snapshot {$safeName} restored to Supabase PostgreSQL.",
             ]);
         } catch (\Throwable $e) {
+            log_message('error', 'Backup restore failed ({file}): {msg}', [
+                'file' => $safeName,
+                'msg'  => $e->getMessage(),
+            ]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Restore failed: ' . $e->getMessage(),
+                'message' => 'Restore failed. Please check server logs for details.',
             ]);
         }
     }
@@ -775,6 +798,7 @@ class DeveloperController extends BaseController
     private function generateSupabaseSqlDump(): array
     {
         $db = \Config\Database::connect();
+        $db->initialize();
         $existingTables = $db->listTables();
 
         // Preferred dependency order so parent tables precede child tables
@@ -888,9 +912,10 @@ class DeveloperController extends BaseController
                 continue;
             }
 
+            $quotedTable = $this->quotePostgresIdentifier($db, $table);
             $pkCols = $pkByTable[$table] ?? [];
             $lines[] = '-- ----------------------------------------------------------------------------';
-            $lines[] = '-- Table: "public"."' . $table . '"';
+            $lines[] = '-- Table: "public".' . $quotedTable;
             $lines[] = '-- ----------------------------------------------------------------------------';
 
             $colDefs = [];
@@ -899,6 +924,7 @@ class DeveloperController extends BaseController
 
             foreach ($cols as $c) {
                 $colName = (string) $c['column_name'];
+                $quotedColName = $this->quotePostgresIdentifier($db, $colName);
                 $sqlType = $this->mapPostgresColumnType($c);
                 $nullable = ($c['is_nullable'] === 'NO') ? ' NOT NULL' : '';
                 $defaultClause = '';
@@ -920,20 +946,20 @@ class DeveloperController extends BaseController
                     }
                 }
 
-                $colDefs[] = '    "' . $colName . '" ' . $sqlType . $defaultClause . $nullable;
+                $colDefs[] = '    ' . $quotedColName . ' ' . $sqlType . $defaultClause . $nullable;
             }
 
             if (! empty($pkCols)) {
-                $quotedPks = array_map(static fn (string $k): string => '"' . $k . '"', $pkCols);
+                $quotedPks = array_map(fn (string $k): string => $this->quotePostgresIdentifier($db, $k), $pkCols);
                 $colDefs[] = '    PRIMARY KEY (' . implode(', ', $quotedPks) . ')';
             }
 
-            $lines[] = 'CREATE TABLE IF NOT EXISTS "public"."' . $table . '" (';
+            $lines[] = 'CREATE TABLE IF NOT EXISTS "public".' . $quotedTable . ' (';
             $lines[] = implode(",\n", $colDefs);
             $lines[] = ');';
 
             if (! empty($rlsByTable[$table])) {
-                $lines[] = 'ALTER TABLE "public"."' . $table . '" ENABLE ROW LEVEL SECURITY;';
+                $lines[] = 'ALTER TABLE "public".' . $quotedTable . ' ENABLE ROW LEVEL SECURITY;';
             }
             $lines[] = '';
 
@@ -941,17 +967,17 @@ class DeveloperController extends BaseController
             $rows = $db->table($table)->get()->getResultArray();
             if (! empty($rows)) {
                 $colNames = array_map(static fn (array $c): string => (string) $c['column_name'], $cols);
-                $quotedColList = implode(', ', array_map(static fn (string $n): string => '"' . $n . '"', $colNames));
+                $quotedColList = implode(', ', array_map(fn (string $n): string => $this->quotePostgresIdentifier($db, $n), $colNames));
                 $overrideClause = $hasAlwaysIdentity ? ' OVERRIDING SYSTEM VALUE' : '';
 
                 // Build ON CONFLICT clause for idempotent Supabase imports
                 $conflictClause = '';
                 if (! empty($pkCols)) {
-                    $quotedPks = implode(', ', array_map(static fn (string $k): string => '"' . $k . '"', $pkCols));
+                    $quotedPks = implode(', ', array_map(fn (string $k): string => $this->quotePostgresIdentifier($db, $k), $pkCols));
                     $nonPkCols = array_values(array_diff($colNames, $pkCols));
                     if (! empty($nonPkCols)) {
                         $updateAssignments = array_map(
-                            static fn (string $col): string => '"' . $col . '" = EXCLUDED."' . $col . '"',
+                            fn (string $col): string => $this->quotePostgresIdentifier($db, $col) . ' = EXCLUDED.' . $this->quotePostgresIdentifier($db, $col),
                             $nonPkCols
                         );
                         $conflictClause = ' ON CONFLICT (' . $quotedPks . ') DO UPDATE SET ' . implode(', ', $updateAssignments);
@@ -965,10 +991,10 @@ class DeveloperController extends BaseController
                     foreach ($cols as $c) {
                         $cName = (string) $c['column_name'];
                         $val = $row[$cName] ?? null;
-                        $formattedValues[] = $this->formatPostgresSqlLiteral($val, $c);
+                        $formattedValues[] = $this->formatPostgresSqlLiteral($val, $c, $db);
                     }
 
-                    $lines[] = 'INSERT INTO "public"."' . $table . '" (' . $quotedColList . ')'
+                    $lines[] = 'INSERT INTO "public".' . $quotedTable . ' (' . $quotedColList . ')'
                         . $overrideClause
                         . ' VALUES (' . implode(', ', $formattedValues) . ')'
                         . $conflictClause . ';';
@@ -979,7 +1005,10 @@ class DeveloperController extends BaseController
 
             // Synchronize identity / sequence counters
             foreach ($sequenceCols as $seqCol) {
-                $lines[] = "SELECT setval(pg_get_serial_sequence('\"public\".\"{$table}\"', '{$seqCol}'), COALESCE((SELECT MAX(\"{$seqCol}\") FROM \"public\".\"{$table}\"), 1), (SELECT MAX(\"{$seqCol}\") IS NOT NULL FROM \"public\".\"{$table}\"));";
+                $quotedSeqCol = $this->quotePostgresIdentifier($db, $seqCol);
+                $seqTableArg = $this->quotePostgresLiteral($db, '"public".' . $quotedTable);
+                $seqColArg = $this->quotePostgresLiteral($db, $seqCol);
+                $lines[] = "SELECT setval(pg_get_serial_sequence({$seqTableArg}, {$seqColArg}), COALESCE((SELECT MAX({$quotedSeqCol}) FROM \"public\".{$quotedTable}), 1), (SELECT MAX({$quotedSeqCol}) IS NOT NULL FROM \"public\".{$quotedTable}));";
             }
             if (! empty($sequenceCols)) {
                 $lines[] = '';
@@ -1028,7 +1057,43 @@ class DeveloperController extends BaseController
         };
     }
 
-    private function formatPostgresSqlLiteral(mixed $value, array $col): string
+    private function getBackupSigningKey(): string
+    {
+        $encKey = (string) (config('Encryption')->key ?? '');
+        if ($encKey !== '') {
+            return $encKey;
+        }
+
+        return hash('sha256', ROOTPATH . '|' . (string) (config('Database')->default['database'] ?? 'postgres') . '|gv_backup_hmac');
+    }
+
+    private function quotePostgresIdentifier($db, string $identifier): string
+    {
+        $clean = str_replace("\0", '', $identifier);
+        if ((is_object($db->connID) || is_resource($db->connID)) && function_exists('pg_escape_identifier')) {
+            $quoted = @pg_escape_identifier($db->connID, $clean);
+            if (is_string($quoted) && $quoted !== '') {
+                return $quoted;
+            }
+        }
+
+        return '"' . str_replace('"', '""', $clean) . '"';
+    }
+
+    private function quotePostgresLiteral($db, string $value): string
+    {
+        $clean = str_replace("\0", '', $value);
+        if ((is_object($db->connID) || is_resource($db->connID)) && function_exists('pg_escape_literal')) {
+            $quoted = @pg_escape_literal($db->connID, $clean);
+            if (is_string($quoted) && $quoted !== '') {
+                return $quoted;
+            }
+        }
+
+        return (string) $db->escape($clean);
+    }
+
+    private function formatPostgresSqlLiteral(mixed $value, array $col, $db = null): string
     {
         if ($value === null) {
             return 'NULL';
@@ -1049,23 +1114,13 @@ class DeveloperController extends BaseController
             if ($strVal === '') {
                 return 'NULL';
             }
-            if (is_numeric($strVal)) {
+            if (preg_match('/^-?\d+(\.\d+)?$/', $strVal)) {
                 return $strVal;
             }
         }
 
-        $strVal = (string) $value;
-        $escaped = str_replace("'", "''", $strVal);
-        if (str_contains($escaped, "\\") || str_contains($escaped, "\n") || str_contains($escaped, "\r")) {
-            $escaped = str_replace(
-                ["\\", "\r", "\n"],
-                ["\\\\", "\\r", "\\n"],
-                $escaped
-            );
-            return "E'{$escaped}'";
-        }
-
-        return "'{$escaped}'";
+        $dbConn = $db ?? \Config\Database::connect();
+        return $this->quotePostgresLiteral($dbConn, (string) $value);
     }
 
     private function getStoredBackupsList(): array

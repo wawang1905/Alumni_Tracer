@@ -112,15 +112,19 @@ class EventModel extends Model
     }
 
     // Search events by name or location (new method)
-    public function searchEvents($keyword)
+    public function searchEvents($keyword, int $limit = 200)
     {
+        $cleanKeyword = mb_substr(trim((string) $keyword), 0, 100);
+        $safeLimit = max(1, min($limit, 500));
+
         return $this->baseSelect()
                     ->groupStart()
-                    ->like('Name', $keyword)
-                    ->orLike('Location', $keyword)
+                    ->like('Name', $cleanKeyword)
+                    ->orLike('Location', $cleanKeyword)
                     ->groupEnd()
                     ->orderBy('Date', 'ASC')
                     ->orderBy('time', 'ASC')
+                    ->limit($safeLimit)
                     ->findAll();
     }
 

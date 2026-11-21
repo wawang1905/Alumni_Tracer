@@ -87,7 +87,7 @@ class CoordinatorController extends BaseController
         }
 
         $sort = (string) ($this->request->getGet('sort') ?? 'last_name_asc');
-        $search = trim((string) ($this->request->getGet('search') ?? ''));
+        $search = mb_substr(trim((string) ($this->request->getGet('search') ?? '')), 0, 100);
 
         [$column, $direction] = $this->mapSort($sort);
 
@@ -118,7 +118,7 @@ class CoordinatorController extends BaseController
                 ->groupEnd();
         }
 
-        $records = $builder->orderBy($column, $direction)->get()->getResultArray();
+        $records = $builder->orderBy($column, $direction)->limit(2000)->get()->getResultArray();
 
         return $this->response->setJSON([
             'success'       => true,

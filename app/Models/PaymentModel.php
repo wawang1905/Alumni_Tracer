@@ -129,25 +129,29 @@ class PaymentModel extends Model
 
         // Search query
         if (!empty($filters['search'])) {
-            $search = trim($filters['search']);
-            $builder->groupStart()
-                ->like('p.transaction_ref', $search)
-                ->orLike('p.payer_name', $search)
-                ->orLike('p.student_number', $search)
-                ->orLike('p.payer_email', $search)
-                ->orLike('p.channel_reference', $search)
-                ->orLike('p.description', $search)
-                ->orLike('pp.name', $search)
-                ->orLike('pp.code', $search)
-                ->groupEnd();
+            $search = mb_substr(trim((string) $filters['search']), 0, 100);
+            if ($search !== '') {
+                $builder->groupStart()
+                    ->like('p.transaction_ref', $search)
+                    ->orLike('p.payer_name', $search)
+                    ->orLike('p.student_number', $search)
+                    ->orLike('p.payer_email', $search)
+                    ->orLike('p.channel_reference', $search)
+                    ->orLike('p.description', $search)
+                    ->orLike('pp.name', $search)
+                    ->orLike('pp.code', $search)
+                    ->groupEnd();
+            }
         }
 
-        // Date filters
-        if (!empty($filters['date_from'])) {
-            $builder->where('DATE(p.created_at) >=', $filters['date_from']);
+        // Date filters (strictly validated YYYY-MM-DD)
+        $dateFrom = $this->normalizeIsoDate($filters['date_from'] ?? null);
+        if ($dateFrom !== null) {
+            $builder->where('DATE(p.created_at) >=', $dateFrom);
         }
-        if (!empty($filters['date_to'])) {
-            $builder->where('DATE(p.created_at) <=', $filters['date_to']);
+        $dateTo = $this->normalizeIsoDate($filters['date_to'] ?? null);
+        if ($dateTo !== null) {
+            $builder->where('DATE(p.created_at) <=', $dateTo);
         }
 
         $builder->orderBy('p.created_at', 'DESC');
@@ -203,13 +207,15 @@ class PaymentModel extends Model
         $builder->join('staffs st', 'st.Staff_ID = p.verified_by', 'left');
 
         // Date Range: From
-        if (!empty($filters['date_from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters['date_from'])) {
-            $builder->where('DATE(p.created_at) >=', $filters['date_from']);
+        $dateFrom = $this->normalizeIsoDate($filters['date_from'] ?? null);
+        if ($dateFrom !== null) {
+            $builder->where('DATE(p.created_at) >=', $dateFrom);
         }
 
         // Date Range: To
-        if (!empty($filters['date_to']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters['date_to'])) {
-            $builder->where('DATE(p.created_at) <=', $filters['date_to']);
+        $dateTo = $this->normalizeIsoDate($filters['date_to'] ?? null);
+        if ($dateTo !== null) {
+            $builder->where('DATE(p.created_at) <=', $dateTo);
         }
 
         // Campus Filter
@@ -369,5 +375,15 @@ class PaymentModel extends Model
         }
 
         return $ref;
+    }
+
+    private function normalizeIsoDate(mixed $input): ?string
+    {
+        $raw = trim((string) ($input ?? ''));
+        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return null;
+        }
+        $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $raw);
+        return ($dt !== false && $dt->format('Y-m-d') === $raw) ? $raw : null;
     }
 }
