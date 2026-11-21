@@ -228,5 +228,17 @@ class Database extends Config
                 }
             }
         }
+
+        // Automatically route IPv6-only direct Supabase hosts (db.<ref>.supabase.co)
+        // through the IPv4-compatible Supabase Session Pooler
+        $currentHost = trim((string) ($this->default['hostname'] ?? ''));
+        if (preg_match('/^db\.([a-z0-9]+)\.supabase\.co$/i', $currentHost, $matches)) {
+            $projectRef = strtolower($matches[1]);
+            $this->default['hostname'] = 'aws-0-ap-southeast-1.pooler.supabase.com';
+            $currentUser = trim((string) ($this->default['username'] ?? 'postgres'));
+            if ($currentUser === '' || strtolower($currentUser) === 'postgres') {
+                $this->default['username'] = 'postgres.' . $projectRef;
+            }
+        }
     }
 }

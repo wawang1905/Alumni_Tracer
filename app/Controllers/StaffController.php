@@ -1766,8 +1766,8 @@ class StaffController extends BaseController
         }
 
         $html = '';
-        // Chunk into at most 3 College columns per table so columns remain wide and readable on A4 portrait
-        $collegeChunks = array_chunk($collegeMatrix, 3, true);
+        // Render one column per college (stacked vertically, never side-by-side)
+        $collegeChunks = array_chunk($collegeMatrix, 1, true);
 
         foreach ($collegeChunks as $chunk) {
             $colCount = count($chunk);
@@ -1935,7 +1935,7 @@ class StaffController extends BaseController
             .meta-info-box { background: #f1f5f9; border-left: 3px solid #1e4a76; padding: 4px 8px; font-size: 7.5pt; margin-bottom: 10px; }
 
             /* Unified Card Container */
-            .report-graph-card { border: 1px solid #cbd5e1; border-radius: 5px; margin-bottom: 14px; background: #ffffff; page-break-inside: avoid; }
+            .report-graph-card { border: 1px solid #cbd5e1; border-radius: 5px; margin-bottom: 14px; background: #ffffff; }
             .card-main-banner { background: #1e4a76; color: #ffffff; padding: 6px 10px; font-size: 9pt; font-weight: bold; }
 
             .category-banner { background: #0f172a; color: #ffffff; padding: 5px 10px; font-size: 9pt; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 12px; margin-bottom: 8px; letter-spacing: 0.03em; }
@@ -1947,7 +1947,7 @@ class StaffController extends BaseController
             .q-meta-line { font-size: 7pt; color: #64748b; margin-top: 2px; }
 
             /* Top Centered GRAPH Showcase Block */
-            .graph-top-showcase { background: #ffffff; border-bottom: 2px solid #cbd5e1; }
+            .graph-top-showcase { background: #ffffff; border-bottom: 2px solid #cbd5e1; page-break-inside: avoid; }
             .graph-top-header { background: #eff6ff; color: #1e4a76; text-align: center; font-weight: bold; font-size: 7.5pt; letter-spacing: 0.06em; padding: 4px 8px; border-bottom: 1px solid #dbeafe; text-transform: uppercase; }
             .graph-top-table { width: 100%; border-collapse: collapse; }
             .graph-top-pie-cell { width: 46%; padding: 8px 10px; text-align: center; vertical-align: middle; border-right: 1px dashed #e2e8f0; }
@@ -2171,12 +2171,12 @@ class StaffController extends BaseController
             );
         }
 
-        // 2. Bottom Multi-Column College | College | College -> Department Breakdown Table
+        // 2. Bottom Single-Column College -> Department Breakdown Table (one college per column block)
         if (empty($collegeMatrix)) {
             return;
         }
 
-        $collegeChunks = array_chunk($collegeMatrix, 3, true);
+        $collegeChunks = array_chunk($collegeMatrix, 1, true);
         foreach ($collegeChunks as $chunk) {
             $colCount = count($chunk);
             $cellWidth = (int) floor(9600 / max(1, $colCount));
@@ -2406,9 +2406,8 @@ class StaffController extends BaseController
         string $unitLabel = 'Responses'
     ): void {
         $collegeList = array_values($collegeMatrix);
-        $colCount = max(2, count($collegeList));
-        // Each College column occupies 2 spreadsheet columns (e.g. A:B for College 1, C:D for College 2, E:F for College 3)
-        $totalSheetCols = max(4, $colCount * 2);
+        // Single-column layout per college across 4 sheet columns (A:D)
+        $totalSheetCols = 4;
         $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalSheetCols);
 
         // 1. Section Title Banner
@@ -2473,25 +2472,20 @@ class StaffController extends BaseController
 
         $row = max($graphStartRow + 7, $sRow + 1);
 
-        // 3. Bottom College | College | College Header Row
+        // 3. Bottom Single-Column College -> Department Stack (one college after another vertically)
         if (empty($collegeList)) {
             return;
         }
 
-        foreach ($collegeList as $cIdx => $colData) {
-            $startColIdx = ($cIdx * 2) + 1;
-            $endColIdx = $startColIdx + 1;
-            $c1 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColIdx);
-            $c2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($endColIdx);
-
+        foreach ($collegeList as $colData) {
             $cAbbr = (string) ($colData['abbr'] ?? '');
             $cName = (string) ($colData['name'] ?? '');
             $cTotal = (int) ($colData['total'] ?? 0);
             $cPct = (float) ($colData['percentage'] ?? 0.0);
 
-            $sheet->mergeCells("{$c1}{$row}:{$c2}{$row}");
-            $sheet->setCellValue("{$c1}{$row}", "{$cAbbr} — {$cName}\nCollege Total: " . number_format($cTotal) . ' (' . number_format($cPct, 1) . '%)');
-            $sheet->getStyle("{$c1}{$row}:{$c2}{$row}")->applyFromArray([
+            $sheet->mergeCells("A{$row}:{$lastColLetter}{$row}");
+            $sheet->setCellValue("A{$row}", "{$cAbbr} — {$cName}\nCollege Total: " . number_format($cTotal) . ' (' . number_format($cPct, 1) . '%)');
+            $sheet->getStyle("A{$row}:{$lastColLetter}{$row}")->applyFromArray([
                 'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 9],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -2509,33 +2503,14 @@ class StaffController extends BaseController
                     ],
                 ],
             ]);
-        }
-        $sheet->getRowDimension($row)->setRowHeight(30);
-        $row++;
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row++;
 
-        // 4. Department | Department | Department Rows Underneath Each College Column
-        $deptLists = [];
-        $maxDeptRows = 1;
-        foreach ($collegeList as $cIdx => $colData) {
             $depts = array_values($colData['departments'] ?? []);
-            $deptLists[$cIdx] = $depts;
-            if (count($depts) > $maxDeptRows) {
-                $maxDeptRows = count($depts);
-            }
-        }
+            if (! empty($depts)) {
+                foreach ($depts as $dept) {
+                    $sheet->mergeCells("A{$row}:{$lastColLetter}{$row}");
 
-        for ($r = 0; $r < $maxDeptRows; $r++) {
-            $maxLinesInRow = 2;
-            foreach ($collegeList as $cIdx => $colData) {
-                $startColIdx = ($cIdx * 2) + 1;
-                $endColIdx = $startColIdx + 1;
-                $c1 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColIdx);
-                $c2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($endColIdx);
-
-                $dept = $deptLists[$cIdx][$r] ?? null;
-                $sheet->mergeCells("{$c1}{$row}:{$c2}{$row}");
-
-                if ($dept !== null) {
                     $dAbbr = (string) ($dept['abbr'] ?? '');
                     $dName = (string) ($dept['name'] ?? '');
                     $dTitle = ($dAbbr !== '' && $dName !== '' && strcasecmp($dAbbr, $dName) !== 0)
@@ -2555,12 +2530,9 @@ class StaffController extends BaseController
                         $itPct = (float) ($it['percentage'] ?? 0.0);
                         $lines[] = '• ' . $itLbl . ': ' . number_format($itCnt) . ' (' . number_format($itPct, 1) . '%)';
                     }
-                    if (count($lines) > $maxLinesInRow) {
-                        $maxLinesInRow = count($lines);
-                    }
 
-                    $sheet->setCellValue("{$c1}{$row}", implode("\n", $lines));
-                    $sheet->getStyle("{$c1}{$row}:{$c2}{$row}")->applyFromArray([
+                    $sheet->setCellValue("A{$row}", implode("\n", $lines));
+                    $sheet->getStyle("A{$row}:{$lastColLetter}{$row}")->applyFromArray([
                         'font' => ['size' => 8.5, 'color' => ['rgb' => '0F172A']],
                         'alignment' => [
                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
@@ -2574,29 +2546,32 @@ class StaffController extends BaseController
                             ],
                         ],
                     ]);
-                } else {
-                    $sheet->setCellValue("{$c1}{$row}", '—');
-                    $sheet->getStyle("{$c1}{$row}:{$c2}{$row}")->applyFromArray([
-                        'font' => ['bold' => true, 'size' => 9, 'color' => ['rgb' => 'CBD5E1']],
-                        'fill' => [
-                            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'F8FAFC'],
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
-                        ],
-                        'borders' => [
-                            'allBorders' => [
-                                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                                'color' => ['rgb' => 'CBD5E1'],
-                            ],
-                        ],
-                    ]);
+                    $sheet->getRowDimension($row)->setRowHeight(max(36, count($lines) * 14));
+                    $row++;
                 }
+            } else {
+                $sheet->mergeCells("A{$row}:{$lastColLetter}{$row}");
+                $sheet->setCellValue("A{$row}", '—');
+                $sheet->getStyle("A{$row}:{$lastColLetter}{$row}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 9, 'color' => ['rgb' => 'CBD5E1']],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'F8FAFC'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                            'color' => ['rgb' => 'CBD5E1'],
+                        ],
+                    ],
+                ]);
+                $sheet->getRowDimension($row)->setRowHeight(36);
+                $row++;
             }
-            $sheet->getRowDimension($row)->setRowHeight(max(36, $maxLinesInRow * 14));
-            $row++;
         }
 
         $row += 2;
@@ -2698,7 +2673,7 @@ class StaffController extends BaseController
             }
         }
 
-        $totalCols = max(4, count($tracerOverview['college_matrix'] ?? []) * 2);
+        $totalCols = 4;
         for ($c = 1; $c <= $totalCols; $c++) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
             $sheet->getColumnDimension($colLetter)->setWidth(24);

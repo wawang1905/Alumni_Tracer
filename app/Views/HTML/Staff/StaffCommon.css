@@ -2892,6 +2892,10 @@ tr:hover td {
     grid-template-columns: repeat(3, 1fr);
 }
 
+.alumni-kpi-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
 @media (max-width: 900px) {
 
     .alumni-kpi-grid,

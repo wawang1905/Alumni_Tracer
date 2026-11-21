@@ -871,7 +871,6 @@ function renderAlumniBatchCards() {
                 </div>
                 <div class="alumni-card-metadata">
                     <span class="alumni-card-tag">${Number(batch.alumniCount || 0)} alumni</span>
-                    <span class="alumni-card-tag alumni-card-tag-active">${Number(batch.activeCount || 0)} active</span>
                 </div>
             </article>
         `;
@@ -995,11 +994,13 @@ function updateCourseDetailPageStats() {
     const totalEl = document.getElementById('courseTotalAlumniStat');
     const activeEl = document.getElementById('courseActiveCountStat');
     const pendingEl = document.getElementById('coursePendingCountStat');
-    if (!totalEl || !activeEl || !pendingEl) return;
+    if (!totalEl || !pendingEl) return;
 
     const members = getSelectedCourseAlumniRecords();
     totalEl.textContent = members.length;
-    activeEl.textContent = members.filter((a) => String(a.status || '').toLowerCase() === 'active').length;
+    if (activeEl) {
+        activeEl.textContent = members.filter((a) => String(a.status || '').toLowerCase() === 'active').length;
+    }
     pendingEl.textContent = members.filter((a) => String(a.status || '').toLowerCase() === 'pending').length;
 }
 
