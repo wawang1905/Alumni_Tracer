@@ -41,6 +41,7 @@ class Auth extends BaseController
         $rateScope = 'login:' . strtolower($identifier ?: 'blank');
         $lockoutRemaining = max(
             $this->getRateLimitLockoutRemaining('login_ip'),
+            $this->getRateLimitLockoutRemaining('login_last'),
             $this->getRateLimitLockoutRemaining($rateScope)
         );
         if ($lockoutRemaining > 0) {
@@ -126,6 +127,7 @@ class Auth extends BaseController
 
         // Clear login rate limit counters on successful authentication
         $this->clearRateLimit('login_ip');
+        $this->clearRateLimit('login_last');
         $this->clearRateLimit($rateScope);
 
         $supabaseUser = is_array($authResult['user'] ?? null) ? $authResult['user'] : [];
@@ -752,12 +754,27 @@ class Auth extends BaseController
             $expiresRemaining = max(0, $expiresAt - $now);
         }
 
+        $loginLockoutRemaining = max(
+            $this->getRateLimitLockoutRemaining('login_ip'),
+            $this->getRateLimitLockoutRemaining('login_last')
+        );
+        $registerLockoutRemaining = max(
+            $this->getRateLimitLockoutRemaining('register_lookup'),
+            $this->getRateLimitLockoutRemaining('register_otp_send', 600),
+            $this->getRateLimitLockoutRemaining('register_otp_verify'),
+            $this->getRateLimitLockoutRemaining('register_submit')
+        );
+
         return $this->response->setJSON([
-            'verified_email'     => $verifiedEmail !== '' ? $verifiedEmail : null,
-            'pending_email'      => $pendingEmail,
-            'has_pending_otp'    => $pendingEmail !== null && $expiresRemaining > 0,
-            'cooldown_remaining' => $cooldownRemaining,
-            'expires_remaining'  => $expiresRemaining,
+            'verified_email'             => $verifiedEmail !== '' ? $verifiedEmail : null,
+            'pending_email'              => $pendingEmail,
+            'has_pending_otp'            => $pendingEmail !== null && $expiresRemaining > 0,
+            'cooldown_remaining'         => $cooldownRemaining,
+            'expires_remaining'          => $expiresRemaining,
+            'login_lockout_remaining'    => $loginLockoutRemaining,
+            'login_locked_until'         => $loginLockoutRemaining > 0 ? ($now + $loginLockoutRemaining) : 0,
+            'register_lockout_remaining' => $registerLockoutRemaining,
+            'register_locked_until'      => $registerLockoutRemaining > 0 ? ($now + $registerLockoutRemaining) : 0,
         ]);
     }
 
@@ -850,6 +867,12 @@ class Auth extends BaseController
             self::LOGIN_WINDOW_SECONDS,
             self::LOGIN_LOCKOUT_SECONDS
         );
+        $lastState = $this->recordRateLimitAttempt(
+            'login_last',
+            self::LOGIN_MAX_ATTEMPTS,
+            self::LOGIN_WINDOW_SECONDS,
+            self::LOGIN_LOCKOUT_SECONDS
+        );
         $idState = $this->recordRateLimitAttempt(
             $identifierScope,
             self::LOGIN_MAX_ATTEMPTS,
@@ -857,7 +880,7 @@ class Auth extends BaseController
             self::LOGIN_LOCKOUT_SECONDS
         );
 
-        $lockedRemaining = max($ipState['locked_remaining'], $idState['locked_remaining']);
+        $lockedRemaining = max($ipState['locked_remaining'], $lastState['locked_remaining'], $idState['locked_remaining']);
         if ($lockedRemaining > 0) {
             return $this->buildRateLimitResponse(
                 "Too many failed login attempts. Please wait {$lockedRemaining} seconds before trying again.",
@@ -865,7 +888,7 @@ class Auth extends BaseController
             );
         }
 
-        $remaining = min($ipState['remaining_attempts'], $idState['remaining_attempts']);
+        $remaining = min($ipState['remaining_attempts'], $lastState['remaining_attempts'], $idState['remaining_attempts']);
 
         return $this->response->setStatusCode(401)->setJSON([
             'success'            => false,
@@ -877,6 +900,7 @@ class Auth extends BaseController
     private function buildRateLimitResponse(string $message, int $retryAfter): ResponseInterface
     {
         $retryAfter = max(1, $retryAfter);
+        $lockedUntil = time() + $retryAfter;
 
         return $this->response
             ->setStatusCode(429)
@@ -886,6 +910,7 @@ class Auth extends BaseController
                 'rate_limited'       => true,
                 'retry_after'        => $retryAfter,
                 'cooldown_remaining' => $retryAfter,
+                'locked_until'       => $lockedUntil,
                 'remaining_attempts' => 0,
                 'message'            => $message,
             ]);
@@ -945,9 +970,11 @@ class Auth extends BaseController
         $windowStart = (int) ($bucket['window_started_at'] ?? $now);
 
         if ($lockedUntil > 0 && $now >= $lockedUntil) {
+            $this->clearRateLimit($scope);
             return $default;
         }
         if ($lockedUntil === 0 && ($now - $windowStart) >= $windowSeconds) {
+            $this->clearRateLimit($scope);
             return $default;
         }
 

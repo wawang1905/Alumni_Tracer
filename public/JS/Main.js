@@ -47,98 +47,186 @@ const signupState = {
 let signupStep = 1;
 let countdownTimer = null;
 let otpCooldownTimer = null;
+let otpCooldownUntilMs = 0;
 let loginRateLimitTimer = null;
 let loginRateLimitRemaining = 0;
+let loginLockUntilMs = 0;
 let signupRateLimitTimer = null;
 let signupRateLimitRemaining = 0;
+let signupLockUntilMs = 0;
+let signupLockPrefixMsg = 'Too many registration attempts.';
 let psgcLoaded = false;
 let psgcLoading = false;
 
-function startLoginRateLimitCooldown(seconds) {
-  clearInterval(loginRateLimitTimer);
-  loginRateLimitRemaining = Math.max(0, Math.ceil(Number(seconds) || 0));
-  if (loginRateLimitRemaining <= 0) return;
+const STORAGE_KEYS = {
+  loginLockUntil: 'gradvision_login_lock_until_ms',
+  signupLockUntil: 'gradvision_signup_lock_until_ms',
+  signupLockMsg: 'gradvision_signup_lock_msg',
+  otpCooldownUntil: 'gradvision_otp_cooldown_until_ms',
+  activeTab: 'gradvision_active_auth_tab',
+};
 
-  const updateLoginLockUi = () => {
-    if (loginBtn) {
-      loginBtn.disabled = loginRateLimitRemaining > 0;
-      loginBtn.classList.remove('btn-loading');
-      loginBtn.removeAttribute('aria-busy');
-      if (loginRateLimitRemaining > 0) {
-        loginBtn.innerHTML = `<span>Locked (${loginRateLimitRemaining}s)</span>`;
-      } else {
-        setLoginButtonLoading(false);
-      }
-    }
-    if (loginRateLimitRemaining > 0) {
-      showAlert(
-        loginAlert,
-        `Too many failed login attempts. Please wait ${loginRateLimitRemaining} seconds before trying again.`,
-        'error',
-        0
-      );
+function readStorageInt(key) {
+  try {
+    const val = Number(localStorage.getItem(key) || 0);
+    return Number.isFinite(val) ? val : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function writeStorageVal(key, val) {
+  try {
+    if (val === null || val === undefined || val === 0 || val === '') {
+      localStorage.removeItem(key);
     } else {
-      if (loginAlert) loginAlert.style.display = 'none';
+      localStorage.setItem(key, String(val));
     }
-  };
+  } catch (e) {
+    // Non-blocking if storage is unavailable
+  }
+}
+
+function resolveTargetUntilMs(storageKey, seconds, explicitUntilMs = null) {
+  const now = Date.now();
+  if (explicitUntilMs && explicitUntilMs > now) {
+    writeStorageVal(storageKey, explicitUntilMs);
+    return explicitUntilMs;
+  }
+
+  const secs = Math.max(0, Math.ceil(Number(seconds) || 0));
+  if (secs <= 0) {
+    writeStorageVal(storageKey, 0);
+    return 0;
+  }
+
+  const candidateMs = now + secs * 1000;
+  const savedMs = readStorageInt(storageKey);
+  if (savedMs > now && Math.abs(savedMs - candidateMs) <= 2500) {
+    return savedMs;
+  }
+
+  writeStorageVal(storageKey, candidateMs);
+  return candidateMs;
+}
+
+function updateLoginLockUi() {
+  if (loginBtn) {
+    loginBtn.disabled = loginRateLimitRemaining > 0;
+    loginBtn.classList.remove('btn-loading');
+    loginBtn.removeAttribute('aria-busy');
+    if (loginRateLimitRemaining > 0) {
+      loginBtn.innerHTML = `<span>Locked (${loginRateLimitRemaining}s)</span>`;
+    } else {
+      setLoginButtonLoading(false);
+    }
+  }
+  if (loginRateLimitRemaining > 0) {
+    showAlert(
+      loginAlert,
+      `Too many failed login attempts. Please wait ${loginRateLimitRemaining} seconds before trying again.`,
+      'error',
+      0
+    );
+  } else if (loginAlert && loginAlert.textContent.includes('Too many failed login attempts')) {
+    loginAlert.style.display = 'none';
+  }
+}
+
+function startLoginRateLimitCooldown(seconds, explicitUntilMs = null) {
+  clearInterval(loginRateLimitTimer);
+  loginLockUntilMs = resolveTargetUntilMs(STORAGE_KEYS.loginLockUntil, seconds, explicitUntilMs);
+  loginRateLimitRemaining = Math.max(0, Math.ceil((loginLockUntilMs - Date.now()) / 1000));
+  if (loginRateLimitRemaining <= 0) {
+    loginLockUntilMs = 0;
+    writeStorageVal(STORAGE_KEYS.loginLockUntil, 0);
+    updateLoginLockUi();
+    return;
+  }
 
   updateLoginLockUi();
   loginRateLimitTimer = setInterval(() => {
-    loginRateLimitRemaining -= 1;
+    loginRateLimitRemaining = Math.max(0, Math.ceil((loginLockUntilMs - Date.now()) / 1000));
     if (loginRateLimitRemaining <= 0) {
       loginRateLimitRemaining = 0;
+      loginLockUntilMs = 0;
+      writeStorageVal(STORAGE_KEYS.loginLockUntil, 0);
       clearInterval(loginRateLimitTimer);
     }
     updateLoginLockUi();
-  }, 1000);
+  }, 500);
 }
 
-function startSignupRateLimitCooldown(seconds, prefixMessage = 'Too many registration attempts.') {
-  clearInterval(signupRateLimitTimer);
-  signupRateLimitRemaining = Math.max(0, Math.ceil(Number(seconds) || 0));
-  if (signupRateLimitRemaining <= 0) return;
-
-  const cleanPrefix = String(prefixMessage || 'Too many registration attempts.')
-    .replace(/\s*Please wait \d+ seconds.*$/i, '')
-    .trim();
-
-  const updateSignupLockUi = () => {
-    const signupBtn = document.getElementById('signupBtn');
-    const verifyBtn = document.getElementById('verifyOtpBtn');
-    if (signupBtn) {
-      signupBtn.disabled = signupRateLimitRemaining > 0;
-      if (signupRateLimitRemaining > 0) {
-        signupBtn.textContent = `Wait ${signupRateLimitRemaining}s`;
-      } else {
-        signupBtn.textContent = signupStep === 3 ? 'Create Account' : 'Next';
-      }
-    }
-    if (verifyBtn) {
-      verifyBtn.disabled = signupRateLimitRemaining > 0;
-      verifyBtn.textContent = signupRateLimitRemaining > 0 ? `Wait ${signupRateLimitRemaining}s` : 'Verify';
-    }
-
+function applySignupLockButtonsUi() {
+  const signupBtn = document.getElementById('signupBtn');
+  const verifyBtn = document.getElementById('verifyOtpBtn');
+  if (signupBtn) {
+    signupBtn.disabled = signupRateLimitRemaining > 0;
     if (signupRateLimitRemaining > 0) {
-      showAlert(
-        signupAlert,
-        `${cleanPrefix} Please wait ${signupRateLimitRemaining} seconds before trying again.`,
-        'error',
-        0
-      );
+      signupBtn.textContent = `Wait ${signupRateLimitRemaining}s`;
     } else {
-      hideSignupAlert();
+      signupBtn.textContent = signupStep === 3 ? 'Create Account' : 'Next';
     }
-  };
+  }
+  if (verifyBtn) {
+    verifyBtn.disabled = signupRateLimitRemaining > 0;
+    verifyBtn.textContent = signupRateLimitRemaining > 0 ? `Wait ${signupRateLimitRemaining}s` : 'Verify';
+  }
+}
+
+function updateSignupLockUi() {
+  applySignupLockButtonsUi();
+
+  if (signupRateLimitRemaining > 0) {
+    showAlert(
+      signupAlert,
+      `${signupLockPrefixMsg} Please wait ${signupRateLimitRemaining} seconds before trying again.`,
+      'error',
+      0
+    );
+  } else if (signupAlert && signupAlert.textContent.includes('Please wait')) {
+    hideSignupAlert();
+  }
+}
+
+function startSignupRateLimitCooldown(seconds, prefixMessage = null, explicitUntilMs = null) {
+  clearInterval(signupRateLimitTimer);
+  if (prefixMessage) {
+    signupLockPrefixMsg = String(prefixMessage)
+      .replace(/\s*Please wait \d+ seconds.*$/i, '')
+      .trim() || 'Too many registration attempts.';
+    writeStorageVal(STORAGE_KEYS.signupLockMsg, signupLockPrefixMsg);
+  } else {
+    try {
+      const savedMsg = localStorage.getItem(STORAGE_KEYS.signupLockMsg);
+      if (savedMsg) signupLockPrefixMsg = savedMsg;
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  signupLockUntilMs = resolveTargetUntilMs(STORAGE_KEYS.signupLockUntil, seconds, explicitUntilMs);
+  signupRateLimitRemaining = Math.max(0, Math.ceil((signupLockUntilMs - Date.now()) / 1000));
+  if (signupRateLimitRemaining <= 0) {
+    signupLockUntilMs = 0;
+    writeStorageVal(STORAGE_KEYS.signupLockUntil, 0);
+    writeStorageVal(STORAGE_KEYS.signupLockMsg, '');
+    updateSignupLockUi();
+    return;
+  }
 
   updateSignupLockUi();
   signupRateLimitTimer = setInterval(() => {
-    signupRateLimitRemaining -= 1;
+    signupRateLimitRemaining = Math.max(0, Math.ceil((signupLockUntilMs - Date.now()) / 1000));
     if (signupRateLimitRemaining <= 0) {
       signupRateLimitRemaining = 0;
+      signupLockUntilMs = 0;
+      writeStorageVal(STORAGE_KEYS.signupLockUntil, 0);
+      writeStorageVal(STORAGE_KEYS.signupLockMsg, '');
       clearInterval(signupRateLimitTimer);
     }
     updateSignupLockUi();
-  }, 1000);
+  }, 500);
 }
 
 function appUrl(path) {
@@ -181,6 +269,7 @@ function hideSignupAlert() {
 }
 
 function switchTab(targetId) {
+  writeStorageVal(STORAGE_KEYS.activeTab, targetId);
   tabButtons.forEach((button) => {
     button.classList.toggle('active', button.dataset.target === targetId);
   });
@@ -538,6 +627,9 @@ function renderStep(errors = {}) {
   }
 
   attachSignupStepEvents();
+  if (signupRateLimitRemaining > 0) {
+    applySignupLockButtonsUi();
+  }
 }
 
 function validateStep(step) {
@@ -737,17 +829,12 @@ function showConfirmation() {
   }, 1000);
 }
 
-function startOtpCooldown(seconds = 60) {
+function startOtpCooldown(seconds = 60, explicitUntilMs = null) {
   clearInterval(otpCooldownTimer);
-  signupState.otpCooldownSeconds = seconds;
+  otpCooldownUntilMs = resolveTargetUntilMs(STORAGE_KEYS.otpCooldownUntil, seconds, explicitUntilMs);
+  signupState.otpCooldownSeconds = Math.max(0, Math.ceil((otpCooldownUntilMs - Date.now()) / 1000));
 
-  otpCooldownTimer = setInterval(() => {
-    signupState.otpCooldownSeconds -= 1;
-    if (signupState.otpCooldownSeconds <= 0) {
-      clearInterval(otpCooldownTimer);
-      signupState.otpCooldownSeconds = 0;
-    }
-
+  const updateOtpCooldownUi = () => {
     if (signupStep === 3) {
       const sendBtn = document.getElementById('sendOtpBtn');
       if (sendBtn) {
@@ -773,7 +860,60 @@ function startOtpCooldown(seconds = 60) {
         document.getElementById('resendOtpLink')?.addEventListener('click', handleSendOtp);
       }
     }
-  }, 1000);
+  };
+
+  updateOtpCooldownUi();
+  if (signupState.otpCooldownSeconds <= 0) {
+    otpCooldownUntilMs = 0;
+    writeStorageVal(STORAGE_KEYS.otpCooldownUntil, 0);
+    return;
+  }
+
+  otpCooldownTimer = setInterval(() => {
+    signupState.otpCooldownSeconds = Math.max(0, Math.ceil((otpCooldownUntilMs - Date.now()) / 1000));
+    if (signupState.otpCooldownSeconds <= 0) {
+      clearInterval(otpCooldownTimer);
+      signupState.otpCooldownSeconds = 0;
+      otpCooldownUntilMs = 0;
+      writeStorageVal(STORAGE_KEYS.otpCooldownUntil, 0);
+    }
+    updateOtpCooldownUi();
+  }, 500);
+}
+
+function restorePersistedRateLimitTimers() {
+  const now = Date.now();
+
+  try {
+    const savedTab = localStorage.getItem(STORAGE_KEYS.activeTab);
+    if (savedTab === 'signupForm' || savedTab === 'loginForm') {
+      switchTab(savedTab);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const savedLoginUntil = readStorageInt(STORAGE_KEYS.loginLockUntil);
+  if (savedLoginUntil > now) {
+    startLoginRateLimitCooldown(Math.ceil((savedLoginUntil - now) / 1000), savedLoginUntil);
+  } else if (savedLoginUntil > 0) {
+    writeStorageVal(STORAGE_KEYS.loginLockUntil, 0);
+  }
+
+  const savedSignupUntil = readStorageInt(STORAGE_KEYS.signupLockUntil);
+  if (savedSignupUntil > now) {
+    startSignupRateLimitCooldown(Math.ceil((savedSignupUntil - now) / 1000), null, savedSignupUntil);
+  } else if (savedSignupUntil > 0) {
+    writeStorageVal(STORAGE_KEYS.signupLockUntil, 0);
+    writeStorageVal(STORAGE_KEYS.signupLockMsg, '');
+  }
+
+  const savedOtpUntil = readStorageInt(STORAGE_KEYS.otpCooldownUntil);
+  if (savedOtpUntil > now) {
+    startOtpCooldown(Math.ceil((savedOtpUntil - now) / 1000), savedOtpUntil);
+  } else if (savedOtpUntil > 0) {
+    writeStorageVal(STORAGE_KEYS.otpCooldownUntil, 0);
+  }
 }
 
 async function checkServerOtpStatus() {
@@ -781,6 +921,13 @@ async function checkServerOtpStatus() {
     const response = await fetch(appUrl('auth/otp-status'), { credentials: 'same-origin' });
     if (!response.ok) return;
     const data = await response.json();
+
+    if (Number(data.login_lockout_remaining) > 0) {
+      startLoginRateLimitCooldown(Number(data.login_lockout_remaining));
+    }
+    if (Number(data.register_lockout_remaining) > 0) {
+      startSignupRateLimitCooldown(Number(data.register_lockout_remaining));
+    }
 
     if (data.verified_email) {
       signupState.email = data.verified_email;
@@ -914,6 +1061,9 @@ async function handleVerifyOtp() {
     signupState.devOtp = null;
     clearInterval(otpCooldownTimer);
     signupState.otpCooldownSeconds = 0;
+    otpCooldownUntilMs = 0;
+    writeStorageVal(STORAGE_KEYS.otpCooldownUntil, 0);
+    writeStorageVal(STORAGE_KEYS.signupLockUntil, 0);
 
     showAlert(signupAlert, 'Email address verified successfully!', 'success', 3000);
     renderStep();
@@ -1082,6 +1232,7 @@ async function handleLogin() {
       return;
     }
 
+    writeStorageVal(STORAGE_KEYS.loginLockUntil, 0);
     setLoginButtonLoading(true, 'Redirecting...');
     showAlert(loginAlert, 'Welcome back! Redirecting to dashboard...', 'success');
 
@@ -1129,6 +1280,7 @@ function setupEvents() {
 }
 
 renderStep();
+restorePersistedRateLimitTimers();
 loadPsgcAddressData();
 checkServerOtpStatus();
 setupEvents();
