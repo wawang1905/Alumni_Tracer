@@ -133,7 +133,7 @@ class StaffController extends BaseController
             }
 
             $filters = is_array($raw['filters'] ?? null) ? $raw['filters'] : [];
-            $programGroups = $this->getAlumniProgramGroups($filters);
+            $programGroups = $this->getAlumniProgramGroups($filters, $surveyId);
             $totalAlumni = array_sum(array_map(static fn (array $g): int => (int) ($g['total'] ?? 0), $programGroups));
 
             return $this->response->setJSON([
@@ -275,7 +275,7 @@ class StaffController extends BaseController
         $selectedCategories = array_values($categoriesMap);
         $filters = is_array($payload['filters'] ?? null) ? $payload['filters'] : [];
         $matchingResponses = $this->getMatchingSurveyResponses($surveyId, $filters, array_column($selectedQuestions, 'id'));
-        $programGroups = $this->getAlumniProgramGroups($filters);
+        $programGroups = $this->getAlumniProgramGroups($filters, $surveyId, $matchingResponses);
 
         // Compile Choice & Response Statistics (Category -> Question -> Choices & number of responses)
         $selectedCategories = $this->buildCategoryQuestionChoiceStatistics(
@@ -1173,7 +1173,7 @@ class StaffController extends BaseController
         }
 
         if (empty($programGroups)) {
-            $programGroups = $this->getAlumniProgramGroups($filters);
+            $programGroups = $this->getAlumniProgramGroups($filters, (int) ($survey['id'] ?? 0), $matchingResponses);
         }
 
         return $this->writeProgramAlumniOutcomeSpreadsheet($filepath, $programGroups);
@@ -1190,7 +1190,7 @@ class StaffController extends BaseController
         }
 
         if (empty($programGroups)) {
-            $programGroups = $this->getAlumniProgramGroups($filters);
+            $programGroups = $this->getAlumniProgramGroups($filters, (int) ($survey['id'] ?? 0), $matchingResponses);
         }
 
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
@@ -1275,7 +1275,7 @@ class StaffController extends BaseController
         }
 
         if (empty($programGroups)) {
-            $programGroups = $this->getAlumniProgramGroups($filters);
+            $programGroups = $this->getAlumniProgramGroups($filters, (int) ($survey['id'] ?? 0), $matchingResponses);
         }
 
         \PhpOffice\PhpWord\Settings::setZipClass(\PhpOffice\PhpWord\Settings::PCLZIP);
@@ -1360,7 +1360,10 @@ class StaffController extends BaseController
                 ->getResultArray();
         }
 
-        // 3. Map responses to status (Employed, Unemployed)
+        // 3. Map responses to status:
+        //    - Employed (E): respondent chose "Employed"
+        //    - Unemployed (UE): respondent answered the survey and chose any other choice (did not choose "Employed")
+        //    - Not Tracked (NT): account did not respond/answer the survey
         $matchingResponseIds = array_values(array_filter(array_map('intval', array_column($matchingResponses, 'id'))));
         $statusByResponseId = [];
         if (! empty($matchingResponseIds)) {
@@ -1372,25 +1375,55 @@ class StaffController extends BaseController
                 ->get()
                 ->getResultArray();
 
+            $answersByResp = [];
             foreach ($answers as $ans) {
-                $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
-                $qText = strtolower(trim((string) ($ans['question_text'] ?? '')));
-                if (str_contains($qText, 'employ') || str_contains($qText, 'status') || str_contains($qText, 'job') || str_contains($qText, 'work')) {
-                    if (stripos($val, 'unemployed') !== false) {
-                        $statusByResponseId[$ans['response_id']] = 'Unemployed';
-                    } elseif (stripos($val, 'employed') !== false) {
-                        $statusByResponseId[$ans['response_id']] = 'Employed';
+                $rId = (int) ($ans['response_id'] ?? 0);
+                if ($rId > 0) {
+                    $answersByResp[$rId][] = $ans;
+                }
+            }
+
+            foreach ($matchingResponseIds as $rId) {
+                $respAnswers = $answersByResp[$rId] ?? [];
+                $choseEmployed = false;
+                $foundEmploymentQuestion = false;
+
+                foreach ($respAnswers as $ans) {
+                    $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
+                    if ($val === '') {
+                        continue;
+                    }
+                    $qText = strtolower(trim((string) ($ans['question_text'] ?? '')));
+                    if (str_contains($qText, 'employ') || str_contains($qText, 'status') || str_contains($qText, 'job') || str_contains($qText, 'work') || str_contains($qText, 'occupation')) {
+                        $foundEmploymentQuestion = true;
+                        if (stripos($val, 'employed') !== false && stripos($val, 'unemployed') === false && stripos($val, 'not employed') === false) {
+                            $choseEmployed = true;
+                            break;
+                        }
                     }
                 }
+
+                // Fallback: if no question text explicitly matched employment keywords, check any choice text for "Employed"
+                if (! $foundEmploymentQuestion) {
+                    foreach ($respAnswers as $ans) {
+                        $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
+                        if ($val !== '' && stripos($val, 'employed') !== false && stripos($val, 'unemployed') === false && stripos($val, 'not employed') === false) {
+                            $choseEmployed = true;
+                            break;
+                        }
+                    }
+                }
+
+                $statusByResponseId[$rId] = $choseEmployed ? 'Employed' : 'Unemployed';
             }
         }
 
         $statusByEmail = [];
         foreach ($matchingResponses as $mr) {
             $email = strtolower(trim((string) ($mr['email'] ?? '')));
-            if ($email === '') continue;
+            if ($email === '' || isset($statusByEmail[$email])) continue;
             $rId = (int) ($mr['id'] ?? 0);
-            $status = $statusByResponseId[$rId] ?? 'Employed';
+            $status = $statusByResponseId[$rId] ?? 'Unemployed';
             $statusByEmail[$email] = $status;
         }
 
@@ -3186,12 +3219,17 @@ class StaffController extends BaseController
     }
 
     /**
-     * Queries the alumni list grouped by program, marking all graduates as Not Tracked (NT) for now.
+     * Queries the alumni list grouped by program and classifies each graduate's tracer status:
+     * - Employed (E): accounts that responded to the survey and chose "Employed"
+     * - Unemployed (UE): accounts that responded to the survey and did not choose "Employed" (chose another choice)
+     * - Not Tracked (NT): accounts that did not respond/answer the survey
      *
      * @param array<string, mixed> $filters
+     * @param int $surveyId
+     * @param array<int, array<string, mixed>> $matchingResponses
      * @return array<int, array<string, mixed>>
      */
-    private function getAlumniProgramGroups(array $filters = []): array
+    private function getAlumniProgramGroups(array $filters = [], int $surveyId = 0, array $matchingResponses = []): array
     {
         $db = \Config\Database::connect();
 
@@ -3211,9 +3249,116 @@ class StaffController extends BaseController
             }
         }
 
+        // Resolve survey responses and classify each respondent as Employed or Unemployed
+        $responseRows = [];
+        if (! empty($matchingResponses)) {
+            foreach ($matchingResponses as $mr) {
+                $responseRows[] = [
+                    'id' => (int) ($mr['id'] ?? 0),
+                    'user_email' => (string) ($mr['email'] ?? $mr['user_email'] ?? ''),
+                    'user_name' => (string) ($mr['name'] ?? $mr['user_name'] ?? ''),
+                ];
+            }
+        } else {
+            $respBuilder = $db->table('responses')
+                ->select('id, survey_id, user_email, user_name, submitted_at')
+                ->orderBy('submitted_at', 'DESC')
+                ->orderBy('id', 'DESC');
+            if ($surveyId > 0) {
+                $respBuilder->where('survey_id', $surveyId);
+            }
+            $responseRows = $respBuilder->get()->getResultArray();
+        }
+
+        $responseIds = array_values(array_filter(array_map(static fn (array $r): int => (int) ($r['id'] ?? 0), $responseRows)));
+        $answersByResp = [];
+        if (! empty($responseIds)) {
+            $answerRows = $db->table('answers a')
+                ->select('a.response_id, a.question_id, a.choice_id, a.answer_text, a.answer_image_path, c.choice_text, q.question_text')
+                ->join('choices c', 'c.id = a.choice_id', 'left')
+                ->join('questions q', 'q.id = a.question_id', 'left')
+                ->whereIn('a.response_id', $responseIds)
+                ->get()
+                ->getResultArray();
+
+            foreach ($answerRows as $ans) {
+                $rId = (int) ($ans['response_id'] ?? 0);
+                if ($rId > 0) {
+                    $answersByResp[$rId][] = $ans;
+                }
+            }
+        }
+
+        $respondentInfoByEmail = [];
+        $respondentInfoByName = [];
+        foreach ($responseRows as $resp) {
+            $rId = (int) ($resp['id'] ?? 0);
+            if ($rId <= 0) {
+                continue;
+            }
+            $respAnswers = $answersByResp[$rId] ?? [];
+            $choseEmployed = false;
+            $foundEmploymentQuestion = false;
+            $employmentName = '';
+            $supportingDoc = '';
+
+            foreach ($respAnswers as $ans) {
+                $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
+                $imgPath = trim((string) ($ans['answer_image_path'] ?? ''));
+                $qText = strtolower(trim((string) ($ans['question_text'] ?? '')));
+
+                if ($imgPath !== '' && $supportingDoc === '') {
+                    $supportingDoc = basename($imgPath);
+                }
+
+                if ($val === '') {
+                    continue;
+                }
+
+                if (str_contains($qText, 'employ') || str_contains($qText, 'status') || str_contains($qText, 'job') || str_contains($qText, 'work') || str_contains($qText, 'occupation')) {
+                    if (stripos($val, 'employed') !== false || stripos($val, 'unemployed') !== false || str_contains($qText, 'status')) {
+                        $foundEmploymentQuestion = true;
+                        if (stripos($val, 'employed') !== false && stripos($val, 'unemployed') === false && stripos($val, 'not employed') === false) {
+                            $choseEmployed = true;
+                        }
+                    }
+                }
+
+                if ($employmentName === '' && (str_contains($qText, 'company') || str_contains($qText, 'business') || str_contains($qText, 'employer') || str_contains($qText, 'organization') || str_contains($qText, 'workplace') || str_contains($qText, 'name of employment'))) {
+                    $employmentName = $val;
+                }
+            }
+
+            if (! $foundEmploymentQuestion) {
+                foreach ($respAnswers as $ans) {
+                    $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
+                    if ($val !== '' && stripos($val, 'employed') !== false && stripos($val, 'unemployed') === false && stripos($val, 'not employed') === false) {
+                        $choseEmployed = true;
+                        break;
+                    }
+                }
+            }
+
+            $info = [
+                'status' => $choseEmployed ? 'Employed' : 'Unemployed',
+                'employment' => $choseEmployed ? $employmentName : '',
+                'supportingDoc' => $supportingDoc,
+            ];
+
+            $emailKey = strtolower(trim((string) ($resp['user_email'] ?? '')));
+            if ($emailKey !== '' && ! isset($respondentInfoByEmail[$emailKey])) {
+                $respondentInfoByEmail[$emailKey] = $info;
+            }
+
+            $nameKey = strtolower(preg_replace('/\s+/', ' ', trim((string) ($resp['user_name'] ?? ''))) ?? '');
+            if ($nameKey !== '' && ! isset($respondentInfoByName[$nameKey])) {
+                $respondentInfoByName[$nameKey] = $info;
+            }
+        }
+
         // Fetch all alumni joined with colleges and departments
         $alumniRows = $db->table('alumni')
-            ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, c.College_Name AS College, d.Department_Name AS Course, d.Abbreviation AS Course_Abbr')
+            ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, c.College_Name AS College, c.Abbreviation AS College_Abbr, d.Department_Name AS Course, d.Abbreviation AS Course_Abbr')
             ->join('colleges c', 'c.College_ID = alumni.College_ID', 'left')
             ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left')
             ->orderBy('d.Department_Name', 'ASC')
@@ -3234,6 +3379,7 @@ class StaffController extends BaseController
             $email = strtolower(trim((string) ($al['Email'] ?? '')));
             $alumniRecordId = trim((string) ($al['alumni_id'] ?? ''));
             $college = trim((string) ($al['College'] ?? ''));
+            $collegeAbbr = trim((string) ($al['College_Abbr'] ?? ''));
             $course = trim((string) ($al['Course'] ?? ''));
             $courseAbbr = trim((string) ($al['Course_Abbr'] ?? ''));
             $gradYear = trim((string) ($al['GraduationYear'] ?? ''));
@@ -3241,10 +3387,10 @@ class StaffController extends BaseController
             if ($filterYear !== '' && strcasecmp($gradYear, $filterYear) !== 0) {
                 continue;
             }
-            if ($filterCollege !== '' && strcasecmp($college, $filterCollege) !== 0) {
+            if ($filterCollege !== '' && strcasecmp($college, $filterCollege) !== 0 && strcasecmp($collegeAbbr, $filterCollege) !== 0) {
                 continue;
             }
-            if ($filterCourse !== '' && strcasecmp($course, $filterCourse) !== 0) {
+            if ($filterCourse !== '' && strcasecmp($course, $filterCourse) !== 0 && strcasecmp($courseAbbr, $filterCourse) !== 0) {
                 continue;
             }
             if ($filterSearch !== '') {
@@ -3278,21 +3424,44 @@ class StaffController extends BaseController
                 ];
             }
 
+            $fullNameKey = strtolower(preg_replace('/\s+/', ' ', trim($firstName . ' ' . $lastName)) ?? '');
+            $matchedInfo = null;
+            if ($email !== '' && isset($respondentInfoByEmail[$email])) {
+                $matchedInfo = $respondentInfoByEmail[$email];
+            } elseif ($fullNameKey !== '' && isset($respondentInfoByName[$fullNameKey])) {
+                $matchedInfo = $respondentInfoByName[$fullNameKey];
+            }
+
+            $gradStatus = $matchedInfo['status'] ?? 'Not Tracked';
             $groupsByProgram[$programName]['graduates'][] = [
                 'name' => $formattedName,
-                'status' => 'Not Tracked',
-                'employment' => '',
-                'supportingDoc' => '',
+                'status' => $gradStatus,
+                'employment' => $matchedInfo['employment'] ?? '',
+                'supportingDoc' => $matchedInfo['supportingDoc'] ?? '',
             ];
         }
 
-        // Finalize counts for each program (all marked as Not Tracked for now)
+        // Finalize E, UE, and NT counts for each program
         foreach ($groupsByProgram as &$grp) {
-            $total = count($grp['graduates']);
-            $grp['total'] = $total;
-            $grp['employedCount'] = 0;
-            $grp['unemployedCount'] = 0;
-            $grp['notTrackedCount'] = $total;
+            $employedCount = 0;
+            $unemployedCount = 0;
+            $notTrackedCount = 0;
+
+            foreach ($grp['graduates'] as $grad) {
+                $st = (string) ($grad['status'] ?? 'Not Tracked');
+                if ($st === 'Employed') {
+                    $employedCount++;
+                } elseif ($st === 'Unemployed') {
+                    $unemployedCount++;
+                } else {
+                    $notTrackedCount++;
+                }
+            }
+
+            $grp['total'] = count($grp['graduates']);
+            $grp['employedCount'] = $employedCount;
+            $grp['unemployedCount'] = $unemployedCount;
+            $grp['notTrackedCount'] = $notTrackedCount;
         }
         unset($grp);
 
