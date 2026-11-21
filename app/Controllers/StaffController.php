@@ -107,7 +107,7 @@ class StaffController extends BaseController
 
     public function previewCount(): ResponseInterface
     {
-        if (! $this->isStaffAuthorized()) {
+        if (! $this->isCoordinatorAuthorized()) {
             return $this->response->setStatusCode(401)->setJSON([
                 'success' => false,
                 'message' => 'Unauthorized.',
@@ -133,6 +133,7 @@ class StaffController extends BaseController
             }
 
             $filters = is_array($raw['filters'] ?? null) ? $raw['filters'] : [];
+            $filters = $this->applyCoordinatorReportScope($filters);
             $programGroups = $this->getAlumniProgramGroups($filters, $surveyId);
             $totalAlumni = array_sum(array_map(static fn (array $g): int => (int) ($g['total'] ?? 0), $programGroups));
 
@@ -152,7 +153,7 @@ class StaffController extends BaseController
 
     public function generate(): ResponseInterface
     {
-        if (! $this->isStaffAuthorized()) {
+        if (! $this->isCoordinatorAuthorized()) {
             return $this->response->setStatusCode(401)->setJSON([
                 'success' => false,
                 'message' => 'Unauthorized.',
@@ -276,6 +277,7 @@ class StaffController extends BaseController
 
         $selectedCategories = array_values($categoriesMap);
         $filters = is_array($payload['filters'] ?? null) ? $payload['filters'] : [];
+        $filters = $this->applyCoordinatorReportScope($filters);
         $matchingResponses = $this->getMatchingSurveyResponses($surveyId, $filters, array_column($selectedQuestions, 'id'));
         $programGroups = $this->getAlumniProgramGroups($filters, $surveyId, $matchingResponses);
 
@@ -669,6 +671,34 @@ class StaffController extends BaseController
             }
         }
         unset($colInfo);
+
+        // If the current user is a Program Coordinator, restrict the hierarchy strictly
+        // to their assigned college and department so reports only show their department.
+        $coordScope = $this->resolveCoordinatorReportScope();
+        if ($coordScope !== null && ($coordScope['department_id'] > 0 || $coordScope['department'] !== '')) {
+            $scopedHierarchy = [];
+            foreach ($hierarchy as $colKey => $colInfo) {
+                $matchedDepts = [];
+                foreach ($colInfo['departments'] as $dKey => $dInfo) {
+                    $matchesId = $coordScope['department_id'] > 0 && (int) ($dInfo['id'] ?? 0) === $coordScope['department_id'];
+                    $matchesName = $coordScope['department'] !== '' && (
+                        strcasecmp((string) ($dInfo['name'] ?? ''), $coordScope['department']) === 0
+                        || strcasecmp((string) ($dInfo['abbr'] ?? ''), $coordScope['department']) === 0
+                    );
+                    if ($matchesId || $matchesName) {
+                        $matchedDepts[$dKey] = $dInfo;
+                    }
+                }
+                if (! empty($matchedDepts)) {
+                    $colCopy = $colInfo;
+                    $colCopy['departments'] = $matchedDepts;
+                    $scopedHierarchy[$colKey] = $colCopy;
+                }
+            }
+            if (! empty($scopedHierarchy)) {
+                return $scopedHierarchy;
+            }
+        }
 
         return $hierarchy;
     }
@@ -1353,7 +1383,7 @@ class StaffController extends BaseController
         }
 
         $cohortAlumni = $alumniBuilder->get()->getResultArray();
-        if (empty($cohortAlumni)) {
+        if (empty($cohortAlumni) && empty($filters['_coordinator_scoped']) && $filterCourse === '' && $filterCollege === '' && $filterYear === '') {
             $cohortAlumni = $db->table('alumni a')
                 ->select('a.id, a.alumni_id, a.FirstName, a.LastName, a.Email, a.College_ID, a.Department_ID, a.GraduationYear, a.Status, c.Abbreviation as college_abbr, c.College_Name, d.Department_Name, d.Abbreviation as dept_abbr')
                 ->join('colleges c', 'c.College_ID = a.College_ID', 'left')
@@ -4855,6 +4885,116 @@ class StaffController extends BaseController
 
         $role = strtolower((string) (session('auth_user.role') ?? ''));
         return in_array($role, ['coordinator', 'head_admin', 'admin'], true);
+    }
+
+    /**
+     * Resolves the assigned department and college for a logged-in Coordinator.
+     * Returns null for Head Admin / Admin users (unrestricted campus scope).
+     *
+     * @return array{department: string, department_id: int, college: string, college_id: int}|null
+     */
+    private function resolveCoordinatorReportScope(): ?array
+    {
+        if (! session()->has('auth_user')) {
+            return null;
+        }
+
+        $role = strtolower(trim((string) (session('auth_user.role') ?? '')));
+        if ($role !== 'coordinator') {
+            return null;
+        }
+
+        $email = strtolower(trim((string) (session('auth_user.email') ?? '')));
+        $department = trim((string) (session('auth_user.department') ?? ''));
+        $college = '';
+
+        if ($email !== '') {
+            $accountModel = new \App\Models\UserAccountModel();
+            $account = $accountModel->findByEmail($email);
+            if (is_array($account)) {
+                $accDept = trim((string) ($account['Department'] ?? ''));
+                if ($accDept !== '') {
+                    $department = $accDept;
+                }
+                $college = trim((string) ($account['College'] ?? ''));
+            }
+        }
+
+        $departmentId = 0;
+        $collegeId = 0;
+        $db = \Config\Database::connect();
+
+        if ($department !== '') {
+            $deptRow = $db->table('departments')
+                ->groupStart()
+                    ->where('LOWER("Department_Name")', strtolower($department))
+                    ->orWhere('LOWER("Abbreviation")', strtolower($department))
+                ->groupEnd()
+                ->get()
+                ->getRowArray();
+
+            if (is_array($deptRow)) {
+                $departmentId = (int) ($deptRow['Department_ID'] ?? 0);
+                $collegeId = (int) ($deptRow['College_ID'] ?? 0);
+                $department = trim((string) ($deptRow['Department_Name'] ?? $department));
+            }
+        }
+
+        if ($collegeId > 0) {
+            $colRow = $db->table('colleges')
+                ->where('"College_ID"', $collegeId)
+                ->get()
+                ->getRowArray();
+            if (is_array($colRow)) {
+                $college = trim((string) ($colRow['College_Name'] ?? $college));
+            }
+        } elseif ($college !== '') {
+            $colRow = $db->table('colleges')
+                ->where('LOWER("College_Name")', strtolower($college))
+                ->get()
+                ->getRowArray();
+            if (is_array($colRow)) {
+                $collegeId = (int) ($colRow['College_ID'] ?? 0);
+                $college = trim((string) ($colRow['College_Name'] ?? $college));
+            }
+        }
+
+        return [
+            'department'    => $department,
+            'department_id' => $departmentId,
+            'college'       => $college,
+            'college_id'    => $collegeId,
+        ];
+    }
+
+    /**
+     * Enforces strict department/college scoping on report filters when the requester is a Coordinator.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    private function applyCoordinatorReportScope(array $filters): array
+    {
+        $scope = $this->resolveCoordinatorReportScope();
+        if ($scope === null) {
+            return $filters;
+        }
+
+        $filters['_coordinator_scoped'] = true;
+        if ($scope['department'] !== '') {
+            $filters['course'] = $scope['department'];
+            $filters['department'] = $scope['department'];
+        } else {
+            // Deny accidental full-campus fallback if coordinator has no assigned department
+            $filters['course'] = '__UNASSIGNED_DEPARTMENT__';
+            $filters['department'] = '__UNASSIGNED_DEPARTMENT__';
+        }
+
+        if ($scope['college'] !== '') {
+            $filters['college'] = $scope['college'];
+        }
+
+        return $filters;
     }
 
     public function settings(): ResponseInterface

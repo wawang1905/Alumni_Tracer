@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports | Coordinator | GradVision</title>
     <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"><link rel="stylesheet" href="CoordinatorCommon.css">
-    <!-- Coordinator sidebar state pre-applied before paint to prevent transition flash -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="CoordinatorCommon.css">
     <script>
         (function() {
             document.documentElement.classList.add('coordinator-sidebar-preload');
@@ -13,19 +14,792 @@
                 document.documentElement.classList.add('coordinator-sidebar-collapsed');
             }
         })();
-    </script></head>
-<body><div class="coordinator-shell"><aside class="coordinator-sidebar">            <div class="brand-block">
+    </script>
+    <style>
+        .coord-reports-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .coord-scope-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 14px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            color: #ffffff;
+            padding: 18px 22px;
+            border-radius: 14px;
+            box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+        }
+        .coord-scope-banner h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .coord-scope-banner p {
+            margin: 0;
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+        .coord-scope-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .coord-scope-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #f8fafc;
+        }
+        .coord-report-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .coord-report-kpi {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .coord-report-kpi-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .coord-report-kpi-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .coord-report-kpi-sub {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .coord-report-builder-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 22px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .coord-builder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 14px;
+        }
+        .coord-builder-header h3 {
+            margin: 0;
+            font-size: 17px;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .coord-preview-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 700;
+        }
+        .coord-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .coord-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .coord-field.full-span {
+            grid-column: 1 / -1;
+        }
+        .coord-field label {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #334155;
+        }
+        .coord-field select,
+        .coord-field input {
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13.5px;
+            color: #0f172a;
+            background: #ffffff;
+            font-family: inherit;
+        }
+        .coord-field input[readonly] {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            cursor: not-allowed;
+        }
+        .coord-type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .coord-type-card {
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.16s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: #ffffff;
+        }
+        .coord-type-card:hover {
+            border-color: #93c5fd;
+            background: #f8fafc;
+        }
+        .coord-type-card.is-selected {
+            border-color: #2563eb;
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+        }
+        .coord-type-card input {
+            display: none;
+        }
+        .coord-type-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .coord-type-desc {
+            font-size: 12px;
+            color: #475569;
+            line-height: 1.45;
+        }
+        .coord-format-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .coord-format-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 16px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+            background: #ffffff;
+            transition: all 0.15s ease;
+        }
+        .coord-format-pill input {
+            display: none;
+        }
+        .coord-format-pill.is-selected {
+            border-color: #2563eb;
+            background: #2563eb;
+            color: #ffffff;
+        }
+        .coord-builder-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+        }
+        .coord-report-status {
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+        .coord-report-status.is-error {
+            color: #dc2626;
+        }
+        .coord-report-status.is-success {
+            color: #059669;
+        }
+        .coord-quick-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .coord-quick-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .coord-quick-card h4 {
+            margin: 0 0 4px 0;
+            font-size: 14.5px;
+            color: #0f172a;
+        }
+        .coord-quick-card p {
+            margin: 0;
+            font-size: 12.5px;
+            color: #64748b;
+            line-height: 1.45;
+        }
+        .coord-quick-btn {
+            align-self: flex-start;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 13px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .coord-quick-btn:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+            background: #eff6ff;
+        }
+        @media (max-width: 960px) {
+            .coord-report-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .coord-type-grid, .coord-quick-grid, .coord-form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="coordinator-shell">
+        <aside class="coordinator-sidebar">
+            <div class="brand-block">
                 <div class="brand-mark"><img src="../images/gradvision-logo.ico" alt="GradVision Logo" class="brand-logo"></div>
                 <div>
                     <h1>GradVision</h1>
                     <p>College Coordinator</p>
                 </div>
-            </div><div class="sidebar-user-card"><div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div><div class="sidebar-user-info"><span class="sidebar-user-name">Loading...</span><span class="sidebar-user-role">Loading...</span></div></div><nav class="coordinator-nav" aria-label="Coordinator sections"><span class="nav-section-label">Main</span><a class="nav-item" href="Dashboard.html" title="Overview"><i class="fas fa-table-columns"></i><span>Overview</span></a><a class="nav-item" href="Alumni.html" title="Alumni"><i class="fas fa-users"></i><span>Alumni</span></a><span class="nav-section-label">Data</span><div class="nav-group"><a class="nav-item" href="SurveyResponses.html" title="Surveys"><i class="fas fa-clipboard-check"></i><span>Surveys</span><i class="fas fa-chevron-down nav-caret"></i></a><a class="nav-subitem" href="SurveyResponses.html">Responses</a></div><a class="nav-item active" href="Reports.html" title="Reports"><i class="fas fa-chart-line"></i><span>Reports</span></a><a class="nav-item" href="AlumniID.html" title="Alumni ID"><i class="fas fa-id-card"></i><span>Alumni ID</span></a><span class="nav-section-label">Manage</span><a class="nav-item" href="Events.html" title="Events"><i class="fas fa-calendar-days"></i><span>Events</span></a><a class="nav-item" href="Payments.html" title="Payments"><i class="fas fa-receipt"></i><span>Payments</span></a><a class="nav-item" href="Communication.html" title="Communication"><i class="fas fa-envelope-open-text"></i><span>Communication</span></a></nav>
+            </div>
+            <div class="sidebar-user-card">
+                <div class="sidebar-user-avatar"><i class="fas fa-user-tie"></i></div>
+                <div class="sidebar-user-info">
+                    <span class="sidebar-user-name">Loading...</span>
+                    <span class="sidebar-user-role">Loading...</span>
+                </div>
+            </div>
+            <nav class="coordinator-nav" aria-label="Coordinator sections">
+                <span class="nav-section-label">Main</span>
+                <a class="nav-item" href="Dashboard.html" title="Overview"><i class="fas fa-table-columns"></i><span>Overview</span></a>
+                <a class="nav-item" href="Alumni.html" title="Alumni"><i class="fas fa-users"></i><span>Alumni</span></a>
+                <span class="nav-section-label">Data</span>
+                <div class="nav-group">
+                    <a class="nav-item" href="SurveyResponses.html" title="Surveys"><i class="fas fa-clipboard-check"></i><span>Surveys</span><i class="fas fa-chevron-down nav-caret"></i></a>
+                    <a class="nav-subitem" href="SurveyResponses.html">Responses</a>
+                </div>
+                <a class="nav-item active" href="Reports.html" title="Reports"><i class="fas fa-chart-line"></i><span>Reports</span></a>
+                <span class="nav-section-label">Manage</span>
+                <a class="nav-item" href="Events.html" title="Events"><i class="fas fa-calendar-days"></i><span>Events</span></a>
+            </nav>
             <div class="coordinator-sidebar-footer">
                 <button id="coordinatorLogoutBtn" class="coordinator-logout-btn" type="button" title="Log Out">
                     <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
                     <span class="logout-label">Log Out</span>
                 </button>
             </div>
-        </aside><main class="coordinator-main"><header class="topbar"><div><p class="eyebrow">Assigned Department</p><h2>Reports</h2></div></header><div class="section-heading"><h3>Assigned Department Reports</h3><button class="btn-primary"><i class="fas fa-download"></i> Export</button></div><div class="report-grid"><article><i class="fas fa-percent"></i><span>Employment Rate</span></article><article><i class="fas fa-calendar"></i><span>Graduates by Year</span></article><article><i class="fas fa-square-poll-vertical"></i><span>Survey Completion</span></article><article><i class="fas fa-chart-pie"></i><span>Employment Statistics</span></article></div></main></div><script src="CoordinatorCommon.js"></script></body>
+        </aside>
+
+        <main class="coordinator-main">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">Assigned Department</p>
+                    <h2>Department Reports</h2>
+                </div>
+            </header>
+
+            <div class="coord-reports-wrap">
+                <!-- Role & Department Scope Banner -->
+                <section class="coord-scope-banner">
+                    <div>
+                        <h3 id="reportScopeHeading">Department Tracer &amp; Survey Reports</h3>
+                        <p id="reportScopeSubtext">Reports generated from this portal are automatically restricted to your assigned department.</p>
+                    </div>
+                    <div class="coord-scope-pills">
+                        <span class="coord-scope-pill"><i class="fas fa-user-shield"></i> <span id="reportRoleBadge">Coordinator</span></span>
+                        <span class="coord-scope-pill"><i class="fas fa-building-columns"></i> <span id="reportCollegeBadge">Loading college...</span></span>
+                        <span class="coord-scope-pill"><i class="fas fa-network-wired"></i> <span id="reportDeptBadge">Loading department...</span></span>
+                    </div>
+                </section>
+
+                <!-- Live Department KPI Summary -->
+                <section class="coord-report-kpi-grid">
+                    <div class="coord-report-kpi">
+                        <span class="coord-report-kpi-label">Department Alumni</span>
+                        <span class="coord-report-kpi-value" id="rptTotalAlumni">—</span>
+                        <span class="coord-report-kpi-sub">Total graduates in department</span>
+                    </div>
+                    <div class="coord-report-kpi">
+                        <span class="coord-report-kpi-label">Employment Rate</span>
+                        <span class="coord-report-kpi-value" id="rptEmploymentRate">—</span>
+                        <span class="coord-report-kpi-sub" id="rptEmployedSub">0 employed</span>
+                    </div>
+                    <div class="coord-report-kpi">
+                        <span class="coord-report-kpi-label">Survey Responses</span>
+                        <span class="coord-report-kpi-value" id="rptSurveyResponses">—</span>
+                        <span class="coord-report-kpi-sub" id="rptResponseRateSub">0% response rate</span>
+                    </div>
+                    <div class="coord-report-kpi">
+                        <span class="coord-report-kpi-label">Not Tracked</span>
+                        <span class="coord-report-kpi-value" id="rptNotTracked">—</span>
+                        <span class="coord-report-kpi-sub">No survey response yet</span>
+                    </div>
+                </section>
+
+                <!-- Department Report Generator -->
+                <section class="coord-report-builder-card">
+                    <div class="coord-builder-header">
+                        <h3><i class="fas fa-file-export" style="color:#2563eb;"></i> Generate Department Report</h3>
+                        <span class="coord-preview-badge">
+                            <i class="fas fa-users"></i>
+                            <span id="coordPreviewCount">0</span> matching alumni
+                        </span>
+                    </div>
+
+                    <div class="coord-form-grid">
+                        <div class="coord-field full-span">
+                            <label for="coordReportSurvey">Select Survey</label>
+                            <select id="coordReportSurvey">
+                                <option value="">Loading surveys...</option>
+                            </select>
+                        </div>
+
+                        <div class="coord-field">
+                            <label for="coordLockedCollege">Assigned College (Locked)</label>
+                            <input type="text" id="coordLockedCollege" value="Loading..." readonly>
+                        </div>
+
+                        <div class="coord-field">
+                            <label for="coordLockedDepartment">Assigned Department (Locked)</label>
+                            <input type="text" id="coordLockedDepartment" value="Loading..." readonly>
+                        </div>
+
+                        <div class="coord-field">
+                            <label for="coordFilterYear">Graduation Batch Year</label>
+                            <select id="coordFilterYear">
+                                <option value="">All graduation years</option>
+                            </select>
+                        </div>
+
+                        <div class="coord-field">
+                            <label for="coordFilterReview">Response Review Status</label>
+                            <select id="coordFilterReview">
+                                <option value="all">All statuses</option>
+                                <option value="reviewed">Reviewed</option>
+                                <option value="pending">Pending</option>
+                                <option value="needs_revision">Needs Revision</option>
+                            </select>
+                        </div>
+
+                        <div class="coord-field">
+                            <label for="coordFilterDateFrom">Submitted From (Optional)</label>
+                            <input type="date" id="coordFilterDateFrom">
+                        </div>
+
+                        <div class="coord-field">
+                            <label for="coordFilterDateTo">Submitted To (Optional)</label>
+                            <input type="date" id="coordFilterDateTo">
+                        </div>
+                    </div>
+
+                    <div class="coord-field">
+                        <label>Report Type</label>
+                        <div class="coord-type-grid" id="coordReportTypeGrid">
+                            <label class="coord-type-card is-selected" data-type="alumni_tracer">
+                                <input type="radio" name="coordReportType" value="alumni_tracer" checked>
+                                <span class="coord-type-title"><i class="fas fa-table-list" style="color:#2563eb;"></i> Alumni Tracer Report</span>
+                                <span class="coord-type-desc">Department graduate roster with Employed (E), Unemployed (UE), Not Tracked (NT) counts and Grand Total percentage.</span>
+                            </label>
+                            <label class="coord-type-card" data-type="graphs">
+                                <input type="radio" name="coordReportType" value="graphs">
+                                <span class="coord-type-title"><i class="fas fa-chart-pie" style="color:#059669;"></i> Visual Graphs Report</span>
+                                <span class="coord-type-desc">Overall distribution charts and single-column breakdown scoped strictly to your department.</span>
+                            </label>
+                            <label class="coord-type-card" data-type="raw_numbers">
+                                <input type="radio" name="coordReportType" value="raw_numbers">
+                                <span class="coord-type-title"><i class="fas fa-hashtag" style="color:#d97706;"></i> Raw Numbers Report</span>
+                                <span class="coord-type-desc">Question-by-question choice counts, frequencies, and percentages for your department.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="coord-field">
+                        <label>Export File Format</label>
+                        <div class="coord-format-row" id="coordFormatRow">
+                            <label class="coord-format-pill is-selected" data-format="pdf">
+                                <input type="radio" name="coordReportFormat" value="pdf" checked>
+                                <i class="fas fa-file-pdf"></i> PDF Document
+                            </label>
+                            <label class="coord-format-pill" data-format="docx">
+                                <input type="radio" name="coordReportFormat" value="docx">
+                                <i class="fas fa-file-word"></i> Word (DOCX)
+                            </label>
+                            <label class="coord-format-pill" data-format="xlsx">
+                                <input type="radio" name="coordReportFormat" value="xlsx">
+                                <i class="fas fa-file-excel"></i> Excel (XLSX)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="coord-builder-actions">
+                        <span id="coordReportStatus" class="coord-report-status">Ready to generate your department report.</span>
+                        <button type="button" id="coordGenerateReportBtn" class="btn-primary">
+                            <i class="fas fa-download"></i>
+                            <span>Generate &amp; Download Report</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Quick One-Click Department Exports -->
+                <section class="coord-quick-grid">
+                    <article class="coord-quick-card">
+                        <div>
+                            <h4><i class="fas fa-user-graduate" style="color:#2563eb; margin-right:6px;"></i>Quick Tracer Sheet (PDF)</h4>
+                            <p>Export your department's full Alumni Tracer table (E / UE / NT &amp; Grand Total) using the selected survey.</p>
+                        </div>
+                        <button type="button" class="coord-quick-btn" data-quick-type="alumni_tracer" data-quick-format="pdf">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </button>
+                    </article>
+
+                    <article class="coord-quick-card">
+                        <div>
+                            <h4><i class="fas fa-chart-column" style="color:#059669; margin-right:6px;"></i>Department Graphs (PDF)</h4>
+                            <p>Export visual pie charts and breakdown graphs strictly for your assigned department.</p>
+                        </div>
+                        <button type="button" class="coord-quick-btn" data-quick-type="graphs" data-quick-format="pdf">
+                            <i class="fas fa-chart-pie"></i> Download PDF
+                        </button>
+                    </article>
+
+                    <article class="coord-quick-card">
+                        <div>
+                            <h4><i class="fas fa-file-spreadsheet" style="color:#d97706; margin-right:6px;"></i>Tracer Spreadsheet (Excel)</h4>
+                            <p>Download your department's Alumni Tracer sheet as an editable Excel (.xlsx) workbook.</p>
+                        </div>
+                        <button type="button" class="coord-quick-btn" data-quick-type="alumni_tracer" data-quick-format="xlsx">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </button>
+                    </article>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="CoordinatorCommon.js"></script>
+    <script>
+        (function() {
+            const state = {
+                department: '',
+                college: '',
+                role: 'Program Coordinator',
+                surveys: [],
+                isGenerating: false,
+            };
+
+            const els = {
+                surveySelect: document.getElementById('coordReportSurvey'),
+                lockedCollege: document.getElementById('coordLockedCollege'),
+                lockedDept: document.getElementById('coordLockedDepartment'),
+                yearSelect: document.getElementById('coordFilterYear'),
+                reviewSelect: document.getElementById('coordFilterReview'),
+                dateFrom: document.getElementById('coordFilterDateFrom'),
+                dateTo: document.getElementById('coordFilterDateTo'),
+                previewCount: document.getElementById('coordPreviewCount'),
+                statusText: document.getElementById('coordReportStatus'),
+                generateBtn: document.getElementById('coordGenerateReportBtn'),
+                roleBadge: document.getElementById('reportRoleBadge'),
+                collegeBadge: document.getElementById('reportCollegeBadge'),
+                deptBadge: document.getElementById('reportDeptBadge'),
+                heading: document.getElementById('reportScopeHeading'),
+            };
+
+            function setStatus(msg, type = '') {
+                if (!els.statusText) return;
+                els.statusText.textContent = msg;
+                els.statusText.className = 'coord-report-status' + (type ? ' is-' + type : '');
+            }
+
+            function getSelectedReportType() {
+                const checked = document.querySelector('input[name="coordReportType"]:checked');
+                return checked ? checked.value : 'alumni_tracer';
+            }
+
+            function getSelectedFormat() {
+                const checked = document.querySelector('input[name="coordReportFormat"]:checked');
+                return checked ? checked.value : 'pdf';
+            }
+
+            function buildFiltersPayload() {
+                const filters = {};
+                if (state.college) filters.college = state.college;
+                if (state.department) {
+                    filters.course = state.department;
+                    filters.department = state.department;
+                }
+                if (els.yearSelect && els.yearSelect.value) {
+                    filters.graduation_year = els.yearSelect.value;
+                }
+                if (els.reviewSelect && els.reviewSelect.value && els.reviewSelect.value !== 'all') {
+                    filters.review_status = els.reviewSelect.value;
+                }
+                if (els.dateFrom && els.dateFrom.value) {
+                    filters.date_from = els.dateFrom.value;
+                }
+                if (els.dateTo && els.dateTo.value) {
+                    filters.date_to = els.dateTo.value;
+                }
+                return filters;
+            }
+
+            async function updatePreviewCount() {
+                const surveyId = Number(els.surveySelect ? els.surveySelect.value : 0);
+                if (!surveyId) {
+                    if (els.previewCount) els.previewCount.textContent = '0';
+                    return;
+                }
+
+                try {
+                    const res = await fetch('../reports/preview-count', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            survey_id: surveyId,
+                            filters: buildFiltersPayload(),
+                        }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (els.previewCount) {
+                            els.previewCount.textContent = Number(data.count || 0).toLocaleString();
+                        }
+                    }
+                } catch (err) {
+                    // Non-blocking preview update
+                }
+            }
+
+            async function triggerReportDownload(reportType, format) {
+                if (state.isGenerating) return;
+
+                const surveyId = Number(els.surveySelect ? els.surveySelect.value : 0);
+                if (!surveyId) {
+                    setStatus('Please select a survey first.', 'error');
+                    return;
+                }
+
+                state.isGenerating = true;
+                if (els.generateBtn) {
+                    els.generateBtn.disabled = true;
+                    els.generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Generating...</span>';
+                }
+                setStatus('Generating department-scoped report. Please wait...');
+
+                try {
+                    const response = await fetch('../reports/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            survey_id: surveyId,
+                            report_type: reportType,
+                            format: format,
+                            filters: buildFiltersPayload(),
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        let errMsg = 'Unable to generate the report right now.';
+                        try {
+                            const errJson = await response.json();
+                            if (errJson && errJson.message) errMsg = errJson.message;
+                        } catch (e) {}
+                        throw new Error(errMsg);
+                    }
+
+                    const blob = await response.blob();
+                    const disposition = response.headers.get('Content-Disposition') || '';
+                    const match = disposition.match(/filename="?([^"]+)"?/i);
+                    const ext = format === 'xlsx' ? 'xlsx' : (format === 'docx' ? 'docx' : 'pdf');
+                    const deptSlug = (state.department || 'Department').replace(/[^a-zA-Z0-9]+/g, '_');
+                    const filename = match ? match[1] : `${deptSlug}_${reportType}_report.${ext}`;
+
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+
+                    setStatus(`Report downloaded: ${filename}`, 'success');
+                } catch (err) {
+                    setStatus(err.message || 'Failed to generate report.', 'error');
+                } finally {
+                    state.isGenerating = false;
+                    if (els.generateBtn) {
+                        els.generateBtn.disabled = false;
+                        els.generateBtn.innerHTML = '<i class="fas fa-download"></i><span>Generate &amp; Download Report</span>';
+                    }
+                }
+            }
+
+            async function loadCoordinatorReportContext() {
+                try {
+                    const [sessionRes, dashRes, surveysRes] = await Promise.all([
+                        fetch('../coordinator/session', { credentials: 'include', cache: 'no-store' }),
+                        fetch('../coordinator/dashboard-data', { credentials: 'include', cache: 'no-store' }),
+                        fetch('../surveys/list', { credentials: 'include', cache: 'no-store' }),
+                    ]);
+
+                    if (sessionRes.ok) {
+                        const sData = await sessionRes.json();
+                        state.department = sData.department || '';
+                        state.college = sData.college || '';
+                        state.role = sData.role === 'head_admin' ? 'Head Admin' : 'Program Coordinator';
+
+                        if (els.roleBadge) els.roleBadge.textContent = state.role;
+                        if (els.collegeBadge) els.collegeBadge.textContent = state.college || 'Assigned College';
+                        if (els.deptBadge) els.deptBadge.textContent = state.department || 'Unassigned Department';
+                        if (els.lockedCollege) els.lockedCollege.value = state.college || 'Assigned College';
+                        if (els.lockedDept) els.lockedDept.value = state.department || 'Unassigned Department';
+                        if (els.heading && state.department) {
+                            els.heading.textContent = `${state.department} — Reports Center`;
+                        }
+                    }
+
+                    if (dashRes.ok) {
+                        const dData = await dashRes.json();
+                        const kpis = dData.kpis || {};
+                        const totalAlumni = Number(kpis.totalAlumni || 0);
+                        const employed = Number(kpis.employedCount || 0);
+                        const notTracked = Number(kpis.notTrackedCount || 0);
+                        const responses = Number(kpis.totalResponses || 0);
+                        const empRate = totalAlumni > 0 ? ((employed / totalAlumni) * 100).toFixed(1) + '%' : '0.0%';
+                        const respRate = totalAlumni > 0 ? ((responses / totalAlumni) * 100).toFixed(1) + '%' : '0.0%';
+
+                        const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                        setTxt('rptTotalAlumni', totalAlumni.toLocaleString());
+                        setTxt('rptEmploymentRate', empRate);
+                        setTxt('rptEmployedSub', `${employed.toLocaleString()} employed`);
+                        setTxt('rptSurveyResponses', responses.toLocaleString());
+                        setTxt('rptResponseRateSub', `${respRate} response rate`);
+                        setTxt('rptNotTracked', notTracked.toLocaleString());
+
+                        // Populate graduation year dropdown from department's batch breakdown
+                        const years = Array.isArray(dData.yearlyGraduates)
+                            ? dData.yearlyGraduates.map(y => String(y.year || '')).filter(Boolean).sort((a, b) => b.localeCompare(a))
+                            : [];
+                        if (els.yearSelect && years.length > 0) {
+                            els.yearSelect.innerHTML = '<option value="">All graduation years</option>' +
+                                years.map(y => `<option value="${y}">Class of ${y}</option>`).join('');
+                        }
+                    }
+
+                    if (surveysRes.ok) {
+                        const svData = await surveysRes.json();
+                        const list = Array.isArray(svData.data) ? svData.data : (Array.isArray(svData.surveys) ? svData.surveys : []);
+                        state.surveys = list;
+                        if (els.surveySelect) {
+                            if (list.length === 0) {
+                                els.surveySelect.innerHTML = '<option value="">No surveys available</option>';
+                            } else {
+                                els.surveySelect.innerHTML = list.map(s => {
+                                    const title = String(s.title || `Survey #${s.id}`).replace(/</g, '&lt;');
+                                    const status = s.status ? ` (${s.status})` : '';
+                                    return `<option value="${s.id}">${title}${status}</option>`;
+                                }).join('');
+                            }
+                        }
+                    }
+
+                    await updatePreviewCount();
+                } catch (err) {
+                    setStatus('Unable to load department report data. Please refresh the page.', 'error');
+                }
+            }
+
+            // Wire UI events
+            document.querySelectorAll('#coordReportTypeGrid .coord-type-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('#coordReportTypeGrid .coord-type-card').forEach(c => c.classList.remove('is-selected'));
+                    card.classList.add('is-selected');
+                    const radio = card.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = true;
+                });
+            });
+
+            document.querySelectorAll('#coordFormatRow .coord-format-pill').forEach(pill => {
+                pill.addEventListener('click', () => {
+                    document.querySelectorAll('#coordFormatRow .coord-format-pill').forEach(p => p.classList.remove('is-selected'));
+                    pill.classList.add('is-selected');
+                    const radio = pill.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = true;
+                });
+            });
+
+            [els.surveySelect, els.yearSelect, els.reviewSelect, els.dateFrom, els.dateTo].forEach(input => {
+                if (input) input.addEventListener('change', updatePreviewCount);
+            });
+
+            if (els.generateBtn) {
+                els.generateBtn.addEventListener('click', () => {
+                    triggerReportDownload(getSelectedReportType(), getSelectedFormat());
+                });
+            }
+
+            document.querySelectorAll('.coord-quick-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const type = btn.getAttribute('data-quick-type') || 'alumni_tracer';
+                    const format = btn.getAttribute('data-quick-format') || 'pdf';
+                    triggerReportDownload(type, format);
+                });
+            });
+
+            document.addEventListener('DOMContentLoaded', loadCoordinatorReportContext);
+        })();
+    </script>
+</body>
 </html>

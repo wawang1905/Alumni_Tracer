@@ -32,24 +32,9 @@ class CoordinatorController extends BaseController
         return $this->renderProtectedView('HTML/Coordinator/Reports.html');
     }
 
-    public function alumniId(): ResponseInterface
-    {
-        return $this->renderProtectedView('HTML/Coordinator/AlumniID.html');
-    }
-
     public function events(): ResponseInterface
     {
         return $this->renderProtectedView('HTML/Coordinator/Events.html');
-    }
-
-    public function payments(): ResponseInterface
-    {
-        return $this->renderProtectedView('HTML/Coordinator/Payments.html');
-    }
-
-    public function communication(): ResponseInterface
-    {
-        return $this->renderProtectedView('HTML/Coordinator/Communication.html');
     }
 
     public function surveyResponses(): ResponseInterface

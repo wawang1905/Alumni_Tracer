@@ -155,17 +155,12 @@ $routes->group('', ['filter' => 'role:coordinator'], static function (RouteColle
     $routes->get('coordinator/Dashboard.html', 'CoordinatorController::dashboard');
     $routes->get('coordinator/Alumni.html', 'CoordinatorController::alumni');
     $routes->get('coordinator/Reports.html', 'CoordinatorController::reports');
-    $routes->get('coordinator/AlumniID.html', 'CoordinatorController::alumniId');
     $routes->get('coordinator/Events.html', 'CoordinatorController::events');
-    $routes->get('coordinator/Payments.html', 'CoordinatorController::payments');
-    $routes->get('coordinator/Communication.html', 'CoordinatorController::communication');
     $routes->get('coordinator/SurveyResponses.html', 'CoordinatorController::surveyResponses');
     $routes->get('coordinator/SurveyResponseDetails.html', 'CoordinatorController::surveyResponseDetails');
     $routes->get('coordinator/alumni', 'CoordinatorController::getAlumni');
     $routes->get('coordinator/dashboard-data', 'CoordinatorController::dashboardData');
     $routes->get('coordinator/session', 'CoordinatorController::sessionInfo');
-    $routes->get('coordinator/payments-data', 'StaffController::getPaymentsData');
-    $routes->post('coordinator/payments/create', 'StaffController::createPayment');
 });
 
 // ── Developer Protected Routes ──────────────────────────────────────────────
