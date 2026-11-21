@@ -61,6 +61,10 @@ Vagrantfile
 
 /writable/uploads/*
 !/writable/uploads/index.html
+!/writable/uploads/profile_pictures/
+!/writable/uploads/profile_pictures/**
+!/writable/uploads/survey_answers/
+!/writable/uploads/survey_answers/**
 
 /writable/debugbar/*
 !/writable/debugbar/index.html
