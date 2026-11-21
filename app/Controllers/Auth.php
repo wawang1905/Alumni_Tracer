@@ -10,6 +10,14 @@ use CodeIgniter\HTTP\ResponseInterface;
 
 class Auth extends BaseController
 {
+    private const LOGIN_MAX_ATTEMPTS = 5;
+    private const LOGIN_WINDOW_SECONDS = 300;
+    private const LOGIN_LOCKOUT_SECONDS = 60;
+
+    private const REGISTER_MAX_ATTEMPTS = 5;
+    private const REGISTER_WINDOW_SECONDS = 300;
+    private const REGISTER_LOCKOUT_SECONDS = 60;
+
     private UserAccountModel $userAccounts;
     private Activity_Model $activityModel;
     private AlumniModel $alumniModel;
@@ -29,6 +37,18 @@ class Auth extends BaseController
     {
         $identifier = trim((string) $this->request->getPost('identifier'));
         $password = (string) $this->request->getPost('password');
+
+        $rateScope = 'login:' . strtolower($identifier ?: 'blank');
+        $lockoutRemaining = max(
+            $this->getRateLimitLockoutRemaining('login_ip'),
+            $this->getRateLimitLockoutRemaining($rateScope)
+        );
+        if ($lockoutRemaining > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many failed login attempts. Please wait {$lockoutRemaining} seconds before trying again.",
+                $lockoutRemaining
+            );
+        }
 
         if ($identifier === '' || $password === '') {
             return $this->response->setStatusCode(422)->setJSON([
@@ -60,10 +80,7 @@ class Auth extends BaseController
         }
 
         if ($user === null) {
-            return $this->response->setStatusCode(401)->setJSON([
-                'success' => false,
-                'message' => 'Invalid credentials. Please try again.',
-            ]);
+            return $this->handleFailedLoginAttempt($rateScope, 'Invalid credentials.');
         }
 
         $localPasswordMatches = $this->passwordMatches($password, (string) ($user['Password'] ?? ''));
@@ -71,10 +88,7 @@ class Auth extends BaseController
         // Authenticate via Supabase Auth (with automatic provisioning/sync for existing MySQL accounts)
         $authResult = $this->supabaseAuth->authenticateHybrid($user, $password, $localPasswordMatches);
         if (! $authResult['success']) {
-            return $this->response->setStatusCode(401)->setJSON([
-                'success' => false,
-                'message' => 'Invalid credentials. Please try again.',
-            ]);
+            return $this->handleFailedLoginAttempt($rateScope, 'Invalid credentials.');
         }
 
         // Extra account_id validation for alumni logins.
@@ -91,10 +105,7 @@ class Auth extends BaseController
 
             // If there is no corresponding alumni record, deny login.
             if (! is_array($expectedAlumni) || empty($expectedAlumni)) {
-                return $this->response->setStatusCode(401)->setJSON([
-                    'success' => false,
-                    'message' => 'Invalid account (alumni record not found). Please try again.',
-                ]);
+                return $this->handleFailedLoginAttempt($rateScope, 'Invalid account (alumni record not found).');
             }
 
             $expectedAccountId = (string) ($expectedAlumni['alumni_id'] ?? '');
@@ -109,12 +120,13 @@ class Auth extends BaseController
             }
 
             if ($expectedAccountId !== '' && $providedAccountId !== $expectedAccountId) {
-                return $this->response->setStatusCode(401)->setJSON([
-                    'success' => false,
-                    'message' => 'Invalid account linkage. Please try again.',
-                ]);
+                return $this->handleFailedLoginAttempt($rateScope, 'Invalid account linkage.');
             }
         }
+
+        // Clear login rate limit counters on successful authentication
+        $this->clearRateLimit('login_ip');
+        $this->clearRateLimit($rateScope);
 
         $supabaseUser = is_array($authResult['user'] ?? null) ? $authResult['user'] : [];
         $supabaseSession = is_array($authResult['session'] ?? null) ? $authResult['session'] : null;
@@ -172,6 +184,14 @@ class Auth extends BaseController
 
     public function signup(): ResponseInterface
     {
+        $signupLockout = $this->getRateLimitLockoutRemaining('register_submit');
+        if ($signupLockout > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many registration attempts. Please wait {$signupLockout} seconds before trying again.",
+                $signupLockout
+            );
+        }
+
         $firstName = trim((string) $this->request->getPost('first_name'));
         $lastName = trim((string) $this->request->getPost('last_name'));
         $college = trim((string) $this->request->getPost('college'));
@@ -261,6 +281,13 @@ class Auth extends BaseController
             ->getRowArray();
 
         if (! is_array($alumni) || empty($alumni)) {
+            $state = $this->recordRateLimitAttempt('register_submit', self::REGISTER_MAX_ATTEMPTS, self::REGISTER_WINDOW_SECONDS, self::REGISTER_LOCKOUT_SECONDS);
+            if ($state['locked_remaining'] > 0) {
+                return $this->buildRateLimitResponse(
+                    "Too many failed registration attempts. Please wait {$state['locked_remaining']} seconds before trying again.",
+                    $state['locked_remaining']
+                );
+            }
             return $this->response->setStatusCode(404)->setJSON([
                 'success' => false,
                 'message' => 'No matching alumni record was found for the provided signup details.',
@@ -353,6 +380,10 @@ class Auth extends BaseController
             log_message('warning', 'Signup Supabase sync notice: ' . ($syncResult['error'] ?? 'unknown'));
         }
 
+        $this->clearRateLimit('register_submit');
+        $this->clearRateLimit('register_lookup');
+        $this->clearRateLimit('register_otp_send');
+        $this->clearRateLimit('register_otp_verify');
         session()->remove(['email_otp_data', 'email_verified_email']);
 
         return $this->response->setJSON([
@@ -363,6 +394,14 @@ class Auth extends BaseController
 
     public function checkSignupRecord(): ResponseInterface
     {
+        $lookupLockout = $this->getRateLimitLockoutRemaining('register_lookup');
+        if ($lookupLockout > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many record verification attempts. Please wait {$lookupLockout} seconds before trying again.",
+                $lookupLockout
+            );
+        }
+
         $firstName = trim((string) $this->request->getPost('first_name'));
         $lastName = trim((string) $this->request->getPost('last_name'));
         $college = trim((string) $this->request->getPost('college'));
@@ -402,18 +441,35 @@ class Auth extends BaseController
             ->getRowArray();
 
         if (! is_array($alumni) || empty($alumni)) {
+            $state = $this->recordRateLimitAttempt('register_lookup', self::REGISTER_MAX_ATTEMPTS, self::REGISTER_WINDOW_SECONDS, self::REGISTER_LOCKOUT_SECONDS);
+            if ($state['locked_remaining'] > 0) {
+                return $this->buildRateLimitResponse(
+                    "Too many failed record lookup attempts. Please wait {$state['locked_remaining']} seconds before trying again.",
+                    $state['locked_remaining']
+                );
+            }
             return $this->response->setStatusCode(404)->setJSON([
-                'success' => false,
-                'message' => 'No matching alumni record was found for the provided basic information.',
+                'success'            => false,
+                'remaining_attempts' => $state['remaining_attempts'],
+                'message'            => "No matching alumni record was found for the provided basic information. ({$state['remaining_attempts']} attempt(s) remaining)",
             ]);
         }
 
         if (trim((string) ($alumni['Email'] ?? '')) !== '') {
+            $state = $this->recordRateLimitAttempt('register_lookup', self::REGISTER_MAX_ATTEMPTS, self::REGISTER_WINDOW_SECONDS, self::REGISTER_LOCKOUT_SECONDS);
+            if ($state['locked_remaining'] > 0) {
+                return $this->buildRateLimitResponse(
+                    "Too many record lookup attempts. Please wait {$state['locked_remaining']} seconds before trying again.",
+                    $state['locked_remaining']
+                );
+            }
             return $this->response->setStatusCode(409)->setJSON([
                 'success' => false,
                 'message' => 'This alumni record already has an email on file. Please use that account to log in.',
             ]);
         }
+
+        $this->clearRateLimit('register_lookup');
 
         return $this->response->setJSON([
             'success' => true,
@@ -453,6 +509,14 @@ class Auth extends BaseController
 
     public function sendEmailOtp(): ResponseInterface
     {
+        $otpSendLockout = $this->getRateLimitLockoutRemaining('register_otp_send');
+        if ($otpSendLockout > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many verification code requests. Please wait {$otpSendLockout} seconds before trying again.",
+                $otpSendLockout
+            );
+        }
+
         $email = strtolower(trim((string) $this->request->getPost('email')));
 
         if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -497,6 +561,15 @@ class Auth extends BaseController
                 'message'            => "Please wait {$remaining} seconds before requesting a new code.",
                 'cooldown_remaining' => $remaining,
             ]);
+        }
+
+        // Track OTP send requests against brute-force / mail flooding (max 5 sends per 10 minutes)
+        $otpSendState = $this->recordRateLimitAttempt('register_otp_send', self::REGISTER_MAX_ATTEMPTS, 600, self::REGISTER_LOCKOUT_SECONDS);
+        if ($otpSendState['locked_remaining'] > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many verification code requests. Please wait {$otpSendState['locked_remaining']} seconds before requesting another code.",
+                $otpSendState['locked_remaining']
+            );
         }
 
         $otp = (string) random_int(100000, 999999);
@@ -574,6 +647,14 @@ class Auth extends BaseController
 
     public function verifyEmailOtp(): ResponseInterface
     {
+        $otpVerifyLockout = $this->getRateLimitLockoutRemaining('register_otp_verify');
+        if ($otpVerifyLockout > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many invalid OTP attempts. Please wait {$otpVerifyLockout} seconds before trying again.",
+                $otpVerifyLockout
+            );
+        }
+
         $email = strtolower(trim((string) $this->request->getPost('email')));
         $otp = trim((string) $this->request->getPost('otp'));
 
@@ -625,15 +706,24 @@ class Auth extends BaseController
         if (! password_verify($otp, (string) ($otpData['otp_hash'] ?? ''))) {
             $otpData['attempts'] = $attempts + 1;
             session()->set('email_otp_data', $otpData);
-            $remaining = max(0, 5 - $otpData['attempts']);
+            $state = $this->recordRateLimitAttempt('register_otp_verify', self::REGISTER_MAX_ATTEMPTS, self::REGISTER_WINDOW_SECONDS, self::REGISTER_LOCKOUT_SECONDS);
+            if ($state['locked_remaining'] > 0) {
+                return $this->buildRateLimitResponse(
+                    "Too many invalid verification attempts. Please wait {$state['locked_remaining']} seconds before trying again.",
+                    $state['locked_remaining']
+                );
+            }
+            $remaining = min(max(0, 5 - $otpData['attempts']), $state['remaining_attempts']);
 
             return $this->response->setStatusCode(422)->setJSON([
-                'success' => false,
-                'message' => "Invalid verification code. {$remaining} attempts remaining.",
+                'success'            => false,
+                'remaining_attempts' => $remaining,
+                'message'            => "Invalid verification code. {$remaining} attempt(s) remaining.",
             ]);
         }
 
         // Verification successful
+        $this->clearRateLimit('register_otp_verify');
         session()->set('email_verified_email', $email);
 
         return $this->response->setJSON([
@@ -750,5 +840,196 @@ class Auth extends BaseController
             }
         }
         return hash_equals($storedPassword, $plainPassword);
+    }
+
+    private function handleFailedLoginAttempt(string $identifierScope, string $reason): ResponseInterface
+    {
+        $ipState = $this->recordRateLimitAttempt(
+            'login_ip',
+            self::LOGIN_MAX_ATTEMPTS,
+            self::LOGIN_WINDOW_SECONDS,
+            self::LOGIN_LOCKOUT_SECONDS
+        );
+        $idState = $this->recordRateLimitAttempt(
+            $identifierScope,
+            self::LOGIN_MAX_ATTEMPTS,
+            self::LOGIN_WINDOW_SECONDS,
+            self::LOGIN_LOCKOUT_SECONDS
+        );
+
+        $lockedRemaining = max($ipState['locked_remaining'], $idState['locked_remaining']);
+        if ($lockedRemaining > 0) {
+            return $this->buildRateLimitResponse(
+                "Too many failed login attempts. Please wait {$lockedRemaining} seconds before trying again.",
+                $lockedRemaining
+            );
+        }
+
+        $remaining = min($ipState['remaining_attempts'], $idState['remaining_attempts']);
+
+        return $this->response->setStatusCode(401)->setJSON([
+            'success'            => false,
+            'remaining_attempts' => $remaining,
+            'message'            => "{$reason} Please try again. ({$remaining} attempt(s) remaining)",
+        ]);
+    }
+
+    private function buildRateLimitResponse(string $message, int $retryAfter): ResponseInterface
+    {
+        $retryAfter = max(1, $retryAfter);
+
+        return $this->response
+            ->setStatusCode(429)
+            ->setHeader('Retry-After', (string) $retryAfter)
+            ->setJSON([
+                'success'            => false,
+                'rate_limited'       => true,
+                'retry_after'        => $retryAfter,
+                'cooldown_remaining' => $retryAfter,
+                'remaining_attempts' => 0,
+                'message'            => $message,
+            ]);
+    }
+
+    private function getClientIpKey(): string
+    {
+        $forwarded = trim((string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+        if ($forwarded !== '') {
+            $parts = explode(',', $forwarded);
+            $candidate = trim((string) ($parts[0] ?? ''));
+            if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_IP)) {
+                return $candidate;
+            }
+        }
+
+        return (string) ($this->request->getIPAddress() ?: '127.0.0.1');
+    }
+
+    /**
+     * @return array{attempts: int, window_started_at: int, locked_until: int}
+     */
+    private function readRateLimitBucket(string $scope, int $windowSeconds): array
+    {
+        $now = time();
+        $ipHash = substr(hash('sha256', $this->getClientIpKey() . '|' . $scope), 0, 32);
+        $cacheKey = 'auth_rl_' . $ipHash;
+        $sessionKey = 'auth_rl_' . md5($scope);
+
+        $default = [
+            'attempts'          => 0,
+            'window_started_at' => $now,
+            'locked_until'      => 0,
+        ];
+
+        $cacheBucket = null;
+        try {
+            $cacheBucket = cache()->get($cacheKey);
+        } catch (\Throwable $e) {
+            $cacheBucket = null;
+        }
+
+        $sessionBucket = session($sessionKey);
+        $bucket = is_array($cacheBucket) ? $cacheBucket : (is_array($sessionBucket) ? $sessionBucket : $default);
+
+        // Take the stricter state if both exist
+        if (is_array($cacheBucket) && is_array($sessionBucket)) {
+            $bucket['attempts'] = max((int) ($cacheBucket['attempts'] ?? 0), (int) ($sessionBucket['attempts'] ?? 0));
+            $bucket['locked_until'] = max((int) ($cacheBucket['locked_until'] ?? 0), (int) ($sessionBucket['locked_until'] ?? 0));
+            $bucket['window_started_at'] = min(
+                (int) ($cacheBucket['window_started_at'] ?? $now),
+                (int) ($sessionBucket['window_started_at'] ?? $now)
+            );
+        }
+
+        $lockedUntil = (int) ($bucket['locked_until'] ?? 0);
+        $windowStart = (int) ($bucket['window_started_at'] ?? $now);
+
+        if ($lockedUntil > 0 && $now >= $lockedUntil) {
+            return $default;
+        }
+        if ($lockedUntil === 0 && ($now - $windowStart) >= $windowSeconds) {
+            return $default;
+        }
+
+        return [
+            'attempts'          => (int) ($bucket['attempts'] ?? 0),
+            'window_started_at' => $windowStart,
+            'locked_until'      => $lockedUntil,
+        ];
+    }
+
+    private function writeRateLimitBucket(string $scope, array $bucket, int $ttlSeconds): void
+    {
+        $ipHash = substr(hash('sha256', $this->getClientIpKey() . '|' . $scope), 0, 32);
+        $cacheKey = 'auth_rl_' . $ipHash;
+        $sessionKey = 'auth_rl_' . md5($scope);
+
+        session()->set($sessionKey, $bucket);
+        try {
+            cache()->save($cacheKey, $bucket, max(60, $ttlSeconds));
+        } catch (\Throwable $e) {
+            // Non-blocking if cache driver is unavailable
+        }
+    }
+
+    private function getRateLimitLockoutRemaining(string $scope, int $windowSeconds = 300): int
+    {
+        $bucket = $this->readRateLimitBucket($scope, $windowSeconds);
+        $lockedUntil = (int) ($bucket['locked_until'] ?? 0);
+        $now = time();
+
+        return $lockedUntil > $now ? ($lockedUntil - $now) : 0;
+    }
+
+    /**
+     * @return array{attempts: int, remaining_attempts: int, locked_remaining: int}
+     */
+    private function recordRateLimitAttempt(
+        string $scope,
+        int $maxAttempts,
+        int $windowSeconds,
+        int $lockoutSeconds
+    ): array {
+        $now = time();
+        $bucket = $this->readRateLimitBucket($scope, $windowSeconds);
+
+        if ($bucket['locked_until'] > $now) {
+            return [
+                'attempts'           => $bucket['attempts'],
+                'remaining_attempts' => 0,
+                'locked_remaining'   => $bucket['locked_until'] - $now,
+            ];
+        }
+
+        $bucket['attempts']++;
+        $lockedRemaining = 0;
+
+        if ($bucket['attempts'] >= $maxAttempts) {
+            $bucket['locked_until'] = $now + $lockoutSeconds;
+            $lockedRemaining = $lockoutSeconds;
+        }
+
+        $ttl = $lockedRemaining > 0 ? $lockoutSeconds : $windowSeconds;
+        $this->writeRateLimitBucket($scope, $bucket, $ttl);
+
+        return [
+            'attempts'           => $bucket['attempts'],
+            'remaining_attempts' => max(0, $maxAttempts - $bucket['attempts']),
+            'locked_remaining'   => $lockedRemaining,
+        ];
+    }
+
+    private function clearRateLimit(string $scope): void
+    {
+        $ipHash = substr(hash('sha256', $this->getClientIpKey() . '|' . $scope), 0, 32);
+        $cacheKey = 'auth_rl_' . $ipHash;
+        $sessionKey = 'auth_rl_' . md5($scope);
+
+        session()->remove($sessionKey);
+        try {
+            cache()->delete($cacheKey);
+        } catch (\Throwable $e) {
+            // Non-blocking
+        }
     }
 }

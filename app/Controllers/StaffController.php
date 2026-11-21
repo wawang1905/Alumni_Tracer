@@ -3535,6 +3535,11 @@ class StaffController extends BaseController
                 <td class="td-doc-cell"></td>
             </tr>';
         } else {
+            $grandTotalGraduates = 0;
+            $grandEmployedCount = 0;
+            $grandUnemployedCount = 0;
+            $grandNotTrackedCount = 0;
+
             foreach ($programGroups as $group) {
                 $programNameEsc = htmlspecialchars((string) ($group['programName'] ?? ''), ENT_QUOTES, 'UTF-8');
                 $programAbbrEsc = htmlspecialchars((string) ($group['programAbbr'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -3572,6 +3577,11 @@ class StaffController extends BaseController
                 $unemployedCount = (int) ($group['unemployedCount'] ?? 0);
                 $notTrackedCount = (int) ($group['notTrackedCount'] ?? $totalGraduates);
 
+                $grandTotalGraduates += $totalGraduates;
+                $grandEmployedCount += $employedCount;
+                $grandUnemployedCount += $unemployedCount;
+                $grandNotTrackedCount += $notTrackedCount;
+
                 // Program Summary Row 1 (15px) & Row 2 (15px) = 30px total
                 $html .= '<tr class="tr-sum">';
                 $html .= '<td colspan="2" rowspan="2" class="td-yellow-merged">TOTAL NUMBER OF STUDENTS - ' . $programAbbrEsc . '<br>' . $institutionEsc . '</td>';
@@ -3591,6 +3601,30 @@ class StaffController extends BaseController
                 $html .= '<td class="td-doc-cell"></td>';
                 $html .= '</tr>';
             }
+
+            // Overall Grand Total Block (2 rows = 30px total)
+            $employedPctText = $grandTotalGraduates > 0
+                ? number_format(($grandEmployedCount / $grandTotalGraduates) * 100, 2) . '%'
+                : '0.00%';
+
+            $blueBase = 'background-color: #8db4e2; font-weight: bold; text-align: center; vertical-align: middle; padding: 1px 2px;';
+            $html .= '<tr class="tr-sum">';
+            $html .= '<td colspan="2" rowspan="2" style="' . $blueBase . ' height: 30px; border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: none;">GRAND TOTAL</td>';
+            $html .= '<td rowspan="2" style="' . $blueBase . ' height: 30px; border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: none; border-right: none;">' . $grandTotalGraduates . '</td>';
+            $html .= '<td class="td-sum-e" style="' . $blueBase . ' height: 15px; border-top: 1px solid #000000; border-bottom: none; border-left: none; border-right: none;">E</td>';
+            $html .= '<td class="td-sum-ue" style="' . $blueBase . ' height: 15px; border-top: 1px solid #000000; border-bottom: none; border-left: none; border-right: none;">UE</td>';
+            $html .= '<td class="td-sum-nt" style="' . $blueBase . ' height: 15px; border-top: 1px solid #000000; border-bottom: none; border-left: none; border-right: 1px solid #000000;">NT</td>';
+            $html .= '<td style="' . $blueBase . ' height: 15px; border-top: 1px solid #000000; border-bottom: none; border-left: 1px solid #000000; border-right: 1px solid #000000;">PERCENTAGE</td>';
+            $html .= '<td class="td-doc-cell"></td>';
+            $html .= '</tr>';
+
+            $html .= '<tr class="tr-sum">';
+            $html .= '<td class="td-sum-e" style="' . $blueBase . ' height: 15px; border-top: none; border-bottom: 1px solid #000000; border-left: none; border-right: none;">' . $grandEmployedCount . '</td>';
+            $html .= '<td class="td-sum-ue" style="' . $blueBase . ' height: 15px; border-top: none; border-bottom: 1px solid #000000; border-left: none; border-right: none;">' . $grandUnemployedCount . '</td>';
+            $html .= '<td class="td-sum-nt" style="' . $blueBase . ' height: 15px; border-top: none; border-bottom: 1px solid #000000; border-left: none; border-right: 1px solid #000000;">' . $grandNotTrackedCount . '</td>';
+            $html .= '<td style="' . $blueBase . ' height: 15px; border-top: none; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000;">' . $employedPctText . '</td>';
+            $html .= '<td class="td-doc-cell"></td>';
+            $html .= '</tr>';
         }
 
         $html .= '</tbody></table>';
@@ -3660,6 +3694,11 @@ class StaffController extends BaseController
             return;
         }
 
+        $grandTotalGraduates = 0;
+        $grandEmployedCount = 0;
+        $grandUnemployedCount = 0;
+        $grandNotTrackedCount = 0;
+
         foreach ($programGroups as $group) {
             $programName = (string) ($group['programName'] ?? '');
             $programAbbr = (string) ($group['programAbbr'] ?? '');
@@ -3686,6 +3725,11 @@ class StaffController extends BaseController
             $unemployedCount = (int) ($group['unemployedCount'] ?? 0);
             $notTrackedCount = (int) ($group['notTrackedCount'] ?? $totalGraduates);
 
+            $grandTotalGraduates += $totalGraduates;
+            $grandEmployedCount += $employedCount;
+            $grandUnemployedCount += $unemployedCount;
+            $grandNotTrackedCount += $notTrackedCount;
+
             // Program Summary Row 1 - height 15px (225 twips)
             $table->addRow(225, ['cantSplit' => true]);
             $totalLabelCell = $table->addCell($wProg + $wSeq, ['gridSpan' => 2, 'vMerge' => 'restart', 'bgColor' => 'FFFF99', 'valign' => 'center']);
@@ -3710,6 +3754,105 @@ class StaffController extends BaseController
             $table->addCell($wEmp, ['vMerge' => 'continue', 'bgColor' => '000000']);
             $table->addCell($wDoc, ['valign' => 'center'])->addText('', ['name' => 'Tahoma', 'size' => 10], $noSpacePara);
         }
+
+        // Overall Grand Total Block (2 rows = 450 twips)
+        $employedPctText = $grandTotalGraduates > 0
+            ? number_format(($grandEmployedCount / $grandTotalGraduates) * 100, 2) . '%'
+            : '0.00%';
+
+        // Grand Total Row 1
+        $table->addRow(225, ['cantSplit' => true]);
+        $table->addCell($wProg + $wSeq, [
+            'gridSpan' => 2,
+            'vMerge' => 'restart',
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderRightColor' => '8DB4E2',
+        ])->addText('GRAND TOTAL', ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wName, [
+            'vMerge' => 'restart',
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+        ])->addText((string) $grandTotalGraduates, ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wStatE, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+            'borderBottomColor' => '8DB4E2',
+        ])->addText('E', ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wStatUE, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+            'borderBottomColor' => '8DB4E2',
+        ])->addText('UE', ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wStatNT, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderBottomColor' => '8DB4E2',
+        ])->addText('NT', ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wEmp, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderBottomColor' => '8DB4E2',
+        ])->addText('PERCENTAGE', ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wDoc, ['valign' => 'center'])->addText('', ['name' => 'Tahoma', 'size' => 10], $noSpacePara);
+
+        // Grand Total Row 2
+        $table->addRow(225, ['cantSplit' => true]);
+        $table->addCell($wProg + $wSeq, [
+            'gridSpan' => 2,
+            'vMerge' => 'continue',
+            'bgColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+        ]);
+        $table->addCell($wName, [
+            'vMerge' => 'continue',
+            'bgColor' => '8DB4E2',
+            'borderLeftColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+        ]);
+        $table->addCell($wStatE, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+            'borderTopColor' => '8DB4E2',
+        ])->addText((string) $grandEmployedCount, ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wStatUE, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderRightColor' => '8DB4E2',
+            'borderTopColor' => '8DB4E2',
+        ])->addText((string) $grandUnemployedCount, ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wStatNT, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderLeftColor' => '8DB4E2',
+            'borderTopColor' => '8DB4E2',
+        ])->addText((string) $grandNotTrackedCount, ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wEmp, [
+            'bgColor' => '8DB4E2',
+            'valign' => 'center',
+            'borderTopColor' => '8DB4E2',
+        ])->addText($employedPctText, ['name' => 'Tahoma', 'bold' => true, 'size' => 10], $noSpacePara);
+
+        $table->addCell($wDoc, ['valign' => 'center'])->addText('', ['name' => 'Tahoma', 'size' => 10], $noSpacePara);
     }
 
     private function writeProgramAlumniOutcomeSpreadsheet(string $filepath, array $programGroups): string
@@ -3894,6 +4037,11 @@ class StaffController extends BaseController
             $sheet->getStyle("H{$currentRow}")->getBorders()->getRight()->applyFromArray($thinBlackBorder);
             $sheet->getRowDimension($currentRow)->setRowHeight(15, 'px');
         } else {
+            $grandTotalGraduates = 0;
+            $grandEmployedCount = 0;
+            $grandUnemployedCount = 0;
+            $grandNotTrackedCount = 0;
+
             foreach ($programGroups as $group) {
                 $programName = (string) ($group['programName'] ?? '');
                 $programAbbr = (string) ($group['programAbbr'] ?? '');
@@ -3950,6 +4098,11 @@ class StaffController extends BaseController
                 $unemployedCount = (int) ($group['unemployedCount'] ?? 0);
                 $notTrackedCount = (int) ($group['notTrackedCount'] ?? $totalGraduates);
 
+                $grandTotalGraduates += $totalGraduates;
+                $grandEmployedCount += $employedCount;
+                $grandUnemployedCount += $unemployedCount;
+                $grandNotTrackedCount += $notTrackedCount;
+
                 // 2-Row Program Summary Block (15px + 15px = 30px)
                 $sumRow1 = $currentRow;
                 $sumRow2 = $currentRow + 1;
@@ -4000,6 +4153,54 @@ class StaffController extends BaseController
 
                 $currentRow += 2;
             }
+
+            // 2-Row Overall Grand Total Block (15px + 15px = 30px)
+            $gtRow1 = $currentRow;
+            $gtRow2 = $currentRow + 1;
+            $employedPctText = $grandTotalGraduates > 0
+                ? number_format(($grandEmployedCount / $grandTotalGraduates) * 100, 2) . '%'
+                : '0.00%';
+
+            // Col 1 (A:B merged across 2 rows): GRAND TOTAL
+            $sheet->mergeCells("A{$gtRow1}:B{$gtRow2}");
+            $sheet->setCellValue("A{$gtRow1}", 'GRAND TOTAL');
+
+            // Col 2 (C merged across 2 rows): Grand Total Students
+            $sheet->mergeCells("C{$gtRow1}:C{$gtRow2}");
+            $sheet->setCellValue("C{$gtRow1}", $grandTotalGraduates);
+
+            // Col 3 (D, E, F): Row 1 = E | UE | NT, Row 2 = grand counts
+            $sheet->setCellValue("D{$gtRow1}", 'E');
+            $sheet->setCellValue("E{$gtRow1}", 'UE');
+            $sheet->setCellValue("F{$gtRow1}", 'NT');
+            $sheet->setCellValue("D{$gtRow2}", $grandEmployedCount);
+            $sheet->setCellValue("E{$gtRow2}", $grandUnemployedCount);
+            $sheet->setCellValue("F{$gtRow2}", $grandNotTrackedCount);
+
+            // Col 4 (G): Row 1 = PERCENTAGE, Row 2 = employed percentage over total alumni
+            $sheet->setCellValue("G{$gtRow1}", 'PERCENTAGE');
+            $sheet->setCellValue("G{$gtRow2}", $employedPctText);
+
+            // Style Blue Grand Total Block (A..G)
+            $sheet->getStyle("A{$gtRow1}:G{$gtRow2}")->getFont()->setBold(true);
+            $sheet->getStyle("A{$gtRow1}:G{$gtRow2}")->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('8DB4E2');
+            $sheet->getStyle("A{$gtRow1}:G{$gtRow2}")->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+                ->setWrapText(true);
+
+            // Outer borders for A..F and G..G matching the reference screenshot
+            $sheet->getStyle("A{$gtRow1}:F{$gtRow2}")->getBorders()->getOutline()->applyFromArray($thinBlackBorder);
+            $sheet->getStyle("G{$gtRow1}:G{$gtRow2}")->getBorders()->getOutline()->applyFromArray($thinBlackBorder);
+
+            // Supporting Doc column (H)
+            $sheet->getStyle("H{$gtRow1}:H{$gtRow2}")->getBorders()->getAllBorders()->applyFromArray($thinGreyBorder);
+            $sheet->getStyle("H{$gtRow1}:H{$gtRow2}")->getBorders()->getRight()->applyFromArray($thinBlackBorder);
+
+            $sheet->getRowDimension($gtRow1)->setRowHeight(15, 'px');
+            $sheet->getRowDimension($gtRow2)->setRowHeight(15, 'px');
         }
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);

@@ -47,8 +47,99 @@ const signupState = {
 let signupStep = 1;
 let countdownTimer = null;
 let otpCooldownTimer = null;
+let loginRateLimitTimer = null;
+let loginRateLimitRemaining = 0;
+let signupRateLimitTimer = null;
+let signupRateLimitRemaining = 0;
 let psgcLoaded = false;
 let psgcLoading = false;
+
+function startLoginRateLimitCooldown(seconds) {
+  clearInterval(loginRateLimitTimer);
+  loginRateLimitRemaining = Math.max(0, Math.ceil(Number(seconds) || 0));
+  if (loginRateLimitRemaining <= 0) return;
+
+  const updateLoginLockUi = () => {
+    if (loginBtn) {
+      loginBtn.disabled = loginRateLimitRemaining > 0;
+      loginBtn.classList.remove('btn-loading');
+      loginBtn.removeAttribute('aria-busy');
+      if (loginRateLimitRemaining > 0) {
+        loginBtn.innerHTML = `<span>Locked (${loginRateLimitRemaining}s)</span>`;
+      } else {
+        setLoginButtonLoading(false);
+      }
+    }
+    if (loginRateLimitRemaining > 0) {
+      showAlert(
+        loginAlert,
+        `Too many failed login attempts. Please wait ${loginRateLimitRemaining} seconds before trying again.`,
+        'error',
+        0
+      );
+    } else {
+      if (loginAlert) loginAlert.style.display = 'none';
+    }
+  };
+
+  updateLoginLockUi();
+  loginRateLimitTimer = setInterval(() => {
+    loginRateLimitRemaining -= 1;
+    if (loginRateLimitRemaining <= 0) {
+      loginRateLimitRemaining = 0;
+      clearInterval(loginRateLimitTimer);
+    }
+    updateLoginLockUi();
+  }, 1000);
+}
+
+function startSignupRateLimitCooldown(seconds, prefixMessage = 'Too many registration attempts.') {
+  clearInterval(signupRateLimitTimer);
+  signupRateLimitRemaining = Math.max(0, Math.ceil(Number(seconds) || 0));
+  if (signupRateLimitRemaining <= 0) return;
+
+  const cleanPrefix = String(prefixMessage || 'Too many registration attempts.')
+    .replace(/\s*Please wait \d+ seconds.*$/i, '')
+    .trim();
+
+  const updateSignupLockUi = () => {
+    const signupBtn = document.getElementById('signupBtn');
+    const verifyBtn = document.getElementById('verifyOtpBtn');
+    if (signupBtn) {
+      signupBtn.disabled = signupRateLimitRemaining > 0;
+      if (signupRateLimitRemaining > 0) {
+        signupBtn.textContent = `Wait ${signupRateLimitRemaining}s`;
+      } else {
+        signupBtn.textContent = signupStep === 3 ? 'Create Account' : 'Next';
+      }
+    }
+    if (verifyBtn) {
+      verifyBtn.disabled = signupRateLimitRemaining > 0;
+      verifyBtn.textContent = signupRateLimitRemaining > 0 ? `Wait ${signupRateLimitRemaining}s` : 'Verify';
+    }
+
+    if (signupRateLimitRemaining > 0) {
+      showAlert(
+        signupAlert,
+        `${cleanPrefix} Please wait ${signupRateLimitRemaining} seconds before trying again.`,
+        'error',
+        0
+      );
+    } else {
+      hideSignupAlert();
+    }
+  };
+
+  updateSignupLockUi();
+  signupRateLimitTimer = setInterval(() => {
+    signupRateLimitRemaining -= 1;
+    if (signupRateLimitRemaining <= 0) {
+      signupRateLimitRemaining = 0;
+      clearInterval(signupRateLimitTimer);
+    }
+    updateSignupLockUi();
+  }, 1000);
+}
 
 function appUrl(path) {
   return new URL(path.replace(/^\/+/, ''), appBaseUrl).toString();
@@ -507,6 +598,11 @@ function hasErrors(errors) {
 }
 
 async function checkSignupRecordExists() {
+  if (signupRateLimitRemaining > 0) {
+    startSignupRateLimitCooldown(signupRateLimitRemaining);
+    return false;
+  }
+
   try {
     const response = await postForm('auth/check-signup-record', {
       first_name: signupState.firstName,
@@ -516,6 +612,11 @@ async function checkSignupRecordExists() {
       graduation_year: signupState.graduationYear,
     });
     const result = await response.json();
+
+    if (response.status === 429 || result.rate_limited) {
+      startSignupRateLimitCooldown(result.retry_after || 60, result.message);
+      return false;
+    }
 
     if (!response.ok || !result.success) {
       showAlert(signupAlert, result.message || 'No matching alumni record was found.', 'error', 0);
@@ -530,6 +631,11 @@ async function checkSignupRecordExists() {
 }
 
 async function handleSignup() {
+  if (signupRateLimitRemaining > 0) {
+    startSignupRateLimitCooldown(signupRateLimitRemaining);
+    return;
+  }
+
   syncSignupState();
   hideSignupAlert();
 
@@ -557,6 +663,10 @@ async function handleSignup() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
+      if (response.status === 429 || result.rate_limited) {
+        startSignupRateLimitCooldown(result.retry_after || 60, result.message);
+        return;
+      }
       showAlert(signupAlert, result.message || 'Unable to create your account right now.', 'error', 0);
       return;
     }
@@ -721,6 +831,13 @@ async function handleSendOtp() {
     const response = await postForm('auth/send-otp', { email });
     const result = await response.json();
 
+    if (response.status === 429 || result.rate_limited) {
+      const waitSec = result.retry_after || result.cooldown_remaining || 60;
+      startOtpCooldown(waitSec);
+      showAlert(signupAlert, result.message || `Please wait ${waitSec} seconds before requesting another code.`, 'error', 0);
+      return;
+    }
+
     if (!response.ok || !result.success) {
       showAlert(signupAlert, result.message || 'Unable to send verification code.', 'error', 5000);
       if (sendBtn) {
@@ -776,6 +893,11 @@ async function handleVerifyOtp() {
       otp: otpCode,
     });
     const result = await response.json();
+
+    if (response.status === 429 || result.rate_limited) {
+      startSignupRateLimitCooldown(result.retry_after || 60, result.message);
+      return;
+    }
 
     if (!response.ok || !result.success) {
       showAlert(signupAlert, result.message || 'Invalid verification code.', 'error', 4000);
@@ -927,6 +1049,10 @@ function setLoginButtonLoading(loading, message = 'Signing In...') {
 
 async function handleLogin() {
   if (isLoggingIn) return;
+  if (loginRateLimitRemaining > 0) {
+    startLoginRateLimitCooldown(loginRateLimitRemaining);
+    return;
+  }
 
   const identifier = document.getElementById('loginIdentifier').value.trim();
   const password = document.getElementById('loginPassword').value;
@@ -943,10 +1069,16 @@ async function handleLogin() {
     const response = await postForm('auth/login', { identifier, password });
     const result = await response.json();
 
+    if (response.status === 429 || result.rate_limited) {
+      isLoggingIn = false;
+      startLoginRateLimitCooldown(result.retry_after || 60);
+      return;
+    }
+
     if (!response.ok || !result.success) {
       setLoginButtonLoading(false);
       isLoggingIn = false;
-      showAlert(loginAlert, result.message || 'Invalid credentials. Please try again.', 'error');
+      showAlert(loginAlert, result.message || 'Invalid credentials. Please try again.', 'error', 5000);
       return;
     }
 
