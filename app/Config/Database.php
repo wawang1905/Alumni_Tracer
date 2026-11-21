@@ -229,6 +229,18 @@ class Database extends Config
             }
         }
 
+        // Allow common password env var fallbacks if password is still empty
+        if ($this->default['password'] === '') {
+            $fallbackPassword = env('database_default_password')
+                ?? env('database.default.password')
+                ?? env('DB_PASSWORD')
+                ?? env('PGPASSWORD')
+                ?? env('SUPABASE_DB_PASSWORD');
+            if (is_string($fallbackPassword) && $fallbackPassword !== '') {
+                $this->default['password'] = trim($fallbackPassword, '\'"');
+            }
+        }
+
         // Automatically route IPv6-only direct Supabase hosts (db.<ref>.supabase.co)
         // through the IPv4-compatible Supabase Session Pooler
         $currentHost = trim((string) ($this->default['hostname'] ?? ''));

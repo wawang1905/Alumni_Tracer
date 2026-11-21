@@ -57,4 +57,5 @@ RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writ
 
 EXPOSE 10000
 
-CMD ["/bin/sh", "-c", "sed -i \"s/Listen .*/Listen ${PORT:-10000}/\" /etc/apache2/ports.conf && sed -i \"s/<VirtualHost \\*:[0-9]*>/<VirtualHost *:${PORT:-10000}>/\" /etc/apache2/sites-available/000-default.conf && exec apache2-foreground"]
+ENTRYPOINT ["php", "-r", "$port = getenv('PORT') ?: '10000'; foreach (['/etc/apache2/ports.conf', '/etc/apache2/sites-available/000-default.conf'] as $f) { $c = file_get_contents($f); $c = preg_replace(['/Listen\\s+\\d+/', '/<VirtualHost\\s+\\*:\\d+>/'], ['Listen ' . $port, '<VirtualHost *:' . $port . '>'], $c); file_put_contents($f, $c); } $envLines = ''; foreach (getenv() as $k => $v) { if (strpos($k, '.') !== false) { $uk = preg_replace('/[^A-Za-z0-9_]/', '_', $k); $envLines .= 'export ' . $uk . '=' . escapeshellarg((string) $v) . \"\\n\"; } } if ($envLines !== '') { file_put_contents('/etc/apache2/envvars', \"\\n\" . $envLines, FILE_APPEND); } passthru('apache2-foreground', $code); exit($code);"]
+CMD []
