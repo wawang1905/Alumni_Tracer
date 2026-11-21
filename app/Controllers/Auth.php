@@ -40,7 +40,7 @@ class Auth extends BaseController
 
         $rateScope = 'login:' . strtolower($identifier ?: 'blank');
         $lockoutRemaining = max(
-            $this->getRateLimitLockoutRemaining('login_ip'),
+            $this->getRateLimitLockoutRemaining('login_device'),
             $this->getRateLimitLockoutRemaining('login_last'),
             $this->getRateLimitLockoutRemaining($rateScope)
         );
@@ -126,7 +126,7 @@ class Auth extends BaseController
         }
 
         // Clear login rate limit counters on successful authentication
-        $this->clearRateLimit('login_ip');
+        $this->clearRateLimit('login_device');
         $this->clearRateLimit('login_last');
         $this->clearRateLimit($rateScope);
 
@@ -755,7 +755,7 @@ class Auth extends BaseController
         }
 
         $loginLockoutRemaining = max(
-            $this->getRateLimitLockoutRemaining('login_ip'),
+            $this->getRateLimitLockoutRemaining('login_device'),
             $this->getRateLimitLockoutRemaining('login_last')
         );
         $registerLockoutRemaining = max(
@@ -861,8 +861,8 @@ class Auth extends BaseController
 
     private function handleFailedLoginAttempt(string $identifierScope, string $reason): ResponseInterface
     {
-        $ipState = $this->recordRateLimitAttempt(
-            'login_ip',
+        $deviceState = $this->recordRateLimitAttempt(
+            'login_device',
             self::LOGIN_MAX_ATTEMPTS,
             self::LOGIN_WINDOW_SECONDS,
             self::LOGIN_LOCKOUT_SECONDS
@@ -880,7 +880,7 @@ class Auth extends BaseController
             self::LOGIN_LOCKOUT_SECONDS
         );
 
-        $lockedRemaining = max($ipState['locked_remaining'], $lastState['locked_remaining'], $idState['locked_remaining']);
+        $lockedRemaining = max($deviceState['locked_remaining'], $lastState['locked_remaining'], $idState['locked_remaining']);
         if ($lockedRemaining > 0) {
             return $this->buildRateLimitResponse(
                 "Too many failed login attempts. Please wait {$lockedRemaining} seconds before trying again.",
@@ -888,7 +888,7 @@ class Auth extends BaseController
             );
         }
 
-        $remaining = min($ipState['remaining_attempts'], $lastState['remaining_attempts'], $idState['remaining_attempts']);
+        $remaining = min($deviceState['remaining_attempts'], $lastState['remaining_attempts'], $idState['remaining_attempts']);
 
         return $this->response->setStatusCode(401)->setJSON([
             'success'            => false,
@@ -916,18 +916,58 @@ class Auth extends BaseController
             ]);
     }
 
-    private function getClientIpKey(): string
+    /**
+     * Resolves a unique per-device key (never IP-based) using a persistent device token
+     * combined with the device's hardware/browser fingerprint.
+     */
+    private function getClientDeviceKey(): string
     {
-        $forwarded = trim((string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
-        if ($forwarded !== '') {
-            $parts = explode(',', $forwarded);
-            $candidate = trim((string) ($parts[0] ?? ''));
-            if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_IP)) {
-                return $candidate;
+        $headerDeviceId = trim($this->request->getHeaderLine('X-Device-Id'));
+        $cookieDeviceId = trim((string) ($_COOKIE['gv_device_id'] ?? ''));
+        $sessionDeviceId = trim((string) (session('gv_device_id') ?? ''));
+
+        $deviceId = '';
+        foreach ([$headerDeviceId, $cookieDeviceId, $sessionDeviceId] as $candidate) {
+            if ($candidate !== '' && preg_match('/^[a-zA-Z0-9_-]{16,64}$/', $candidate)) {
+                $deviceId = $candidate;
+                break;
             }
         }
 
-        return (string) ($this->request->getIPAddress() ?: '127.0.0.1');
+        if ($deviceId === '') {
+            try {
+                $deviceId = bin2hex(random_bytes(16));
+            } catch (\Throwable $e) {
+                $deviceId = substr(hash('sha256', uniqid('gv_dev_', true)), 0, 32);
+            }
+        }
+
+        if ($sessionDeviceId !== $deviceId) {
+            session()->set('gv_device_id', $deviceId);
+        }
+
+        if ($cookieDeviceId !== $deviceId && ! headers_sent()) {
+            setcookie('gv_device_id', $deviceId, [
+                'expires'  => time() + 31536000,
+                'path'     => '/',
+                'httponly' => false,
+                'samesite' => 'Lax',
+            ]);
+            $_COOKIE['gv_device_id'] = $deviceId;
+        }
+
+        $clientFingerprint = trim($this->request->getHeaderLine('X-Device-Fingerprint'));
+        if ($clientFingerprint === '') {
+            $clientFingerprint = implode('|', [
+                (string) $this->request->getUserAgent(),
+                $this->request->getHeaderLine('Sec-CH-UA'),
+                $this->request->getHeaderLine('Sec-CH-UA-Platform'),
+                $this->request->getHeaderLine('Sec-CH-UA-Mobile'),
+                $this->request->getHeaderLine('Accept-Language'),
+            ]);
+        }
+
+        return $deviceId . '|' . substr(hash('sha256', $clientFingerprint), 0, 24);
     }
 
     /**
@@ -936,9 +976,9 @@ class Auth extends BaseController
     private function readRateLimitBucket(string $scope, int $windowSeconds): array
     {
         $now = time();
-        $ipHash = substr(hash('sha256', $this->getClientIpKey() . '|' . $scope), 0, 32);
-        $cacheKey = 'auth_rl_' . $ipHash;
-        $sessionKey = 'auth_rl_' . md5($scope);
+        $deviceHash = substr(hash('sha256', $this->getClientDeviceKey() . '|' . $scope), 0, 32);
+        $cacheKey = 'auth_rl_dev_' . $deviceHash;
+        $sessionKey = 'auth_rl_dev_' . md5($scope);
 
         $default = [
             'attempts'          => 0,
@@ -987,9 +1027,9 @@ class Auth extends BaseController
 
     private function writeRateLimitBucket(string $scope, array $bucket, int $ttlSeconds): void
     {
-        $ipHash = substr(hash('sha256', $this->getClientIpKey() . '|' . $scope), 0, 32);
-        $cacheKey = 'auth_rl_' . $ipHash;
-        $sessionKey = 'auth_rl_' . md5($scope);
+        $deviceHash = substr(hash('sha256', $this->getClientDeviceKey() . '|' . $scope), 0, 32);
+        $cacheKey = 'auth_rl_dev_' . $deviceHash;
+        $sessionKey = 'auth_rl_dev_' . md5($scope);
 
         session()->set($sessionKey, $bucket);
         try {
@@ -1048,9 +1088,9 @@ class Auth extends BaseController
 
     private function clearRateLimit(string $scope): void
     {
-        $ipHash = substr(hash('sha256', $this->getClientIpKey() . '|' . $scope), 0, 32);
-        $cacheKey = 'auth_rl_' . $ipHash;
-        $sessionKey = 'auth_rl_' . md5($scope);
+        $deviceHash = substr(hash('sha256', $this->getClientDeviceKey() . '|' . $scope), 0, 32);
+        $cacheKey = 'auth_rl_dev_' . $deviceHash;
+        $sessionKey = 'auth_rl_dev_' . md5($scope);
 
         session()->remove($sessionKey);
         try {

@@ -59,12 +59,72 @@ let psgcLoaded = false;
 let psgcLoading = false;
 
 const STORAGE_KEYS = {
+  deviceId: 'gradvision_device_id',
   loginLockUntil: 'gradvision_login_lock_until_ms',
   signupLockUntil: 'gradvision_signup_lock_until_ms',
   signupLockMsg: 'gradvision_signup_lock_msg',
   otpCooldownUntil: 'gradvision_otp_cooldown_until_ms',
   activeTab: 'gradvision_active_auth_tab',
 };
+
+function getOrCreateClientDeviceId() {
+  const cookieMatch = document.cookie.match(/(?:^|;\s*)gv_device_id=([a-zA-Z0-9_-]{16,64})/);
+  let deviceId = '';
+  try {
+    deviceId = localStorage.getItem(STORAGE_KEYS.deviceId) || '';
+  } catch (e) {
+    deviceId = '';
+  }
+
+  if (!/^[a-zA-Z0-9_-]{16,64}$/.test(deviceId) && cookieMatch) {
+    deviceId = cookieMatch[1];
+  }
+
+  if (!/^[a-zA-Z0-9_-]{16,64}$/.test(deviceId)) {
+    const bytes = new Uint8Array(16);
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i += 1) {
+        bytes[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    deviceId = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  try {
+    localStorage.setItem(STORAGE_KEYS.deviceId, deviceId);
+  } catch (e) {
+    // ignore
+  }
+  document.cookie = `gv_device_id=${deviceId}; path=/; max-age=31536000; SameSite=Lax`;
+
+  return deviceId;
+}
+
+function getClientDeviceFingerprint() {
+  const nav = window.navigator || {};
+  const scr = window.screen || {};
+  const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat)
+    ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+    : '';
+  return [
+    nav.userAgent || '',
+    nav.platform || '',
+    `${scr.width || 0}x${scr.height || 0}x${scr.colorDepth || 0}`,
+    nav.hardwareConcurrency || '',
+    nav.deviceMemory || '',
+    tz,
+    nav.language || '',
+  ].join('|');
+}
+
+function getDeviceHeaders() {
+  return {
+    'X-Device-Id': getOrCreateClientDeviceId(),
+    'X-Device-Fingerprint': getClientDeviceFingerprint(),
+  };
+}
 
 function readStorageInt(key) {
   try {
@@ -242,6 +302,7 @@ function postForm(url, payload) {
 
   return fetch(appUrl(url), {
     method: 'POST',
+    headers: getDeviceHeaders(),
     body: formData,
     credentials: 'same-origin',
   });
@@ -918,7 +979,10 @@ function restorePersistedRateLimitTimers() {
 
 async function checkServerOtpStatus() {
   try {
-    const response = await fetch(appUrl('auth/otp-status'), { credentials: 'same-origin' });
+    const response = await fetch(appUrl('auth/otp-status'), {
+      headers: getDeviceHeaders(),
+      credentials: 'same-origin',
+    });
     if (!response.ok) return;
     const data = await response.json();
 
