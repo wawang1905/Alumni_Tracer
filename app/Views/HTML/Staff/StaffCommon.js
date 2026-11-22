@@ -437,36 +437,14 @@ async function requireAuth() {
     }
 }
 
-async function logout() {
-    try {
-        await fetch(getLogoutUrl(), {
-            method: 'POST',
-            credentials: 'same-origin'
-        });
-    } finally {
-        redirectToLogin();
-    }
-}
-
-function injectLogoutButton(currentUser) {
+function updateStaffHeaderInfo(currentUser) {
     const staffInfo = document.querySelector('.staff-info');
     if (!staffInfo) return;
-
-    staffInfo.classList.add('staff-actions');
 
     const staffName = staffInfo.querySelector('.staff-name');
     if (staffName && currentUser?.name) {
         staffName.textContent = currentUser.name;
     }
-
-    if (staffInfo.querySelector('.btn-logout')) return;
-
-    const logoutButton = document.createElement('button');
-    logoutButton.type = 'button';
-    logoutButton.className = 'btn-logout';
-    logoutButton.textContent = 'Log Out';
-    logoutButton.addEventListener('click', logout);
-    staffInfo.appendChild(logoutButton);
 }
 
 window.addEventListener('pageshow', async (event) => {
@@ -6456,7 +6434,7 @@ async function initStaffPage() {
     const currentUser = await requireAuth();
     if (!currentUser) return;
 
-    injectLogoutButton(currentUser);
+    updateStaffHeaderInfo(currentUser);
 
     const yearFromUrl = getSelectedBatchYearFromUrl();
     const collegeFromUrl = getSelectedCollegeFromUrl();

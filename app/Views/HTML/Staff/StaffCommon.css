@@ -690,23 +690,6 @@ html.staff-sidebar-collapsed .main-content {
     font-size: 11px;
 }
 
-.btn-logout {
-    background: #ffffff;
-    color: #ef4444;
-    border: 1px solid #fecaca;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.15s ease;
-}
-
-.btn-logout:hover {
-    background: #fef2f2;
-    border-color: #ef4444;
-}
-
 /* Stats Cards */
 .stats-grid {
     display: grid;
