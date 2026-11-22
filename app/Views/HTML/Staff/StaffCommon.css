@@ -3395,37 +3395,50 @@ body.staff-survey-create-page .top-bar {
 
 .staff-news-page {
     overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
 }
 
 .staff-news-page .dashboard-container {
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
 }
 
 .staff-news-page .main-content {
     height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
+    height: 100dvh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+    padding-bottom: 20px;
 }
 
 .staff-news-page .top-bar {
     flex-shrink: 0;
+    margin-bottom: 16px;
 }
 
 .staff-news-page .news-admin-layout {
     flex: 1;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
     align-items: stretch;
+    grid-template-rows: minmax(0, 1fr);
 }
 
 .news-updates-panel {
-    height: 600px;
+    height: 100%;
+    min-height: 0;
+    margin-bottom: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.news-updates-panel .section-header,
+.news-composer-card .section-header {
+    flex-shrink: 0;
 }
 
 .news-admin-subtitle {
@@ -3461,7 +3474,9 @@ body.staff-survey-create-page .top-bar {
 }
 
 .news-composer-card {
-    height: 600px;
+    height: 100%;
+    min-height: 0;
+    margin-bottom: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -3471,9 +3486,13 @@ body.staff-survey-create-page .top-bar {
 }
 
 .news-form {
+    flex: 1;
+    min-height: 0;
     display: grid;
+    align-content: start;
     gap: 8px;
     overflow-y: auto;
+    padding-right: 4px;
 }
 
 .news-field-label {
@@ -3497,8 +3516,7 @@ body.staff-survey-create-page .top-bar {
 }
 
 .news-form textarea {
-    /* min-height: 120px; */
-    min-height: 170px;
+    min-height: 120px;
     resize: none;
 }
 
@@ -3699,9 +3717,15 @@ body.staff-survey-create-page .top-bar {
         justify-content: flex-start;
     }
 
+    .staff-news-page .news-admin-layout,
     .news-admin-layout {
         grid-template-columns: 1fr;
+        grid-template-rows: auto;
         overflow-y: auto;
+    }
+
+    .news-updates-panel {
+        height: 460px;
     }
 
     .survey-admin-layout {
@@ -3716,6 +3740,8 @@ body.staff-survey-create-page .top-bar {
 
     .news-composer-card {
         position: static;
+        height: auto;
+        overflow: visible;
     }
 
     .news-form-actions {
