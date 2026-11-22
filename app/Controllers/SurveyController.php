@@ -2807,10 +2807,8 @@ class SurveyController extends BaseController
     private function uploadSurveyAnswerImageToSupabase(UploadedFile $file, int $surveyId, int $questionId, ?string $respondentKey = null): ?string
     {
         $projectUrl = $this->getSupabaseProjectUrl();
-        $secretKey = $this->getSupabaseSecretKey();
-        $bucket = $this->getSupabaseBucketName();
-
-        if ($projectUrl === '' || $secretKey === '' || $bucket === '' || ! function_exists('curl_init')) {
+        $storage = new \App\Services\SupabaseStorageService();
+        if (! $storage->isConfigured()) {
             return null;
         }
 
@@ -2825,87 +2823,34 @@ class SurveyController extends BaseController
             $extension
         );
         $objectPath = sprintf('survey_answers/%d/%d/%s', $surveyId, $questionId, $filename);
-        $uploadUrl = rtrim($projectUrl, '/') . '/storage/v1/object/' . rawurlencode($bucket) . '/' . $this->encodeSupabaseObjectPath($objectPath);
-        $contents = $file->getTempName() !== '' && is_file($file->getTempName())
-            ? file_get_contents($file->getTempName())
-            : false;
+        $uploadedRef = $storage->uploadUploadedFile($file, $objectPath, false);
 
-        if ($contents === false) {
+        if ($uploadedRef === null) {
             return null;
         }
 
-        $curl = curl_init($uploadUrl);
-        if ($curl === false) {
-            return null;
-        }
-
-        curl_setopt_array($curl, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'Authorization: Bearer ' . $secretKey,
-                'apikey: ' . $secretKey,
-                'Content-Type: ' . ((string) $file->getMimeType() ?: 'application/octet-stream'),
-                'x-upsert: false',
-            ],
-            CURLOPT_POSTFIELDS => $contents,
-            CURLOPT_TIMEOUT => 30,
-        ]);
-
-        curl_exec($curl);
-        $statusCode = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
-
-        if ($statusCode < 200 || $statusCode >= 300) {
-            return null;
-        }
-
-        return $objectPath;
+        return $storage->extractObjectPath($uploadedRef);
     }
 
     private function deleteSupabaseObject(string $objectPath): void
     {
-        $projectUrl = $this->getSupabaseProjectUrl();
-        $secretKey = $this->getSupabaseSecretKey();
-        $bucket = $this->getSupabaseBucketName();
-
-        if ($projectUrl === '' || $secretKey === '' || $bucket === '' || ! function_exists('curl_init')) {
-            return;
-        }
-
-        $deleteUrl = rtrim($projectUrl, '/') . '/storage/v1/object/' . rawurlencode($bucket) . '/' . $this->encodeSupabaseObjectPath($objectPath);
-        $curl = curl_init($deleteUrl);
-        if ($curl === false) {
-            return;
-        }
-
-        curl_setopt_array($curl, [
-            CURLOPT_CUSTOMREQUEST => 'DELETE',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'Authorization: Bearer ' . $secretKey,
-                'apikey: ' . $secretKey,
-            ],
-            CURLOPT_TIMEOUT => 15,
-        ]);
-
-        curl_exec($curl);
-        curl_close($curl);
+        $storage = new \App\Services\SupabaseStorageService();
+        $storage->deleteReference($objectPath);
     }
 
     private function getSupabaseProjectUrl(): string
     {
-        return trim((string) env('supabase.projectUrl', ''));
+        return trim((string) config('Supabase')->projectUrl);
     }
 
     private function getSupabaseSecretKey(): string
     {
-        return trim((string) env('supabase.secretKey', ''));
+        return trim((string) config('Supabase')->secretKey);
     }
 
     private function getSupabaseBucketName(): string
     {
-        return trim((string) env('supabase.bucketName', ''));
+        return trim((string) config('Supabase')->bucketName);
     }
 
     private function buildSupabaseStorageReference(string $objectPath): string

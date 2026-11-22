@@ -6,6 +6,7 @@ use App\Models\AlumniFilesModel;
 use App\Models\AlumniModel;
 use App\Models\NewsModel;
 use App\Models\UserAccountModel;
+use App\Services\SupabaseStorageService;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class AlumniController extends BaseController
@@ -14,6 +15,7 @@ class AlumniController extends BaseController
     private NewsModel $newsModel;
     private UserAccountModel $userAccountModel;
     private AlumniFilesModel $alumniFilesModel;
+    private SupabaseStorageService $storage;
 
     public function __construct()
     {
@@ -21,6 +23,7 @@ class AlumniController extends BaseController
         $this->newsModel        = new NewsModel();
         $this->userAccountModel = new UserAccountModel();
         $this->alumniFilesModel = new AlumniFilesModel();
+        $this->storage          = new SupabaseStorageService();
     }
 
     public function main(): ResponseInterface
@@ -85,7 +88,7 @@ class AlumniController extends BaseController
                 'created_at' => (string) ($item['created_at'] ?? ''),
                 'author' => (string) ($item['author_name'] ?? 'Staff Office'),
                 'author_role' => (string) ($item['author_role'] ?? 'staff'),
-                'image_url' => ! empty($item['image_path']) ? base_url(str_replace('\\', '/', (string) $item['image_path'])) : null,
+                'image_url' => $this->storage->resolvePublicUrl($item['image_path'] ?? null),
                 'category' => 'campus news',
             ];
         }, $this->newsModel->getAllPublished());
@@ -1417,7 +1420,13 @@ XML;
             $alumniDbId = (int) ($alumniData['id'] ?? 0);
             $activePhoto = $alumniDbId > 0 ? $this->alumniFilesModel->getActiveProfilePicture($alumniDbId) : null;
             $hasProfilePicture = is_array($activePhoto);
-            $profilePictureUrl = $hasProfilePicture ? base_url('alumni/profile-picture') : null;
+            $profilePictureUrl = null;
+            if ($hasProfilePicture) {
+                $storedPhotoPath = (string) ($activePhoto['File_Path'] ?? '');
+                $profilePictureUrl = $this->storage->isSupabaseReference($storedPhotoPath)
+                    ? $this->storage->resolvePublicUrl($storedPhotoPath)
+                    : base_url('alumni/profile-picture');
+            }
 
             $profileData = [
                 'alumni_id'           => $alumniData['alumni_id'] ?? '',
@@ -1598,28 +1607,40 @@ XML;
 
         $alumniDbId = (int) ($alumniData['id'] ?? 0);
 
-        // Store in writable/ — NOT accessible via public URL
-        $uploadDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'profile_pictures';
-        if (! is_dir($uploadDir)) {
-            mkdir($uploadDir, 0750, true);
-        }
-
         $storedName   = $file->getRandomName();
-        $relativePath = 'uploads/profile_pictures/' . $storedName;
-
-        // Capture metadata BEFORE move() — temp file is gone after move
         $originalName = $file->getClientName();
         $mimeType     = $file->getMimeType();
         $fileSize     = $file->getSize();
 
-        $file->move($uploadDir, $storedName);
+        if ($this->storage->isConfigured()) {
+            $uploadedRef = $this->storage->uploadUploadedFile($file, 'profile_pictures/' . $storedName);
+            if ($uploadedRef === null) {
+                return $this->response->setStatusCode(500)->setJSON([
+                    'success' => false,
+                    'message' => 'Unable to upload profile picture to Supabase Storage. Please try again.',
+                ]);
+            }
+            $storedPath = $uploadedRef;
+        } else {
+            $uploadDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'profile_pictures';
+            if (! is_dir($uploadDir)) {
+                mkdir($uploadDir, 0750, true);
+            }
+            $file->move($uploadDir, $storedName);
+            $storedPath = 'uploads/profile_pictures/' . $storedName;
+        }
 
         // Delete previous profile picture file (if any)
         $previous = $this->alumniFilesModel->getActiveProfilePicture($alumniDbId);
         if (is_array($previous) && ! empty($previous['File_Path'])) {
-            $oldFile = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, (string) $previous['File_Path']);
-            if (is_file($oldFile)) {
-                @unlink($oldFile);
+            $oldPath = (string) $previous['File_Path'];
+            if ($this->storage->isSupabaseReference($oldPath)) {
+                $this->storage->deleteReference($oldPath);
+            } else {
+                $oldFile = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $oldPath);
+                if (is_file($oldFile)) {
+                    @unlink($oldFile);
+                }
             }
         }
 
@@ -1629,15 +1650,19 @@ XML;
             'File_Type'     => 'profile_picture',
             'Original_Name' => $originalName,
             'Stored_Name'   => $storedName,
-            'File_Path'     => $relativePath,
+            'File_Path'     => $storedPath,
             'Mime_Type'     => $mimeType,
             'File_Size'     => $fileSize,
         ]);
 
+        $responseUrl = $this->storage->isSupabaseReference($storedPath)
+            ? $this->storage->resolvePublicUrl($storedPath)
+            : base_url('alumni/profile-picture');
+
         return $this->response->setStatusCode(201)->setJSON([
             'success'             => true,
             'message'             => 'Profile picture uploaded successfully.',
-            'profile_picture_url' => base_url('alumni/profile-picture'),
+            'profile_picture_url' => $responseUrl,
         ]);
     }
 
@@ -1676,7 +1701,15 @@ XML;
             ]);
         }
 
-        $filePath = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, (string) ($row['File_Path'] ?? ''));
+        $storedPath = (string) ($row['File_Path'] ?? '');
+        if ($this->storage->isSupabaseReference($storedPath)) {
+            $publicUrl = $this->storage->resolvePublicUrl($storedPath);
+            if ($publicUrl !== null) {
+                return redirect()->to($publicUrl);
+            }
+        }
+
+        $filePath = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $storedPath);
         if (! is_file($filePath)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'success' => false,

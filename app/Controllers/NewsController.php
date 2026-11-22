@@ -3,16 +3,19 @@
 namespace App\Controllers;
 
 use App\Models\NewsModel;
+use App\Services\SupabaseStorageService;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class NewsController extends BaseController
 {
     private NewsModel $newsModel;
+    private SupabaseStorageService $storage;
 
     public function __construct()
     {
         helper(['filesystem', 'text']);
         $this->newsModel = new NewsModel();
+        $this->storage = new SupabaseStorageService();
     }
 
     public function list(): ResponseInterface
@@ -30,7 +33,7 @@ class NewsController extends BaseController
                 'title' => (string) ($item['title'] ?? ''),
                 'content' => (string) ($item['content'] ?? ''),
                 'link_url' => (string) ($item['link_url'] ?? ''),
-                'image_url' => ! empty($item['image_path']) ? base_url(str_replace('\\', '/', (string) $item['image_path'])) : null,
+                'image_url' => $this->storage->resolvePublicUrl($item['image_path'] ?? null),
                 'author' => (string) ($item['author_name'] ?? 'Staff Office'),
                 'author_role' => (string) ($item['author_role'] ?? 'Staff'),
                 'created_at' => (string) ($item['created_at'] ?? ''),
@@ -88,25 +91,36 @@ class NewsController extends BaseController
                 ]);
             }
 
-            $uploadDirectory = ROOTPATH . 'public/uploads/news';
-            if (! is_dir($uploadDirectory) && ! @mkdir($uploadDirectory, 0775, true)) {
-                log_message('error', 'News image upload failed: unable to create directory {dir}', ['dir' => $uploadDirectory]);
-                return $this->response->setStatusCode(500)->setJSON([
-                    'success' => false,
-                    'message' => 'Server upload folder is not writable. Please contact the administrator.',
-                ]);
-            }
+            $newName = $image->getRandomName();
+            if ($this->storage->isConfigured()) {
+                $uploadedRef = $this->storage->uploadUploadedFile($image, 'news/' . $newName);
+                if ($uploadedRef === null) {
+                    return $this->response->setStatusCode(500)->setJSON([
+                        'success' => false,
+                        'message' => 'Unable to upload image to Supabase Storage. Please check storage settings and try again.',
+                    ]);
+                }
+                $imagePath = $uploadedRef;
+            } else {
+                $uploadDirectory = ROOTPATH . 'public/uploads/news';
+                if (! is_dir($uploadDirectory) && ! @mkdir($uploadDirectory, 0775, true)) {
+                    log_message('error', 'News image upload failed: unable to create directory {dir}', ['dir' => $uploadDirectory]);
+                    return $this->response->setStatusCode(500)->setJSON([
+                        'success' => false,
+                        'message' => 'Server upload folder is not writable. Please contact the administrator.',
+                    ]);
+                }
 
-            try {
-                $newName = $image->getRandomName();
-                $image->move($uploadDirectory, $newName);
-                $imagePath = 'uploads/news/' . $newName;
-            } catch (\Throwable $e) {
-                log_message('error', 'News image move failed: {msg}', ['msg' => $e->getMessage()]);
-                return $this->response->setStatusCode(500)->setJSON([
-                    'success' => false,
-                    'message' => 'Unable to save the uploaded image. Please try again.',
-                ]);
+                try {
+                    $image->move($uploadDirectory, $newName);
+                    $imagePath = 'uploads/news/' . $newName;
+                } catch (\Throwable $e) {
+                    log_message('error', 'News image move failed: {msg}', ['msg' => $e->getMessage()]);
+                    return $this->response->setStatusCode(500)->setJSON([
+                        'success' => false,
+                        'message' => 'Unable to save the uploaded image. Please try again.',
+                    ]);
+                }
             }
         }
 
@@ -136,7 +150,7 @@ class NewsController extends BaseController
                 'title' => $title,
                 'content' => $content,
                 'link_url' => $linkUrl,
-                'image_url' => $imagePath ? base_url($imagePath) : null,
+                'image_url' => $this->storage->resolvePublicUrl($imagePath),
                 'author' => $authorName,
                 'author_role' => (string) ($user['role'] ?? 'staff'),
                 'created_at' => date('Y-m-d H:i:s'),
@@ -198,39 +212,58 @@ class NewsController extends BaseController
                 ]);
             }
 
-            $uploadDirectory = ROOTPATH . 'public/uploads/news';
-            if (! is_dir($uploadDirectory) && ! @mkdir($uploadDirectory, 0775, true)) {
-                log_message('error', 'News image update failed: unable to create directory {dir}', ['dir' => $uploadDirectory]);
-                return $this->response->setStatusCode(500)->setJSON([
-                    'success' => false,
-                    'message' => 'Server upload folder is not writable. Please contact the administrator.',
-                ]);
-            }
+            $newName = $image->getRandomName();
+            if ($this->storage->isConfigured()) {
+                $uploadedRef = $this->storage->uploadUploadedFile($image, 'news/' . $newName);
+                if ($uploadedRef === null) {
+                    return $this->response->setStatusCode(500)->setJSON([
+                        'success' => false,
+                        'message' => 'Unable to upload image to Supabase Storage. Please try again.',
+                    ]);
+                }
+                $newImagePath = $uploadedRef;
+            } else {
+                $uploadDirectory = ROOTPATH . 'public/uploads/news';
+                if (! is_dir($uploadDirectory) && ! @mkdir($uploadDirectory, 0775, true)) {
+                    log_message('error', 'News image update failed: unable to create directory {dir}', ['dir' => $uploadDirectory]);
+                    return $this->response->setStatusCode(500)->setJSON([
+                        'success' => false,
+                        'message' => 'Server upload folder is not writable. Please contact the administrator.',
+                    ]);
+                }
 
-            try {
-                $newName = $image->getRandomName();
-                $image->move($uploadDirectory, $newName);
-                $newImagePath = 'uploads/news/' . $newName;
-            } catch (\Throwable $e) {
-                log_message('error', 'News image update move failed: {msg}', ['msg' => $e->getMessage()]);
-                return $this->response->setStatusCode(500)->setJSON([
-                    'success' => false,
-                    'message' => 'Unable to save the uploaded image. Please try again.',
-                ]);
+                try {
+                    $image->move($uploadDirectory, $newName);
+                    $newImagePath = 'uploads/news/' . $newName;
+                } catch (\Throwable $e) {
+                    log_message('error', 'News image update move failed: {msg}', ['msg' => $e->getMessage()]);
+                    return $this->response->setStatusCode(500)->setJSON([
+                        'success' => false,
+                        'message' => 'Unable to save the uploaded image. Please try again.',
+                    ]);
+                }
             }
 
             if ($imagePath !== '') {
-                $oldImageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $imagePath);
-                if (is_file($oldImageFile)) {
-                    @unlink($oldImageFile);
+                if ($this->storage->isSupabaseReference($imagePath)) {
+                    $this->storage->deleteReference($imagePath);
+                } else {
+                    $oldImageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $imagePath);
+                    if (is_file($oldImageFile)) {
+                        @unlink($oldImageFile);
+                    }
                 }
             }
 
             $imagePath = $newImagePath;
         } elseif ($removeImage && $imagePath !== '') {
-            $oldImageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $imagePath);
-            if (is_file($oldImageFile)) {
-                @unlink($oldImageFile);
+            if ($this->storage->isSupabaseReference($imagePath)) {
+                $this->storage->deleteReference($imagePath);
+            } else {
+                $oldImageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $imagePath);
+                if (is_file($oldImageFile)) {
+                    @unlink($oldImageFile);
+                }
             }
             $imagePath = '';
         }
@@ -252,7 +285,7 @@ class NewsController extends BaseController
                 'title' => (string) ($updated['title'] ?? ''),
                 'content' => (string) ($updated['content'] ?? ''),
                 'link_url' => (string) ($updated['link_url'] ?? ''),
-                'image_url' => ! empty($updated['image_path']) ? base_url(str_replace('\\', '/', (string) $updated['image_path'])) : null,
+                'image_url' => $this->storage->resolvePublicUrl($updated['image_path'] ?? null),
                 'author' => (string) ($updated['author_name'] ?? 'Staff Office'),
                 'author_role' => (string) ($updated['author_role'] ?? 'staff'),
                 'created_at' => (string) ($updated['created_at'] ?? ''),
@@ -278,9 +311,14 @@ class NewsController extends BaseController
         }
 
         if (! empty($post['image_path'])) {
-            $imageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, (string) $post['image_path']);
-            if (is_file($imageFile)) {
-                @unlink($imageFile);
+            $storedPath = (string) $post['image_path'];
+            if ($this->storage->isSupabaseReference($storedPath)) {
+                $this->storage->deleteReference($storedPath);
+            } else {
+                $imageFile = ROOTPATH . 'public/' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $storedPath);
+                if (is_file($imageFile)) {
+                    @unlink($imageFile);
+                }
             }
         }
 

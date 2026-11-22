@@ -22,9 +22,14 @@ class Supabase extends BaseConfig
     public string $secretKey = '';
 
     /**
+     * Optional Legacy Service Role JWT (eyJ...) for Supabase Storage API when secretKey is an opaque sb_secret_ key
+     */
+    public string $serviceRoleKey = '';
+
+    /**
      * Supabase Storage Bucket Name
      */
-    public string $bucketName = 'Suvery-Responses';
+    public string $bucketName = 'gradvision-uploads';
 
     /**
      * Enable Supabase Auth integration
@@ -54,6 +59,7 @@ class Supabase extends BaseConfig
         $this->projectUrl = rtrim(trim((string) $this->readEnv('supabase.projectUrl', $this->projectUrl)), '/');
         $this->publishableKey = trim((string) $this->readEnv('supabase.publishableKey', $this->readEnv('supabase.anonKey', $this->publishableKey)));
         $this->secretKey = trim((string) $this->readEnv('supabase.secretKey', $this->secretKey));
+        $this->serviceRoleKey = trim((string) $this->readEnv('supabase.serviceRoleKey', $this->serviceRoleKey));
         $this->bucketName = trim((string) $this->readEnv('supabase.bucketName', $this->bucketName));
         $this->authEnabled = filter_var($this->readEnv('supabase.authEnabled', true), FILTER_VALIDATE_BOOLEAN);
         $this->authSyncFallback = filter_var($this->readEnv('supabase.authSyncFallback', false), FILTER_VALIDATE_BOOLEAN);
