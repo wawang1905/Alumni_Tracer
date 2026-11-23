@@ -868,6 +868,38 @@ function populateRoleDropdown() {
     }
 }
 
+function updateAdminPasswordLimitState() {
+    const passwordInput = document.getElementById('adminPassword');
+    const passwordHint = document.getElementById('adminPasswordHint');
+    const passwordCount = document.getElementById('adminPasswordCount');
+    if (!passwordInput) return;
+
+    if (passwordInput.value.length > 12) {
+        passwordInput.value = passwordInput.value.slice(0, 12);
+    }
+
+    const len = passwordInput.value.length;
+    const isAtLimit = len >= 12;
+
+    passwordInput.classList.toggle('is-limit-reached', isAtLimit);
+
+    if (passwordCount) {
+        passwordCount.textContent = `${len}/12`;
+        passwordCount.classList.toggle('is-limit-reached', isAtLimit);
+    }
+
+    if (passwordHint) {
+        passwordHint.classList.toggle('is-limit-reached', isAtLimit);
+        if (isAtLimit) {
+            passwordHint.textContent = 'Maximum limit of 12 characters reached.';
+        } else {
+            passwordHint.textContent = editingAdminId
+                ? 'Optional: enter or generate a new password (6–12 characters).'
+                : 'Required for new account (6–12 characters).';
+        }
+    }
+}
+
 function openAdminModal(admin = null) {
     editingAdminId = admin?.email || null;
     document.getElementById('adminModalTitle').textContent = admin ? 'Edit Head Admin' : 'Add Head Admin';
@@ -877,18 +909,13 @@ function openAdminModal(admin = null) {
     populateAdminCampusDropdown(admin?.campusId ?? '');
 
     const passwordInput = document.getElementById('adminPassword');
-    const passwordHint = document.getElementById('adminPasswordHint');
     if (passwordInput) {
         passwordInput.value = '';
         passwordInput.placeholder = admin
             ? 'Leave blank to keep current password'
             : 'Enter password or click Generate';
     }
-    if (passwordHint) {
-        passwordHint.textContent = admin
-            ? 'Optional: enter or generate a new password to replace the current one.'
-            : 'Required for new account (min. 6 characters).';
-    }
+    updateAdminPasswordLimitState();
 
     document.getElementById('adminRole').value = 'head_admin';
     document.getElementById('adminStatus').value = admin?.status || 'Active';
@@ -934,6 +961,12 @@ async function saveAdminAccount() {
 
     if (account.password && account.password.length < 6) {
         showToast('Password must be at least 6 characters long.');
+        passwordInput?.focus();
+        return;
+    }
+
+    if (account.password && account.password.length > 12) {
+        showToast('Password must not exceed 12 characters.');
         passwordInput?.focus();
         return;
     }
@@ -1849,12 +1882,18 @@ function bindEvents() {
     const saveAdminAccountButton = document.getElementById('saveAdminAccount');
     if (saveAdminAccountButton) saveAdminAccountButton.addEventListener('click', saveAdminAccount);
 
+    const adminPasswordInput = document.getElementById('adminPassword');
+    if (adminPasswordInput) {
+        adminPasswordInput.addEventListener('input', updateAdminPasswordLimitState);
+    }
+
     const generateAdminPasswordBtn = document.getElementById('generateAdminPasswordBtn');
     if (generateAdminPasswordBtn) {
         generateAdminPasswordBtn.addEventListener('click', () => {
             const passwordInput = document.getElementById('adminPassword');
             if (!passwordInput) return;
             passwordInput.value = generateRandomPassword(12);
+            updateAdminPasswordLimitState();
             passwordInput.focus();
             passwordInput.select();
             showToast('Random password generated.');

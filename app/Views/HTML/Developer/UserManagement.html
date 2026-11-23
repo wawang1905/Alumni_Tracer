@@ -152,13 +152,16 @@
                 <div class="form-field wide-field">
                     <span>Password</span>
                     <div class="password-input-row">
-                        <input class="form-control" id="adminPassword" type="text" autocomplete="new-password" placeholder="Enter password or click Generate">
+                        <input class="form-control" id="adminPassword" type="text" maxlength="12" autocomplete="new-password" placeholder="Enter password or click Generate">
                         <button class="btn-secondary generate-password-btn" type="button" id="generateAdminPasswordBtn" title="Generate a random password">
                             <i class="fas fa-wand-magic-sparkles"></i>
                             Generate
                         </button>
                     </div>
-                    <small class="form-field-hint" id="adminPasswordHint">Required for new account (min. 6 characters).</small>
+                    <div class="password-meta-row">
+                        <small class="form-field-hint" id="adminPasswordHint">Required for new account (6–12 characters).</small>
+                        <small class="password-char-count" id="adminPasswordCount">0/12</small>
+                    </div>
                 </div>
                 <label class="form-field">
                     <span>Role</span>

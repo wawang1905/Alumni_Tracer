@@ -361,20 +361,20 @@ class DeveloperController extends BaseController
                     'message' => 'Please enter or generate a password for the new Head Admin.',
                 ]);
             }
-            if (strlen($passwordInput) < 6) {
+            if (strlen($passwordInput) < 6 || strlen($passwordInput) > 12) {
                 return $this->response->setStatusCode(422)->setJSON([
                     'success' => false,
-                    'message' => 'Password must be at least 6 characters long.',
+                    'message' => 'Password must be between 6 and 12 characters long.',
                 ]);
             }
             $password = $passwordInput;
         } elseif ($resetPassword) {
             $password = $passwordInput !== '' ? $passwordInput : 'ustp123';
         } elseif ($passwordInput !== '') {
-            if (strlen($passwordInput) < 6) {
+            if (strlen($passwordInput) < 6 || strlen($passwordInput) > 12) {
                 return $this->response->setStatusCode(422)->setJSON([
                     'success' => false,
-                    'message' => 'Password must be at least 6 characters long.',
+                    'message' => 'Password must be between 6 and 12 characters long.',
                 ]);
             }
             $password = $passwordInput;

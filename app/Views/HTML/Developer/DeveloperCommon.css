@@ -846,6 +846,33 @@ textarea {
     font-weight: 500;
 }
 
+.password-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.password-char-count {
+    color: var(--muted);
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.form-control.is-limit-reached,
+.form-control.is-limit-reached:focus {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
+    background: #fef2f2;
+}
+
+.form-field-hint.is-limit-reached,
+.password-char-count.is-limit-reached {
+    color: #dc2626;
+    font-weight: 700;
+}
+
 .wide-field {
     grid-column: span 2;
 }
