@@ -1,3 +1,5 @@
+@import url('../CSS/Typography.css');
+
 :root {
     --nav: #12324a;
     --nav-dark: #0a1d2c;
@@ -25,7 +27,9 @@ body {
     overflow: hidden;
     background: var(--bg);
     color: var(--text);
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-primary);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-base);
 }
 
 button,
@@ -1308,4 +1312,69 @@ textarea {
     .wide-field {
         grid-column: auto;
     }
+}
+
+/* ==========================================================================
+   Standardized Typography Hierarchy (Developer Console)
+   ========================================================================== */
+.developer-topbar h2 {
+    font-size: var(--font-size-page-title);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.section-heading h3 {
+    font-size: var(--font-size-section-title);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-snug);
+}
+
+.modal-header h3 {
+    font-size: var(--font-size-modal-title);
+    font-weight: var(--font-weight-semibold);
+}
+
+.modal-content p,
+.confirm-modal-body {
+    font-size: var(--font-size-modal-body);
+    font-weight: var(--font-weight-regular);
+}
+
+.developer-nav-item {
+    font-size: var(--font-size-nav);
+    font-weight: var(--font-weight-medium);
+}
+
+.developer-table th {
+    font-size: var(--font-size-table-header);
+    font-weight: var(--font-weight-semibold);
+}
+
+.developer-table td {
+    font-size: var(--font-size-table);
+    font-weight: var(--font-weight-regular);
+}
+
+.form-field span {
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+}
+
+.form-control,
+.search-field input {
+    font-size: var(--font-size-input);
+    font-weight: var(--font-weight-regular);
+}
+
+.btn-primary,
+.btn-secondary {
+    font-size: var(--font-size-button);
+    font-weight: var(--font-weight-semibold);
+}
+
+.eyebrow,
+.metric-sub,
+.form-field-hint,
+.password-char-count {
+    font-size: var(--font-size-small);
 }

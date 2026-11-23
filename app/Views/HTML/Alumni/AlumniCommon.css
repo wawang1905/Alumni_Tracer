@@ -1,3 +1,5 @@
+@import url('../CSS/Typography.css');
+
 :root {
     --alumni-navy: #12324a;
     --alumni-teal: #2d7f73;
@@ -17,7 +19,9 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-primary);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-base);
     background:
         radial-gradient(circle at top left, rgba(45, 127, 115, 0.12), transparent 30%),
         linear-gradient(180deg, #f8fbfe 0%, var(--alumni-bg) 100%);
@@ -3836,4 +3840,75 @@ a.survey-respond-btn {
         bottom: 20px;
         text-align: center;
     }
+}
+
+/* ==========================================================================
+   Standardized Typography Hierarchy (Alumni Portal)
+   ========================================================================== */
+.page-header h1,
+.alumni-page-title,
+.hero-banner h1 {
+    font-size: var(--font-size-page-title);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.section-header h3,
+.content-card > h3 {
+    font-size: var(--font-size-section-title);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-snug);
+}
+
+.modal-header h3,
+.modal-content > h3 {
+    font-size: var(--font-size-modal-title);
+    font-weight: var(--font-weight-semibold);
+}
+
+.modal-body,
+.modal-content p {
+    font-size: var(--font-size-modal-body);
+    font-weight: var(--font-weight-regular);
+}
+
+.alumni-nav a,
+.alumni-nav-link {
+    font-size: var(--font-size-nav);
+    font-weight: var(--font-weight-medium);
+}
+
+table th {
+    font-size: var(--font-size-table-header);
+    font-weight: var(--font-weight-semibold);
+}
+
+table td {
+    font-size: var(--font-size-table);
+    font-weight: var(--font-weight-regular);
+}
+
+.form-group label,
+.profile-field label {
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-semibold);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    font-size: var(--font-size-input);
+    font-weight: var(--font-weight-regular);
+}
+
+.btn-primary,
+.btn-secondary {
+    font-size: var(--font-size-button);
+    font-weight: var(--font-weight-semibold);
+}
+
+.status-badge,
+.badge,
+.facebook-post-meta {
+    font-size: var(--font-size-small);
 }

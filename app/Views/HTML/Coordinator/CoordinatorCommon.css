@@ -1,10 +1,14 @@
+@import url('../CSS/Typography.css');
+
 * {
     box-sizing: border-box;
 }
 
 body {
     margin: 0;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-primary);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-base);
     background: #eef3f7;
     color: #22313f;
 }
@@ -3148,3 +3152,76 @@ html.coordinator-sidebar-collapsed .coordinator-logout-btn:hover::after {
     }
 }
 
+
+/* ==========================================================================
+   Standardized Typography Hierarchy (Coordinator Portal)
+   ========================================================================== */
+.coordinator-topbar h1,
+.coordinator-topbar .page-title,
+.top-bar .page-title {
+    font-size: var(--font-size-page-title);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.section-header h3,
+.panel-header h3,
+.card-header h3 {
+    font-size: var(--font-size-section-title);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-snug);
+}
+
+.modal-header h3,
+.modal-content > h3 {
+    font-size: var(--font-size-modal-title);
+    font-weight: var(--font-weight-semibold);
+}
+
+.modal-body,
+.modal-content p {
+    font-size: var(--font-size-modal-body);
+    font-weight: var(--font-weight-regular);
+}
+
+.coordinator-nav-item,
+.menu-item {
+    font-size: var(--font-size-nav);
+    font-weight: var(--font-weight-medium);
+}
+
+table th {
+    font-size: var(--font-size-table-header);
+    font-weight: var(--font-weight-semibold);
+}
+
+table td {
+    font-size: var(--font-size-table);
+    font-weight: var(--font-weight-regular);
+}
+
+label.form-label,
+.form-group label {
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-semibold);
+}
+
+input.form-control,
+select.form-control,
+textarea.form-control {
+    font-size: var(--font-size-input);
+    font-weight: var(--font-weight-regular);
+}
+
+.btn-primary,
+.btn-secondary {
+    font-size: var(--font-size-button);
+    font-weight: var(--font-weight-semibold);
+}
+
+.status-badge,
+.badge,
+.pill {
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+}
