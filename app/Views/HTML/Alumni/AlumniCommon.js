@@ -1,3 +1,19 @@
+let __alumniActionConfirmPromise = null;
+function ensureAlumniActionConfirm() {
+    if (window.ActionConfirm) return Promise.resolve(window.ActionConfirm);
+    if (!__alumniActionConfirmPromise) {
+        __alumniActionConfirmPromise = new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = '../JS/ActionConfirm.js';
+            s.onload = () => resolve(window.ActionConfirm || null);
+            s.onerror = () => resolve(null);
+            document.head.appendChild(s);
+        });
+    }
+    return __alumniActionConfirmPromise;
+}
+void ensureAlumniActionConfirm();
+
 let currentAlumniUser = null;
 
 function alumniUrl(path) {
@@ -1718,13 +1734,21 @@ function promptSubmitSurveyConfirmation(surveyId) {
         return;
     }
 
-    // Fallback confirmation dialog
-    const confirmed = window.confirm(
-        `Are you sure you really want to submit your answers for "${survey.title || 'this survey'}"?\n\nOnce submitted, your answers will be officially recorded and cannot be changed.`
-    );
-    if (confirmed) {
-        submitAlumniSurvey(surveyId);
-    }
+    // Centralized confirmation dialog fallback
+    ensureAlumniActionConfirm().then(async (ac) => {
+        if (!ac) return;
+        const confirmed = await ac.medium({
+            title: 'Submit Survey Response?',
+            message: `Are you sure you want to submit your answers for "${survey.title || 'this survey'}"?`,
+            record: survey.title || 'Alumni Survey',
+            consequence: 'Once submitted, your answers will be officially recorded and cannot be edited.',
+            confirmText: 'Yes, Submit Survey',
+            icon: 'fa-paper-plane'
+        });
+        if (confirmed) {
+            submitAlumniSurvey(surveyId);
+        }
+    });
 }
 
 function closeConfirmSubmitModal() {

@@ -1456,7 +1456,22 @@
         const PAYMENTS_PER_PAGE = 10;
         let pendingConfirmResolver = null;
 
-        function askPaymentConfirmation({ title = 'Confirm Payment', message = 'Are you sure you want to confirm this payment?', type = 'verify' } = {}) {
+        async function askPaymentConfirmation({ title = 'Confirm Payment', message = 'Are you sure you want to confirm this payment?', type = 'verify' } = {}) {
+            if (typeof ensureStaffActionConfirm === 'function') {
+                const ac = await ensureStaffActionConfirm();
+                if (ac) {
+                    const isReject = type === 'reject';
+                    return ac.medium({
+                        title,
+                        message,
+                        consequence: isReject
+                            ? 'Marking this payment as rejected updates its official transaction status.'
+                            : 'Verifying this payment updates its official status and may auto-generate an Alumni ID.',
+                        confirmText: isReject ? 'Yes, Reject Payment' : 'Yes, Verify Payment',
+                        icon: isReject ? 'fa-times-circle' : 'fa-check-circle'
+                    });
+                }
+            }
             return new Promise((resolve) => {
                 pendingConfirmResolver = resolve;
                 const modal = document.getElementById('confirmActionModal');

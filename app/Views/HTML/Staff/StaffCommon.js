@@ -6,6 +6,22 @@ function getSessionUrl() {
     return new URL('../auth/session', window.location.href).toString();
 }
 
+let __staffActionConfirmPromise = null;
+function ensureStaffActionConfirm() {
+    if (window.ActionConfirm) return Promise.resolve(window.ActionConfirm);
+    if (!__staffActionConfirmPromise) {
+        __staffActionConfirmPromise = new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = '../JS/ActionConfirm.js';
+            s.onload = () => resolve(window.ActionConfirm || null);
+            s.onerror = () => resolve(null);
+            document.head.appendChild(s);
+        });
+    }
+    return __staffActionConfirmPromise;
+}
+void ensureStaffActionConfirm();
+
 function getLogoutUrl() {
     return new URL('../auth/logout', window.location.href).toString();
 }
@@ -1197,7 +1213,18 @@ async function deleteBatch(year) {
         return;
     }
 
-    if (!confirm(`Are you sure you want to delete Batch ${yearStr}?\n\nThis action cannot be undone.`)) {
+    const ac = await ensureStaffActionConfirm();
+    const confirmed = ac
+        ? await ac.high({
+            title: 'Permanently Delete Batch?',
+            message: `You are about to permanently delete Batch ${yearStr} from the batch registry.`,
+            record: `Batch ${yearStr}`,
+            consequence: 'This action cannot be undone.',
+            requiredPhrase: 'DELETE',
+            confirmText: 'Delete Batch'
+        })
+        : false;
+    if (!confirmed) {
         return;
     }
 
@@ -2267,6 +2294,24 @@ function setupNewsForm() {
         const titleValue = title.value.trim();
         const isEditing = idInput.value.trim() !== '';
 
+        const ac = await ensureStaffActionConfirm();
+        if (ac) {
+            const confirmed = await ac.basic({
+                title: isEditing ? 'Update News Post?' : 'Publish News Post?',
+                message: isEditing
+                    ? 'Are you sure you want to save changes to this news announcement?'
+                    : 'Are you sure you want to publish this news announcement to alumni?',
+                record: titleValue || 'News Announcement',
+                confirmText: isEditing ? 'Save Changes' : 'Publish News',
+                icon: 'fa-newspaper'
+            });
+            if (!confirmed) {
+                form.dataset.submitting = 'false';
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+            }
+        }
+
         const formData = new FormData();
         formData.append('title', titleValue);
         formData.append('link_url', link.value.trim());
@@ -2305,7 +2350,18 @@ function setupNewsForm() {
 
 async function deleteNewsPost(newsId) {
     if (!newsId) return;
-    if (!confirm('Delete this news post?')) return;
+    const ac = await ensureStaffActionConfirm();
+    const confirmed = ac
+        ? await ac.high({
+            title: 'Permanently Delete News Post?',
+            message: 'You are about to permanently delete this news announcement and any attached photo.',
+            record: `News Post #${newsId}`,
+            consequence: 'Alumni will no longer see this update and this action cannot be undone.',
+            requiredPhrase: 'DELETE',
+            confirmText: 'Delete Permanently'
+        })
+        : false;
+    if (!confirmed) return;
 
     try {
         const response = await fetch(getDeleteNewsUrl(newsId), {
@@ -2590,10 +2646,21 @@ function createEvent() {
     void logRecentActivity(`New event created: ${name}`, 'event', { name, date, location });
 }
 
-function deleteEvent(id) {
-    if (!confirm('Are you sure you want to delete this event?')) return;
-
+async function deleteEvent(id) {
     const event = eventsData.find(e => e.id === id);
+    const ac = await ensureStaffActionConfirm();
+    const confirmed = ac
+        ? await ac.high({
+            title: 'Permanently Delete Event?',
+            message: 'You are about to permanently remove this event from the schedule.',
+            record: event ? `${event.name}${event.date ? ' (' + event.date + ')' : ''}` : `Event #${id}`,
+            consequence: 'This action cannot be undone.',
+            requiredPhrase: 'DELETE',
+            confirmText: 'Delete Event'
+        })
+        : false;
+    if (!confirmed) return;
+
     eventsData = eventsData.filter(e => e.id !== id);
 
     if (event) {
@@ -2786,6 +2853,24 @@ async function updateSurveyStateById(surveyId, nextState) {
         return;
     }
 
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const isPosting = nextState === 'posted';
+        const confirmed = await ac.medium({
+            title: isPosting ? 'Publish Survey?' : 'Unpublish Survey?',
+            message: isPosting
+                ? `You are about to publish "${survey.title || 'Untitled Survey'}" so alumni can access it.`
+                : `You are about to unpublish "${survey.title || 'Untitled Survey'}" and hide it from alumni.`,
+            record: survey.title || `Survey #${survey.id}`,
+            consequence: isPosting
+                ? 'Alumni within your campus will be able to submit responses.'
+                : 'Alumni will no longer be able to view or submit responses while unpublished.',
+            confirmText: isPosting ? 'Yes, Publish' : 'Yes, Unpublish',
+            icon: isPosting ? 'fa-bullhorn' : 'fa-eye-slash'
+        });
+        if (!confirmed) return;
+    }
+
     try {
         const response = await fetch(getSurveyUpdateStateUrl(survey.id), {
             method: 'POST',
@@ -2814,6 +2899,19 @@ async function updateSurveyStateById(surveyId, nextState) {
 async function openNextSurveyBatchById(surveyId) {
     const survey = surveysData.find((item) => Number(item.id) === Number(surveyId));
     if (!survey || survey.status === 'closed') return;
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.medium({
+            title: 'Advance Survey to Next Batch?',
+            message: `You are about to open a new response batch for "${survey.title || 'Untitled Survey'}".`,
+            record: survey.title || `Survey #${survey.id}`,
+            consequence: 'This increments the active survey batch number for subsequent alumni responses.',
+            confirmText: 'Yes, Open Next Batch',
+            icon: 'fa-forward'
+        });
+        if (!confirmed) return;
+    }
 
     try {
         const response = await fetch(getSurveyNextBatchUrl(survey.id), {
@@ -2844,7 +2942,17 @@ async function deleteSurveyById(surveyId) {
     const survey = surveysData.find((item) => Number(item.id) === Number(surveyId));
     if (!survey) return;
 
-    const confirmed = confirm(`Are you sure you want to delete "${survey.title || 'Untitled Survey'}"? This will also delete all questions, responses, and answers associated with this survey. This action cannot be undone.`);
+    const ac = await ensureStaffActionConfirm();
+    const confirmed = ac
+        ? await ac.high({
+            title: 'Permanently Delete Survey?',
+            message: `You are about to permanently delete "${survey.title || 'Untitled Survey'}" along with all of its questions, responses, and answers.`,
+            record: survey.title || `Survey #${survey.id}`,
+            consequence: 'All collected survey responses and statistics for this survey will be permanently lost. This action cannot be undone.',
+            requiredPhrase: 'DELETE',
+            confirmText: 'Delete Survey Permanently'
+        })
+        : false;
     if (!confirmed) return;
 
     try {
@@ -5880,7 +5988,20 @@ async function wizardPublish() {
         ? `Are you sure you want to schedule publication for "${surveyTitle}"?`
         : `Are you sure you want to publish "${surveyTitle}" immediately? It will become active for alumni respondents.`;
 
-    if (!confirm(msg)) {
+    const ac = await ensureStaffActionConfirm();
+    const confirmed = ac
+        ? await ac.medium({
+            title: isScheduled ? 'Schedule Survey Publication?' : 'Publish Survey Immediately?',
+            message: msg,
+            record: surveyTitle,
+            consequence: isScheduled
+                ? 'The survey will automatically open to alumni at the scheduled date and time.'
+                : 'Alumni in your campus will immediately be able to view and submit responses.',
+            confirmText: isScheduled ? 'Yes, Schedule' : 'Yes, Publish Now',
+            icon: 'fa-rocket'
+        })
+        : false;
+    if (!confirmed) {
         return;
     }
 
@@ -6194,6 +6315,20 @@ async function deleteSurveyQuestion(questionId) {
         wizardShowToast('Pre-made questions cannot be deleted.', 'warning');
         return;
     }
+
+    const ac = await ensureStaffActionConfirm();
+    const confirmed = ac
+        ? await ac.high({
+            title: 'Permanently Delete Survey Question?',
+            message: 'You are about to permanently remove this question and any submitted answers linked to it.',
+            record: targetQ?.text || `Question #${questionId}`,
+            consequence: 'This action cannot be undone.',
+            requiredPhrase: 'DELETE',
+            confirmText: 'Delete Question'
+        })
+        : false;
+    if (!confirmed) return;
+
     surveyResponses = surveyResponses.map(response => ({
         ...response,
         answers: response.answers.filter(answer => answer.questionId !== questionId)

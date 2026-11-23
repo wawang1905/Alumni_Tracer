@@ -1,0 +1,348 @@
+/* ==========================================================================
+   GradVision — System-Wide Three-Level Action Confirmation Modal
+   Levels: basic (low risk), medium (warning), high (danger + typed phrase)
+   ========================================================================== */
+
+.ac-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+    font-family: var(--font-primary, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.ac-modal-backdrop.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ac-modal-dialog {
+    width: min(480px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+    padding: 22px 24px 20px;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    color: #1e293b;
+}
+
+.ac-modal-backdrop.is-open .ac-modal-dialog {
+    transform: translateY(0) scale(1);
+}
+
+.ac-modal-dialog.ac-level-medium {
+    border-top: 4px solid #d97706;
+}
+
+.ac-modal-dialog.ac-level-high {
+    border-top: 4px solid #dc2626;
+}
+
+.ac-modal-dialog.ac-level-basic {
+    border-top: 4px solid #2563eb;
+}
+
+.ac-modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.ac-modal-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+}
+
+.ac-level-basic .ac-modal-icon {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.ac-level-medium .ac-modal-icon {
+    background: #fffbeb;
+    color: #d97706;
+}
+
+.ac-level-high .ac-modal-icon {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.ac-modal-heading-group {
+    flex: 1;
+    min-width: 0;
+}
+
+.ac-modal-badge {
+    display: inline-block;
+    margin-bottom: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.ac-level-basic .ac-modal-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.ac-level-medium .ac-modal-badge {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.ac-level-high .ac-modal-badge {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.ac-modal-title {
+    margin: 0;
+    font-size: var(--font-size-modal-title, 18px);
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1.3;
+    color: #0f172a;
+}
+
+.ac-modal-close {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #64748b;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ac-modal-close:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.ac-modal-body {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.ac-modal-message {
+    margin: 0;
+    font-size: var(--font-size-modal-body, 14px);
+    font-weight: var(--font-weight-regular, 400);
+    line-height: 1.55;
+    color: #334155;
+}
+
+.ac-modal-record {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.ac-modal-record strong {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+.ac-modal-consequence {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.ac-level-medium .ac-modal-consequence {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+}
+
+.ac-level-high .ac-modal-consequence {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+
+.ac-level-basic .ac-modal-consequence {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+}
+
+.ac-phrase-box {
+    display: grid;
+    gap: 6px;
+}
+
+.ac-phrase-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.ac-phrase-label code {
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+}
+
+.ac-phrase-input {
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 12px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: var(--font-mono, monospace);
+    font-size: 14px;
+    color: #0f172a;
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ac-phrase-input:focus {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.ac-phrase-input.is-matched {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+}
+
+.ac-modal-error {
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+.ac-modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.ac-btn {
+    min-height: 40px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-family: var(--font-primary, inherit);
+    font-size: var(--font-size-button, 14px);
+    font-weight: var(--font-weight-semibold, 600);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.ac-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ac-btn-cancel {
+    background: #ffffff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+}
+
+.ac-btn-cancel:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.ac-btn-confirm-basic {
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid #2563eb;
+}
+
+.ac-btn-confirm-basic:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.ac-btn-confirm-medium {
+    background: #d97706;
+    color: #ffffff;
+    border: 1px solid #d97706;
+}
+
+.ac-btn-confirm-medium:hover:not(:disabled) {
+    background: #b45309;
+    border-color: #b45309;
+}
+
+.ac-btn-confirm-high {
+    background: #dc2626;
+    color: #ffffff;
+    border: 1px solid #dc2626;
+}
+
+.ac-btn-confirm-high:hover:not(:disabled) {
+    background: #b91c1c;
+    border-color: #b91c1c;
+}
+
+@media (max-width: 540px) {
+    .ac-modal-dialog {
+        padding: 18px 16px 16px;
+    }
+
+    .ac-modal-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .ac-btn {
+        width: 100%;
+    }
+}

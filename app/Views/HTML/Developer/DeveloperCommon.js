@@ -203,17 +203,68 @@ function ensureConfirmationModal() {
     return modal;
 }
 
-function askConfirmation(options = {}) {
+let __actionConfirmLoaderPromise = null;
+function ensureActionConfirmLoaded() {
+    if (window.ActionConfirm) {
+        return Promise.resolve(window.ActionConfirm);
+    }
+    if (!__actionConfirmLoaderPromise) {
+        __actionConfirmLoaderPromise = new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = '../JS/ActionConfirm.js';
+            script.onload = () => resolve(window.ActionConfirm || null);
+            script.onerror = () => resolve(null);
+            document.head.appendChild(script);
+        });
+    }
+    return __actionConfirmLoaderPromise;
+}
+void ensureActionConfirmLoaded();
+
+async function askConfirmation(options = {}) {
     const config = typeof options === 'string'
         ? { message: options }
         : (options || {});
 
     const title = config.title || 'Confirm Action';
     const message = config.message || 'Are you sure you want to proceed with this action?';
-    const confirmText = config.confirmText || 'Confirm';
-    const cancelText = config.cancelText || 'Cancel';
-    const isDanger = Boolean(config.danger);
-    const iconClass = config.icon || (isDanger ? 'fa-triangle-exclamation' : 'fa-circle-question');
+    const titleLower = title.toLowerCase();
+
+    let level = config.level || '';
+    if (!level) {
+        if (config.danger || /\b(delete|restore|clear|remove|purge)\b/.test(titleLower)) {
+            level = 'high';
+        } else if (/\b(status|lock|unlock|reset|maintenance|role|assign|head admin|account)\b/.test(titleLower)) {
+            level = 'medium';
+        } else {
+            level = 'basic';
+        }
+    }
+
+    let requiredPhrase = config.requiredPhrase;
+    if (level === 'high' && requiredPhrase === undefined) {
+        if (/\brestore\b/.test(titleLower)) {
+            requiredPhrase = 'RESTORE';
+        } else if (/\bclear\b/.test(titleLower)) {
+            requiredPhrase = 'CLEAR';
+        } else {
+            requiredPhrase = 'DELETE';
+        }
+    }
+
+    const ac = await ensureActionConfirmLoaded();
+    if (ac && typeof ac.confirm === 'function') {
+        return ac.confirm({
+            ...config,
+            level,
+            title,
+            message,
+            requiredPhrase,
+            consequence: config.consequence || (level === 'high'
+                ? 'This action is destructive and cannot be undone.'
+                : (level === 'medium' ? 'This change affects account access or active system behavior.' : ''))
+        });
+    }
 
     const modal = ensureConfirmationModal();
     const titleEl = document.getElementById('developerConfirmTitle');

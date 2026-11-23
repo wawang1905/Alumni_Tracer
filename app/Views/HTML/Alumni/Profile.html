@@ -307,6 +307,20 @@
                 return;
             }
 
+            if (typeof ensureAlumniActionConfirm === 'function') {
+                const ac = await ensureAlumniActionConfirm();
+                if (ac) {
+                    const confirmed = await ac.basic({
+                        title: 'Save Profile Changes?',
+                        message: 'Are you sure you want to update your profile email address?',
+                        record: email,
+                        confirmText: 'Save Changes',
+                        icon: 'fa-user-check'
+                    });
+                    if (!confirmed) return;
+                }
+            }
+
             try {
                 const response = await fetch(getUpdateProfileUrl(), {
                     method: 'POST',
@@ -379,9 +393,26 @@
 
         // ── Profile Picture Upload ──────────────────────────────────────────
 
-        function handleProfilePictureSelect(event) {
+        async function handleProfilePictureSelect(event) {
             const file = event.target.files && event.target.files[0];
             if (!file) return;
+
+            if (typeof ensureAlumniActionConfirm === 'function') {
+                const ac = await ensureAlumniActionConfirm();
+                if (ac) {
+                    const confirmed = await ac.basic({
+                        title: 'Update Profile Picture?',
+                        message: 'Are you sure you want to upload this photo as your new profile picture?',
+                        record: file.name,
+                        confirmText: 'Upload Photo',
+                        icon: 'fa-camera'
+                    });
+                    if (!confirmed) {
+                        event.target.value = '';
+                        return;
+                    }
+                }
+            }
 
             // Client-side preview across all avatar elements before upload
             const reader = new FileReader();

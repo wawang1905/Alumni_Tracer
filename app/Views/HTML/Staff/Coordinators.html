@@ -739,7 +739,7 @@
             }
         }
 
-        function submitCoordinatorForm() {
+        async function submitCoordinatorForm() {
             const form = document.getElementById('addCoordinatorForm');
             const formData = new FormData(form);
             
@@ -756,6 +756,21 @@
             if (!coordinatorData.firstName || !coordinatorData.lastName || !coordinatorData.email || !coordinatorData.password) {
                 alert('Please fill in all required fields.');
                 return;
+            }
+
+            if (typeof ensureStaffActionConfirm === 'function') {
+                const ac = await ensureStaffActionConfirm();
+                if (ac) {
+                    const confirmed = await ac.medium({
+                        title: 'Create Coordinator Account?',
+                        message: `You are about to create a new Coordinator account for ${coordinatorData.firstName} ${coordinatorData.lastName}.`,
+                        record: coordinatorData.email,
+                        consequence: 'This user will gain Coordinator access to their assigned department.',
+                        confirmText: 'Yes, Create Coordinator',
+                        icon: 'fa-user-tie'
+                    });
+                    if (!confirmed) return;
+                }
             }
 
             fetch(new URL('../staff/coordinators/create', window.location.href).toString(), {
@@ -1280,7 +1295,7 @@
             updateNameDropdownList(nameInputVal);
         }
 
-        function submitAssignCoordinatorForm() {
+        async function submitAssignCoordinatorForm() {
             const email = document.getElementById('assignCoordinatorEmail').value.trim();
             const college = document.getElementById('assignCoordinatorCollege').value.trim();
             const department = document.getElementById('assignCoordinatorDepartment').value.trim();
@@ -1308,6 +1323,21 @@
                 alert('Please select a Department for the coordinator assignment.');
                 document.getElementById('assignCoordinatorDepartment').focus();
                 return;
+            }
+
+            if (typeof ensureStaffActionConfirm === 'function') {
+                const ac = await ensureStaffActionConfirm();
+                if (ac) {
+                    const confirmed = await ac.medium({
+                        title: 'Assign Coordinator?',
+                        message: `You are about to assign this account as Coordinator for ${department} (${college}).`,
+                        record: `${email} → ${college} / ${department}`,
+                        consequence: 'This updates the coordinator’s organizational access scope immediately.',
+                        confirmText: 'Yes, Assign Coordinator',
+                        icon: 'fa-user-check'
+                    });
+                    if (!confirmed) return;
+                }
             }
 
             // Post assignment to backend

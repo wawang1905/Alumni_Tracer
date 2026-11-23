@@ -639,6 +639,22 @@ function closeCoordinatorReviewModal() {
     document.body.style.overflow = '';
 }
 
+let __coordActionConfirmPromise = null;
+function ensureCoordinatorActionConfirm() {
+    if (window.ActionConfirm) return Promise.resolve(window.ActionConfirm);
+    if (!__coordActionConfirmPromise) {
+        __coordActionConfirmPromise = new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = '../JS/ActionConfirm.js';
+            s.onload = () => resolve(window.ActionConfirm || null);
+            s.onerror = () => resolve(null);
+            document.head.appendChild(s);
+        });
+    }
+    return __coordActionConfirmPromise;
+}
+void ensureCoordinatorActionConfirm();
+
 async function submitCoordinatorReview() {
     if (!coordinatorActiveResponseId) return;
 
@@ -649,6 +665,20 @@ async function submitCoordinatorReview() {
     }
     const reviewStatus = selected.value;
     const comment = (document.getElementById('reviewCommentTextarea')?.value || '').trim();
+    const decisionLabel = reviewStatus === 'reviewed' ? 'Approved / Reviewed' : 'Needs Revision';
+
+    const ac = await ensureCoordinatorActionConfirm();
+    if (ac) {
+        const confirmed = await ac.medium({
+            title: 'Submit Survey Review?',
+            message: `You are about to mark this alumni survey response as "${decisionLabel}".`,
+            record: `Response #${coordinatorActiveResponseId}`,
+            consequence: 'This updates the official review status visible to the alumni and in department reports.',
+            confirmText: 'Yes, Submit Review',
+            icon: 'fa-stamp'
+        });
+        if (!confirmed) return;
+    }
 
     const submitBtn = document.getElementById('submitReviewBtn');
     if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
