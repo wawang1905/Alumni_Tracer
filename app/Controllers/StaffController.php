@@ -405,11 +405,19 @@ class StaffController extends BaseController
             return [];
         }
 
-        // 2. Fetch all alumni indexed by lowercase email with college and department joins
-        $alumniRows = $db->table('alumni a')
+        // 2. Fetch alumni indexed by lowercase email, strictly scoped to the logged-in user's assignment
+        $alumniBuilder = $db->table('alumni a')
             ->select('a.*, c.Abbreviation as college_abbr, c.College_Name, d.Department_Name, d.Abbreviation as dept_abbr')
             ->join('colleges c', 'c.College_ID = a.College_ID', 'left')
-            ->join('departments d', 'd.Department_ID = a.Department_ID', 'left')
+            ->join('departments d', 'd.Department_ID = a.Department_ID', 'left');
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $userScope = $scopeService->resolveCurrentUserScope();
+        if ($userScope !== null) {
+            $scopeService->applyAlumniScope($alumniBuilder, $userScope, 'a', 'c', 'd');
+        }
+
+        $alumniRows = $alumniBuilder
             ->get()
             ->getResultArray();
         $alumniByEmail = [];
@@ -417,6 +425,17 @@ class StaffController extends BaseController
             $emailKey = strtolower(trim((string) ($al['Email'] ?? '')));
             if ($emailKey !== '') {
                 $alumniByEmail[$emailKey] = $al;
+            }
+        }
+
+        // If scoped (Head Admin or Coordinator), drop any survey response from outside the user's verified scope
+        if ($userScope !== null) {
+            $responseRows = array_values(array_filter($responseRows, static function (array $rr) use ($alumniByEmail): bool {
+                $emailKey = strtolower(trim((string) ($rr['user_email'] ?? '')));
+                return $emailKey !== '' && isset($alumniByEmail[$emailKey]);
+            }));
+            if (empty($responseRows)) {
+                return [];
             }
         }
 
@@ -3388,11 +3407,19 @@ class StaffController extends BaseController
             }
         }
 
-        // Fetch all alumni joined with colleges and departments
-        $alumniRows = $db->table('alumni')
+        // Fetch alumni joined with colleges and departments, strictly scoped to the logged-in user's campus/college/department
+        $alumniBuilder = $db->table('alumni')
             ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, c.College_Name AS College, c.Abbreviation AS College_Abbr, d.Department_Name AS Course, d.Abbreviation AS Course_Abbr')
             ->join('colleges c', 'c.College_ID = alumni.College_ID', 'left')
-            ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left')
+            ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left');
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $userScope = $scopeService->resolveCurrentUserScope();
+        if ($userScope !== null) {
+            $scopeService->applyAlumniScope($alumniBuilder, $userScope, 'alumni', 'c', 'd');
+        }
+
+        $alumniRows = $alumniBuilder
             ->orderBy('d.Department_Name', 'ASC')
             ->orderBy('alumni.LastName', 'ASC')
             ->orderBy('alumni.FirstName', 'ASC')
@@ -4454,9 +4481,17 @@ class StaffController extends BaseController
             ]);
         }
 
-        // Load alumni data
+        // Load alumni data strictly scoped to the logged-in user's verified assignment
+        $userScope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($userScope !== null && ($userScope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($userScope['message'] ?? 'Forbidden.'),
+            ]);
+        }
+
         $alumniModel = new \App\Models\AlumniModel();
-        $alumniData = $alumniModel->getSortedList('last_name_asc');
+        $alumniData = $alumniModel->getSortedList('last_name_asc', [], $userScope);
 
         $reportData = $this->prepareReportData($alumniData, [
             'reportType' => $reportType,
@@ -5300,17 +5335,49 @@ class StaffController extends BaseController
             ]);
         }
 
-        $headAdminCampus = $this->getHeadAdminCampusId() ?? session('auth_user.campus') ?? session('auth_user.Campus') ?? '';
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Your account does not have a valid campus assignment.',
+            ]);
+        }
+
+        $headAdminCampusId = (int) $scope['campus_id'];
+
+        // Verify the selected college belongs to the Head Admin's campus and the department belongs to that college
+        $collegeModel = new \App\Models\CollegeModel();
+        $departmentModel = new \App\Models\DepartmentModel();
+        $collegeRow = $collegeModel
+            ->where('Campus_ID', $headAdminCampusId)
+            ->where('LOWER("College_Name")', strtolower($college))
+            ->first();
+        if (! is_array($collegeRow)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Selected college does not belong to your assigned campus.',
+            ]);
+        }
+
+        $deptRow = $departmentModel
+            ->where('Campus_ID', $headAdminCampusId)
+            ->where('College_ID', (int) $collegeRow['College_ID'])
+            ->where('LOWER("Department_Name")', strtolower($department))
+            ->first();
+        if (! is_array($deptRow)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Selected department does not belong to the selected college in your campus.',
+            ]);
+        }
 
         $updateData = [
             'Role' => 'coordinator',
-            'College' => $college,
-            'Department' => $department,
+            'Campus' => $headAdminCampusId,
+            'College' => (string) $collegeRow['College_Name'],
+            'Department' => (string) $deptRow['Department_Name'],
         ];
-
-        if (empty($user['Campus']) && !empty($headAdminCampus)) {
-            $updateData['Campus'] = $headAdminCampus;
-        }
 
         try {
             $userAccountModel->update($email, $updateData);
@@ -5337,31 +5404,43 @@ class StaffController extends BaseController
 
     public function getCollegesData(): ResponseInterface
     {
-        if (! $this->isStaffAuthorized()) {
+        if (! $this->isStaffAuthorized() && ! $this->isCoordinatorAuthorized()) {
             return $this->response->setStatusCode(401)->setJSON([
                 'success' => false,
                 'message' => 'Unauthorized.',
             ]);
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
+            ]);
+        }
+
         $collegeModel = new \App\Models\CollegeModel();
         $campusModel = new \App\Models\CampusModel();
         
-        // Get head admin's campus ID from account or session
-        $campusId = $this->getHeadAdminCampusId() ?? session('auth_user.campus') ?? session('auth_user.Campus') ?? '';
+        // Resolve verified campus ID from AssignmentScopeService
+        $campusId = $scope !== null ? (int) ($scope['campus_id'] ?? 0) : (int) ($this->getHeadAdminCampusId() ?? 0);
         
-        if (empty($campusId)) {
+        if ($campusId <= 0) {
             return $this->response->setJSON([
                 'success' => true,
                 'colleges' => [],
             ]);
         }
         
-        $campus = $campusModel->where('Campus_ID', (int) $campusId)->first();
+        $campus = $campusModel->where('Campus_ID', $campusId)->first();
         $headAdminCampus = $campus['Campus'] ?? '';
         
-        // Get colleges for this campus
-        $colleges = $collegeModel->where('Campus_ID', (int) $campusId)->findAll();
+        // Coordinators see only their assigned college; Head Admins see all colleges in their assigned campus
+        $collegeQuery = $collegeModel->where('Campus_ID', $campusId);
+        if ($scope !== null && ($scope['role'] ?? '') === 'coordinator') {
+            $collegeQuery->where('College_ID', (int) ($scope['college_id'] ?? 0));
+        }
+        $colleges = $collegeQuery->findAll();
         if ($colleges === []) {
             return $this->response->setJSON([
                 'success' => true,
@@ -5567,10 +5646,18 @@ class StaffController extends BaseController
 
     public function getDepartmentsData(): ResponseInterface
     {
-        if (! $this->isStaffAuthorized()) {
+        if (! $this->isStaffAuthorized() && ! $this->isCoordinatorAuthorized()) {
             return $this->response->setStatusCode(401)->setJSON([
                 'success' => false,
                 'message' => 'Unauthorized.',
+            ]);
+        }
+
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
             ]);
         }
 
@@ -5578,21 +5665,26 @@ class StaffController extends BaseController
         $campusModel = new \App\Models\CampusModel();
         $collegeModel = new \App\Models\CollegeModel();
         
-        // Get head admin's campus ID from account or session
-        $campusId = $this->getHeadAdminCampusId() ?? session('auth_user.campus') ?? session('auth_user.Campus') ?? '';
+        // Resolve verified campus ID from AssignmentScopeService
+        $campusId = $scope !== null ? (int) ($scope['campus_id'] ?? 0) : (int) ($this->getHeadAdminCampusId() ?? 0);
         
-        if (empty($campusId)) {
+        if ($campusId <= 0) {
             return $this->response->setJSON([
                 'success' => true,
                 'departments' => [],
             ]);
         }
         
-        $campus = $campusModel->where('Campus_ID', (int) $campusId)->first();
+        $campus = $campusModel->where('Campus_ID', $campusId)->first();
         $headAdminCampus = $campus['Campus'] ?? '';
         
-        // Get departments for this campus
-        $departments = $departmentModel->where('Campus_ID', (int) $campusId)->findAll();
+        // Coordinators see only their assigned department; Head Admins see all departments in their assigned campus
+        $deptQuery = $departmentModel->where('Campus_ID', $campusId);
+        if ($scope !== null && ($scope['role'] ?? '') === 'coordinator') {
+            $deptQuery->where('College_ID', (int) ($scope['college_id'] ?? 0))
+                ->where('Department_ID', (int) ($scope['department_id'] ?? 0));
+        }
+        $departments = $deptQuery->findAll();
         if ($departments === []) {
             return $this->response->setJSON([
                 'success' => true,

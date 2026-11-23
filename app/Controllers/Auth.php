@@ -135,6 +135,29 @@ class Auth extends BaseController
 
         // Authorization role is resolved from app_metadata (if set in Supabase) or local DB — never user_metadata
         $resolvedRole = $this->supabaseAuth->extractAuthorizedRole($supabaseUser) ?? $role;
+        $normalizedResolvedRole = normalize_role($resolvedRole);
+
+        // Enforce Campus / College / Department assignment validation for Head Admins and Coordinators
+        $verifiedScope = null;
+        if ($normalizedResolvedRole === 'coordinator') {
+            $scopeService = new \App\Services\AssignmentScopeService();
+            $verifiedScope = $scopeService->validateCoordinatorAssignment($user);
+            if (($verifiedScope['valid'] ?? false) !== true) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => (string) ($verifiedScope['message'] ?? 'Your coordinator assignment is incomplete or invalid. Please contact your Head Admin.'),
+                ]);
+            }
+        } elseif (is_staff_role($normalizedResolvedRole)) {
+            $scopeService = new \App\Services\AssignmentScopeService();
+            $verifiedScope = $scopeService->validateHeadAdminAssignment($user);
+            if (($verifiedScope['valid'] ?? false) !== true) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => (string) ($verifiedScope['message'] ?? 'Your account has not been assigned to a campus. Please contact the Developer.'),
+                ]);
+            }
+        }
 
         session()->set('auth_user', [
             'id'               => $user['id'] ?? ($supabaseUser['id'] ?? null),
@@ -143,8 +166,13 @@ class Auth extends BaseController
             'last_name'        => $user['Last_Name'] ?? '',
             'email'            => $user['Email'] ?? '',
             'role'             => $resolvedRole,
-            'department'       => $user['Department'] ?? '',
-            'campus'           => $user['Campus'] ?? '',
+            'department'       => $verifiedScope['department_name'] ?? ($user['Department'] ?? ''),
+            'department_id'    => $verifiedScope['department_id'] ?? null,
+            'college'          => $verifiedScope['college_name'] ?? ($user['College'] ?? ''),
+            'college_id'       => $verifiedScope['college_id'] ?? null,
+            'campus'           => isset($verifiedScope['campus_id']) ? (string) $verifiedScope['campus_id'] : ($user['Campus'] ?? ''),
+            'campus_id'        => $verifiedScope['campus_id'] ?? null,
+            'campus_name'      => $verifiedScope['campus_name'] ?? '',
             'account_id'       => $user['account_id'] ?? null,
             'name'             => trim(($user['First_Name'] ?? '') . ' ' . ($user['Last_Name'] ?? '')),
             'auth_provider'    => $authResult['provider'] ?? 'supabase',

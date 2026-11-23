@@ -43,6 +43,26 @@ class RoleFilter implements FilterInterface
             return $this->forbiddenResponse($request, $userRole, 'Forbidden. You do not have permission to access this resource.');
         }
 
+        // Revalidate Head Admin and Coordinator assignments on every protected request
+        // so assignment revocations or changes take effect immediately.
+        if (! is_developer_role($userRole) && ($userRole === 'coordinator' || is_staff_role($userRole))) {
+            $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+            if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+                session()->remove('auth_user');
+                session()->remove('supabase_session');
+
+                $message = (string) ($scope['message'] ?? 'Your assignment is no longer valid. Please contact an administrator.');
+                if ($this->expectsHtmlRedirect($request)) {
+                    return redirect()->to(base_url('/'));
+                }
+
+                return service('response')->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => $message,
+                ]);
+            }
+        }
+
         return null;
     }
 

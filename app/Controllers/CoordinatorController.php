@@ -57,19 +57,18 @@ class CoordinatorController extends BaseController
             ]);
         }
 
-        $ctx = $this->resolveCoordinatorContext();
-        $deptName = $ctx['department'];
-        $deptId = $ctx['department_id'];
-
-        // A coordinator without an assigned department must not receive records from other departments
-        if ($ctx['role'] === 'coordinator' && $deptName === '' && $deptId <= 0) {
-            return $this->response->setJSON([
-                'success'    => true,
-                'department' => '',
-                'total'      => 0,
-                'alumni'     => [],
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
             ]);
         }
+
+        $ctx = $this->resolveCoordinatorContext();
+        $deptName = $scope['department_name'] ?? $ctx['department'];
+        $deptId = (int) ($scope['department_id'] ?? $ctx['department_id']);
 
         $sort = (string) ($this->request->getGet('sort') ?? 'last_name_asc');
         $search = mb_substr(trim((string) ($this->request->getGet('search') ?? '')), 0, 100);
@@ -81,16 +80,9 @@ class CoordinatorController extends BaseController
             ->join('colleges c', 'c."College_ID" = alumni."College_ID"', 'left')
             ->join('departments d', 'd."Department_ID" = alumni."Department_ID"', 'left');
 
-        // Scope strictly by the coordinator's assigned department (ignore any client-sent overrides)
-        if ($deptId > 0 && $deptName !== '') {
-            $builder->groupStart()
-                ->where('alumni."Department_ID"', $deptId)
-                ->orWhere('LOWER(d."Department_Name")', strtolower($deptName))
-                ->groupEnd();
-        } elseif ($deptId > 0) {
-            $builder->where('alumni."Department_ID"', $deptId);
-        } elseif ($deptName !== '') {
-            $builder->where('LOWER(d."Department_Name")', strtolower($deptName));
+        // Enforce strict verified Campus -> College -> Department scope (ignoring any client overrides)
+        if ($scope !== null) {
+            $scopeService->applyAlumniScope($builder, $scope, 'alumni', 'c', 'd');
         }
 
         // Optional text search across name, email, alumni_id
@@ -125,47 +117,29 @@ class CoordinatorController extends BaseController
             ]);
         }
 
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
+            ]);
+        }
+
         $ctx = $this->resolveCoordinatorContext();
-        $deptName = $ctx['department'];
-        $deptId = $ctx['department_id'];
+        $deptName = $scope['department_name'] ?? $ctx['department'];
+        $deptId = (int) ($scope['department_id'] ?? $ctx['department_id']);
         $batchFilter = trim((string) ($this->request->getGet('batch') ?? 'all'));
 
         $db = \Config\Database::connect();
 
-        // Strictly require an assigned department for coordinator accounts
-        if ($ctx['role'] === 'coordinator' && $deptName === '' && $deptId <= 0) {
-            return $this->response->setJSON([
-                'success'          => true,
-                'department'       => '',
-                'college'          => $ctx['college'],
-                'batches'          => [],
-                'totalGraduates'   => 0,
-                'tracedCount'      => 0,
-                'tracedRate'       => 0,
-                'employedCount'    => 0,
-                'unemployedCount'  => 0,
-                'notTrackedCount'  => 0,
-                'employmentRate'   => 0,
-                'yearCohorts'      => ['labels' => [], 'employed' => [], 'unemployed' => [], 'notTracked' => []],
-                'statusBreakdown'  => ['counts' => [0, 0, 0], 'pcts' => ['0%', '0%', '0%']],
-                'surveySummary'    => ['totalResponses' => 0, 'reviewedCount' => 0, 'pendingCount' => 0, 'needsRevisionCount' => 0, 'responseRate' => 0],
-                'paymentSummary'   => ['totalTransactions' => 0, 'pendingCount' => 0, 'verifiedCount' => 0],
-            ]);
-        }
-
         $alumniBuilder = $db->table('alumni a')
-            ->select('a.id, a.alumni_id, a."Email", a."GraduationYear", a."Status", a."Department_ID", d."Department_Name"')
+            ->select('a.id, a.alumni_id, a."Email", a."GraduationYear", a."Status", a."College_ID", a."Department_ID", d."Department_Name"')
+            ->join('colleges c', 'c."College_ID" = a."College_ID"', 'left')
             ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left');
 
-        if ($deptId > 0 && $deptName !== '') {
-            $alumniBuilder->groupStart()
-                ->where('a."Department_ID"', $deptId)
-                ->orWhere('LOWER(d."Department_Name")', strtolower($deptName))
-                ->groupEnd();
-        } elseif ($deptId > 0) {
-            $alumniBuilder->where('a."Department_ID"', $deptId);
-        } elseif ($deptName !== '') {
-            $alumniBuilder->where('LOWER(d."Department_Name")', strtolower($deptName));
+        if ($scope !== null) {
+            $scopeService->applyAlumniScope($alumniBuilder, $scope, 'a', 'c', 'd');
         }
 
         $allDeptAlumni = $alumniBuilder->get()->getResultArray();

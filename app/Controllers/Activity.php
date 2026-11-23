@@ -35,6 +35,7 @@ class Activity extends BaseController
         ];
 
         $activities = $this->activityModel->getRecentActivities($limit, 0, $filters);
+        $activities = $this->scopeActivitiesForCurrentUser($activities);
 
         return $this->response->setJSON([
             'success'    => true,
@@ -81,6 +82,7 @@ class Activity extends BaseController
         ];
 
         $activities = $this->activityModel->getRecentActivities($limit, $offset, $filters);
+        $activities = $this->scopeActivitiesForCurrentUser($activities);
         $total = $this->activityModel->getTotalCount($filters);
 
         return $this->response->setJSON([
@@ -91,6 +93,83 @@ class Activity extends BaseController
             'limit'       => $limit,
             'total_pages' => (int) ceil($total / $limit),
         ]);
+    }
+
+    /**
+     * Restrict activity log visibility for Head Admins (assigned campus users only)
+     * and Coordinators (own department / own account only). Developers remain unrestricted.
+     *
+     * @param array<int, array<string, mixed>> $activities
+     * @return array<int, array<string, mixed>>
+     */
+    private function scopeActivitiesForCurrentUser(array $activities): array
+    {
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null) {
+            return $activities;
+        }
+        if (($scope['valid'] ?? false) !== true) {
+            return [];
+        }
+
+        $currentEmail = strtolower(trim((string) (session('auth_user.email') ?? '')));
+        $campusId = (int) ($scope['campus_id'] ?? 0);
+        $allowedEmails = [];
+
+        $db = \Config\Database::connect();
+        if (($scope['role'] ?? '') === 'head_admin' && $campusId > 0) {
+            $userRows = $db->table('user_accounts')
+                ->select('Email')
+                ->where('Campus', $campusId)
+                ->get()
+                ->getResultArray();
+            foreach ($userRows as $row) {
+                $em = strtolower(trim((string) ($row['Email'] ?? '')));
+                if ($em !== '') {
+                    $allowedEmails[$em] = true;
+                }
+            }
+            $alumniRows = $db->table('alumni a')
+                ->select('a."Email"')
+                ->join('colleges c', 'c."College_ID" = a."College_ID"', 'inner')
+                ->where('c."Campus_ID"', $campusId)
+                ->get()
+                ->getResultArray();
+            foreach ($alumniRows as $row) {
+                $em = strtolower(trim((string) ($row['Email'] ?? '')));
+                if ($em !== '') {
+                    $allowedEmails[$em] = true;
+                }
+            }
+        } elseif (($scope['role'] ?? '') === 'coordinator') {
+            $collegeId = (int) ($scope['college_id'] ?? 0);
+            $deptId = (int) ($scope['department_id'] ?? 0);
+            $alumniRows = $db->table('alumni')
+                ->select('"Email"')
+                ->where('"College_ID"', $collegeId)
+                ->where('"Department_ID"', $deptId)
+                ->get()
+                ->getResultArray();
+            foreach ($alumniRows as $row) {
+                $em = strtolower(trim((string) ($row['Email'] ?? '')));
+                if ($em !== '') {
+                    $allowedEmails[$em] = true;
+                }
+            }
+        }
+
+        if ($currentEmail !== '') {
+            $allowedEmails[$currentEmail] = true;
+        }
+
+        return array_values(array_filter($activities, static function (array $act) use ($allowedEmails): bool {
+            $details = is_string($act['details'] ?? null) ? (json_decode($act['details'], true) ?: []) : (is_array($act['details'] ?? null) ? $act['details'] : []);
+            $actorEmail = strtolower(trim((string) ($details['user_email'] ?? $details['email'] ?? '')));
+            if ($actorEmail === '') {
+                return false;
+            }
+            return isset($allowedEmails[$actorEmail]);
+        }));
     }
 
     public function log(): ResponseInterface
@@ -165,9 +244,10 @@ class Activity extends BaseController
             'date_to'   => $this->request->getGet('date_to'),
         ];
 
+        $rawActivities = $this->scopeActivitiesForCurrentUser($this->activityModel->exportToCsv($filters));
         $activities = array_map(
             fn (array $activity): array => $this->formatActivity($activity),
-            $this->activityModel->exportToCsv($filters)
+            $rawActivities
         );
 
         $filename = 'activities_' . date('Y-m-d') . '.csv';

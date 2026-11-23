@@ -27,8 +27,9 @@ class AlumniModel extends Model
 
     /**
      * @param array<string, mixed> $filters
+     * @param array<string, mixed>|null $scope Verified scope from AssignmentScopeService
      */
-    public function getSortedList(string $sort = 'last_name_asc', array $filters = []): array
+    public function getSortedList(string $sort = 'last_name_asc', array $filters = [], ?array $scope = null): array
     {
         [$column, $direction] = $this->mapSort($sort);
 
@@ -36,6 +37,10 @@ class AlumniModel extends Model
             ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, alumni.Province, alumni.Municipality, alumni.Barangay, alumni.Contact_Number, c.College_Name AS College, d.Department_Name AS Course')
             ->join('colleges c', 'c.College_ID = alumni.College_ID', 'left')
             ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left');
+
+        if ($scope !== null) {
+            (new \App\Services\AssignmentScopeService())->applyAlumniScope($builder, $scope, 'alumni', 'c', 'd');
+        }
 
         $year = trim((string) ($filters['year'] ?? $filters['graduationYear'] ?? ''));
         if ($year !== '' && strtolower($year) !== 'all') {
@@ -64,14 +69,21 @@ class AlumniModel extends Model
     }
 
     /**
+     * @param array<string, mixed>|null $scope Verified scope from AssignmentScopeService
      * @return array{totalAlumni: int, totalColleges: int, totalCourses: int, totalBatches: int}
      */
-    public function getOverallCounts(): array
+    public function getOverallCounts(?array $scope = null): array
     {
-        $row = $this->builder()
+        $builder = $this->builder()
             ->select('COUNT(alumni.id) AS total_alumni, COUNT(DISTINCT alumni."College_ID") AS total_colleges, COUNT(DISTINCT alumni."Department_ID") AS total_courses, COUNT(DISTINCT alumni."GraduationYear") AS total_batches', false)
-            ->get()
-            ->getRowArray();
+            ->join('colleges c', 'c."College_ID" = alumni."College_ID"', 'left')
+            ->join('departments d', 'd."Department_ID" = alumni."Department_ID"', 'left');
+
+        if ($scope !== null) {
+            (new \App\Services\AssignmentScopeService())->applyAlumniScope($builder, $scope, 'alumni', 'c', 'd');
+        }
+
+        $row = $builder->get()->getRowArray();
 
         return [
             'totalAlumni'   => (int) ($row['total_alumni'] ?? 0),
@@ -121,15 +133,26 @@ class AlumniModel extends Model
         return is_array($record) ? $record : null;
     }
 
-    public function getBatchSummaries(): array
+    /**
+     * @param array<string, mixed>|null $scope Verified scope from AssignmentScopeService
+     */
+    public function getBatchSummaries(?array $scope = null): array
     {
-        return $this->builder()
-            ->select('GraduationYear')
-            ->selectCount('id', 'alumni_count')
-            ->select("SUM(CASE WHEN LOWER(\"Status\"::text) = 'active' THEN 1 ELSE 0 END) AS active_count", false)
-            ->where('"GraduationYear" IS NOT NULL', null, false)
-            ->groupBy('GraduationYear')
-            ->orderBy('GraduationYear', 'DESC')
+        $builder = $this->builder()
+            ->select('alumni."GraduationYear"')
+            ->selectCount('alumni.id', 'alumni_count')
+            ->select("SUM(CASE WHEN LOWER(alumni.\"Status\"::text) = 'active' THEN 1 ELSE 0 END) AS active_count", false)
+            ->join('colleges c', 'c."College_ID" = alumni."College_ID"', 'left')
+            ->join('departments d', 'd."Department_ID" = alumni."Department_ID"', 'left')
+            ->where('alumni."GraduationYear" IS NOT NULL', null, false);
+
+        if ($scope !== null) {
+            (new \App\Services\AssignmentScopeService())->applyAlumniScope($builder, $scope, 'alumni', 'c', 'd');
+        }
+
+        return $builder
+            ->groupBy('alumni."GraduationYear"')
+            ->orderBy('alumni."GraduationYear"', 'DESC')
             ->get()
             ->getResultArray();
     }

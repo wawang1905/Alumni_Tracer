@@ -108,6 +108,14 @@ class AlumniController extends BaseController
             ]);
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
+            ]);
+        }
+
         $sort = (string) ($this->request->getGet('sort') ?? 'last_name_asc');
         $filters = [
             'year'           => $this->request->getGet('year'),
@@ -116,7 +124,7 @@ class AlumniController extends BaseController
             'course'         => $this->request->getGet('course'),
             'status'         => $this->request->getGet('status'),
         ];
-        $records = $this->alumniModel->getSortedList($sort, $filters);
+        $records = $this->alumniModel->getSortedList($sort, $filters, $scope);
 
         return $this->response->setJSON([
             'success' => true,
@@ -133,8 +141,16 @@ class AlumniController extends BaseController
             ]);
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
+            ]);
+        }
+
         $batchMap = [];
-        foreach ($this->alumniModel->getBatchSummaries() as $batch) {
+        foreach ($this->alumniModel->getBatchSummaries($scope) as $batch) {
             $year = trim((string) ($batch['GraduationYear'] ?? ''));
             if ($year === '') {
                 continue;
@@ -191,7 +207,7 @@ class AlumniController extends BaseController
             return strcmp((string) ($b['graduationYear'] ?? ''), (string) ($a['graduationYear'] ?? ''));
         });
 
-        $summary = $this->alumniModel->getOverallCounts();
+        $summary = $this->alumniModel->getOverallCounts($scope);
         $summary['totalBatches'] = count($batches);
 
         return $this->response->setJSON([
@@ -663,8 +679,16 @@ class AlumniController extends BaseController
             $course = 'all';
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => (string) ($scope['message'] ?? 'Forbidden.'),
+            ]);
+        }
+
         $records = array_values(array_filter(
-            $this->alumniModel->getSortedList('last_name_asc'),
+            $this->alumniModel->getSortedList('last_name_asc', [], $scope),
             static function (array $row) use ($graduationYear, $college, $course): bool {
                 if ((string) ($row['GraduationYear'] ?? '') !== $graduationYear) {
                     return false;
@@ -783,11 +807,20 @@ class AlumniController extends BaseController
     {
         $collegeModel = new \App\Models\CollegeModel();
         $departmentModel = new \App\Models\DepartmentModel();
-        $campusId = session('auth_user.campus') ?? session('auth_user.Campus') ?? '';
+
+        // Always resolve verified campus from database via AssignmentScopeService (never trust unverified session/client)
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+            return [];
+        }
+
+        $campusId = $scope !== null ? (int) ($scope['campus_id'] ?? 0) : 0;
 
         $collegeQuery = $collegeModel->orderBy('College_Name', 'ASC');
-        if ((string) $campusId !== '') {
+        if ($campusId > 0) {
             $collegeQuery->where('Campus_ID', $campusId);
+        } elseif ($scope !== null) {
+            return [];
         }
 
         $map = [];
@@ -1679,6 +1712,34 @@ XML;
         $requestedId = (int) ($this->request->getGet('alumni_id') ?? 0);
 
         if ($requestedId > 0) {
+            $currentRole = normalize_role((string) (session('auth_user.role') ?? ''));
+            if ($currentRole === 'alumni') {
+                $ownAlumni = $this->alumniModel->findByEmail((string) (session('auth_user.email') ?? ''));
+                if ((int) ($ownAlumni['id'] ?? 0) !== $requestedId) {
+                    return $this->response->setStatusCode(403)->setJSON([
+                        'success' => false,
+                        'message' => 'Forbidden.',
+                    ]);
+                }
+            } elseif (! is_developer_role($currentRole)) {
+                $scopeService = new \App\Services\AssignmentScopeService();
+                $scope = $scopeService->resolveCurrentUserScope();
+                if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+                    return $this->response->setStatusCode(403)->setJSON([
+                        'success' => false,
+                        'message' => 'Forbidden.',
+                    ]);
+                }
+                if ($scope !== null) {
+                    $targetAlumni = $this->alumniModel->find($requestedId);
+                    if (! is_array($targetAlumni) || ! $scopeService->isAlumniInScope($targetAlumni, $scope)) {
+                        return $this->response->setStatusCode(403)->setJSON([
+                            'success' => false,
+                            'message' => 'Forbidden.',
+                        ]);
+                    }
+                }
+            }
             $alumniDbId = $requestedId;
         } else {
             $currentUser = session('auth_user');

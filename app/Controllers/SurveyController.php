@@ -1160,11 +1160,11 @@ class SurveyController extends BaseController
             return $this->response->setStatusCode(404)->setBody('Image not found.');
         }
 
-        if ($currentRole === 'coordinator') {
+        if (in_array($currentRole, ['coordinator', 'head_admin'], true)) {
             $responseRecord = $this->responseModel->find((int) ($answer['response_id'] ?? 0));
             $formattedResponse = is_array($responseRecord) ? $this->formatResponseRecord($responseRecord) : null;
             if ($formattedResponse === null || $this->scopeResponsesForCurrentCoordinator([$formattedResponse]) === []) {
-                return $this->response->setStatusCode(404)->setBody('Image not found.');
+                return $this->response->setStatusCode(403)->setBody('Forbidden.');
             }
         }
 
@@ -1210,7 +1210,17 @@ class SurveyController extends BaseController
         $questions = $this->getQuestionsForSurvey($surveyId);
         $responses = $this->getStructuredResponses($surveyId);
         $totalResponses = count($responses);
-        $activeAlumniCount = (int) $this->alumniModel->where('Status', 'active')->countAllResults();
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        $activeAlumniBuilder = $this->alumniModel->builder()
+            ->join('colleges c', 'c."College_ID" = alumni."College_ID"', 'left')
+            ->join('departments d', 'd."Department_ID" = alumni."Department_ID"', 'left')
+            ->where('LOWER(alumni."Status"::text)', 'active');
+        if ($scope !== null) {
+            $scopeService->applyAlumniScope($activeAlumniBuilder, $scope, 'alumni', 'c', 'd');
+        }
+        $activeAlumniCount = (int) $activeAlumniBuilder->countAllResults();
         $activeAlumniCount = max(1, $activeAlumniCount);
 
         $questionStats = [];
@@ -1817,36 +1827,45 @@ class SurveyController extends BaseController
     }
 
     /**
-     * Limit coordinator API results to their assigned department and college.
-     * Other authenticated roles keep the existing response visibility.
+     * Limit survey responses to the logged-in Head Admin's campus or
+     * Coordinator's Campus -> College -> Department assignment.
+     * Developers and Alumni retain their existing visibility.
      *
      * @param array<int, array<string, mixed>> $responses
      * @return array<int, array<string, mixed>>
      */
     private function scopeResponsesForCurrentCoordinator(array $responses): array
     {
-        $currentUser = session('auth_user');
-        if (! is_array($currentUser) || strtolower(trim((string) ($currentUser['role'] ?? ''))) !== 'coordinator') {
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+
+        // Developers and Alumni are not restricted by Head Admin / Coordinator organizational scope
+        if ($scope === null) {
             return $responses;
         }
 
-        $email = trim((string) ($currentUser['email'] ?? ''));
-        $account = $email !== '' ? $this->userAccountModel->findByEmail($email) : null;
-        $assignedCollege = trim((string) ($account['College'] ?? ''));
-        $assignedDepartment = trim((string) ($account['Department'] ?? ($currentUser['department'] ?? '')));
-
-        // A coordinator without an assignment must not receive campus-wide data.
-        if ($assignedCollege === '' && $assignedDepartment === '') {
+        if (($scope['valid'] ?? false) !== true) {
             return [];
         }
 
-        return array_values(array_filter($responses, static function (array $response) use ($assignedCollege, $assignedDepartment): bool {
-            $collegeMatches = $assignedCollege === ''
-                || strcasecmp(trim((string) ($response['college'] ?? '')), $assignedCollege) === 0;
-            $departmentMatches = $assignedDepartment === ''
-                || strcasecmp(trim((string) ($response['course'] ?? '')), $assignedDepartment) === 0;
+        return array_values(array_filter($responses, static function (array $response) use ($scopeService, $scope): bool {
+            $collegeId = (int) ($response['collegeId'] ?? 0);
+            $departmentId = (int) ($response['departmentId'] ?? 0);
 
-            return $collegeMatches && $departmentMatches;
+            if ($collegeId > 0 || $departmentId > 0) {
+                return $scopeService->isAlumniInScope([
+                    'College_ID'    => $collegeId,
+                    'Department_ID' => $departmentId,
+                ], $scope);
+            }
+
+            // Fallback name match only if IDs were not present on the formatted response
+            if (($scope['role'] ?? '') === 'coordinator') {
+                return strcasecmp(trim((string) ($response['college'] ?? '')), (string) ($scope['college_name'] ?? '')) === 0
+                    && strcasecmp(trim((string) ($response['course'] ?? '')), (string) ($scope['department_name'] ?? '')) === 0;
+            }
+
+            return false;
         }));
     }
 
@@ -1984,6 +2003,8 @@ class SurveyController extends BaseController
                 'surveyNumber' => $surveyNum,
                 'alumniId' => $alumniId,
                 'alumniRecordId' => is_array($alumni) ? (string) ($alumni['alumni_id'] ?? '') : '',
+                'collegeId' => is_array($alumni) ? (int) ($alumni['College_ID'] ?? 0) : 0,
+                'departmentId' => is_array($alumni) ? (int) ($alumni['Department_ID'] ?? 0) : 0,
                 'college' => is_array($alumni) ? (string) ($alumni['College'] ?? '') : '',
                 'course' => is_array($alumni) ? (string) ($alumni['Course'] ?? '') : '',
                 'graduationYear' => is_array($alumni) ? (string) ($alumni['GraduationYear'] ?? '') : '',
