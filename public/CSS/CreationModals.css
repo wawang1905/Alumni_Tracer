@@ -1,0 +1,419 @@
+/* ==========================================================================
+   GradVision — Centralized Creation Modal UI/UX Design System
+   Shared across Developer, Head Admin / Staff, Coordinator, and Alumni portals
+   ========================================================================== */
+
+/* Unified Modal Backdrop */
+#adminModal.modal,
+#campusModal.modal,
+#addBatchModal.modal,
+#addAlumniModal.modal,
+#importAlumniModal.modal,
+#createEventModal.modal,
+#addCollegeModal.modal,
+#addDepartmentModal.modal,
+#addCoordinatorModal.modal,
+#assignCoordinatorModal.modal,
+#recordPaymentModal.modal-backdrop {
+    background: rgba(15, 23, 42, 0.54);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 16px;
+}
+
+/* Unified Modal Container */
+#adminModal .modal-content,
+#campusModal .modal-content,
+#addBatchModal .modal-content,
+#addAlumniModal .modal-content,
+#importAlumniModal .modal-content,
+#createEventModal .modal-content,
+#addCollegeModal .modal-content,
+#addDepartmentModal .modal-content,
+#addCoordinatorModal .modal-content,
+#assignCoordinatorModal .modal-content,
+#recordPaymentModal .modal-box {
+    width: min(620px, 100%);
+    max-width: min(620px, calc(100vw - 32px));
+    max-height: min(90vh, 860px);
+    padding: 0 !important;
+    background: #ffffff;
+    border-radius: 14px !important;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24) !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--font-primary, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+    animation: cmModalSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#importAlumniModal .modal-content,
+#createEventModal .modal-content,
+#addCollegeModal .modal-content,
+#addDepartmentModal .modal-content {
+    width: min(520px, 100%);
+    max-width: min(520px, calc(100vw - 32px));
+}
+
+#campusModal .modal-content,
+#adminModal .modal-content,
+#addCoordinatorModal .modal-content,
+#recordPaymentModal .modal-box {
+    width: min(660px, 100%);
+    max-width: min(660px, calc(100vw - 32px));
+}
+
+@keyframes cmModalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Unified Modal Header */
+.cm-header,
+#adminModal .modal-header,
+#campusModal .modal-header,
+#addCollegeModal .college-modal-header,
+#addDepartmentModal .college-modal-header,
+#addCoordinatorModal .modal-header,
+#assignCoordinatorModal .modal-header,
+#recordPaymentModal .modal-header-custom {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 24px 16px !important;
+    margin: 0 !important;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.cm-header-text {
+    min-width: 0;
+}
+
+.cm-header h3,
+#adminModal .modal-header h3,
+#campusModal .modal-header h3,
+#addCollegeModal .college-modal-header h3,
+#addDepartmentModal .college-modal-header h3,
+#addCoordinatorModal .modal-header h3,
+#assignCoordinatorModal .modal-header h3,
+#recordPaymentModal .modal-header-custom h3 {
+    margin: 0;
+    font-size: var(--font-size-modal-title, 18px) !important;
+    font-weight: var(--font-weight-semibold, 600) !important;
+    line-height: 1.3;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cm-subtitle,
+#addCollegeModal .college-modal-subtitle,
+#addDepartmentModal .college-modal-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: #64748b;
+}
+
+.cm-close,
+#adminModal .modal-header .icon-button,
+#campusModal .modal-header .icon-button,
+#addCollegeModal .college-modal-close,
+#addDepartmentModal .college-modal-close,
+#addCoordinatorModal .modal-close,
+#assignCoordinatorModal .modal-close,
+#recordPaymentModal .modal-close-btn {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cm-close:hover,
+#adminModal .modal-header .icon-button:hover,
+#campusModal .modal-header .icon-button:hover,
+#addCollegeModal .college-modal-close:hover,
+#addDepartmentModal .college-modal-close:hover,
+#addCoordinatorModal .modal-close:hover,
+#assignCoordinatorModal .modal-close:hover,
+#recordPaymentModal .modal-close-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+/* Unified Scrollable Modal Body */
+.cm-body,
+#addCollegeModal .college-modal-body,
+#addDepartmentModal .college-modal-body,
+#addCoordinatorModal .modal-body,
+#assignCoordinatorModal .modal-body,
+#recordPaymentModal .modal-body-custom {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 24px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#addCollegeModal form,
+#addDepartmentModal form,
+#recordPaymentModal form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Logical Form Sections */
+.cm-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cm-section + .cm-section {
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.cm-section-title {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cm-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.cm-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.cm-field-full {
+    grid-column: 1 / -1;
+}
+
+.cm-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.3;
+}
+
+.cm-required {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.cm-helper {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+/* Unified Form Controls inside Creation Modals */
+.cm-body input[type="text"],
+.cm-body input[type="email"],
+.cm-body input[type="password"],
+.cm-body input[type="date"],
+.cm-body input[type="time"],
+.cm-body input[type="number"],
+.cm-body input[type="url"],
+.cm-body input[type="file"],
+.cm-body select,
+.cm-body textarea,
+#adminModal .form-control,
+#campusModal .form-control,
+#addCollegeModal .form-input,
+#addDepartmentModal .form-input,
+#addCoordinatorModal input,
+#addCoordinatorModal select,
+#assignCoordinatorModal input,
+#assignCoordinatorModal select,
+#recordPaymentModal input,
+#recordPaymentModal select,
+#recordPaymentModal textarea {
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: var(--font-primary, inherit);
+    font-size: var(--font-size-input, 14px);
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 0;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.cm-body textarea,
+#recordPaymentModal textarea {
+    min-height: 84px;
+    resize: vertical;
+}
+
+.cm-body input[readonly],
+.cm-body input:disabled,
+.cm-body select:disabled {
+    background: #f8fafc;
+    color: #475569;
+    cursor: default;
+}
+
+.cm-body input:hover:not(:disabled):not([readonly]),
+.cm-body select:hover:not(:disabled),
+.cm-body textarea:hover:not(:disabled) {
+    border-color: #94a3b8;
+}
+
+.cm-body input:focus,
+.cm-body select:focus,
+.cm-body textarea:focus,
+#adminModal .form-control:focus,
+#campusModal .form-control:focus,
+#addCollegeModal .form-input:focus,
+#addDepartmentModal .form-input:focus,
+#addCoordinatorModal input:focus,
+#addCoordinatorModal select:focus,
+#assignCoordinatorModal input:focus,
+#assignCoordinatorModal select:focus,
+#recordPaymentModal input:focus,
+#recordPaymentModal select:focus,
+#recordPaymentModal textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+/* Unified Modal Footer */
+.cm-footer,
+#adminModal .modal-actions,
+#campusModal .modal-actions,
+#addCollegeModal .college-modal-footer,
+#addDepartmentModal .college-modal-footer,
+#addCoordinatorModal .modal-footer,
+#assignCoordinatorModal .modal-footer,
+#recordPaymentModal .modal-footer-custom {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 24px !important;
+    margin: 0 !important;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0 !important;
+}
+
+.cm-footer button,
+#adminModal .modal-actions button,
+#campusModal .modal-actions button,
+#addCollegeModal .college-modal-footer button,
+#addDepartmentModal .college-modal-footer button,
+#addCoordinatorModal .modal-footer button,
+#assignCoordinatorModal .modal-footer button,
+#recordPaymentModal .modal-footer-custom button {
+    min-height: 40px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-family: var(--font-primary, inherit);
+    font-size: var(--font-size-button, 14px);
+    font-weight: var(--font-weight-semibold, 600);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+/* Responsive behavior */
+@media (max-width: 640px) {
+    .cm-grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .cm-header,
+    #adminModal .modal-header,
+    #campusModal .modal-header,
+    #addCollegeModal .college-modal-header,
+    #addDepartmentModal .college-modal-header,
+    #addCoordinatorModal .modal-header,
+    #assignCoordinatorModal .modal-header,
+    #recordPaymentModal .modal-header-custom {
+        padding: 16px 18px 14px !important;
+    }
+
+    .cm-body,
+    #addCollegeModal .college-modal-body,
+    #addDepartmentModal .college-modal-body,
+    #addCoordinatorModal .modal-body,
+    #assignCoordinatorModal .modal-body,
+    #recordPaymentModal .modal-body-custom {
+        padding: 16px 18px !important;
+    }
+
+    .cm-footer,
+    #adminModal .modal-actions,
+    #campusModal .modal-actions,
+    #addCollegeModal .college-modal-footer,
+    #addDepartmentModal .college-modal-footer,
+    #addCoordinatorModal .modal-footer,
+    #assignCoordinatorModal .modal-footer,
+    #recordPaymentModal .modal-footer-custom {
+        padding: 12px 18px !important;
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .cm-footer button,
+    #adminModal .modal-actions button,
+    #campusModal .modal-actions button,
+    #addCollegeModal .college-modal-footer button,
+    #addDepartmentModal .college-modal-footer button,
+    #addCoordinatorModal .modal-footer button,
+    #assignCoordinatorModal .modal-footer button,
+    #recordPaymentModal .modal-footer-custom button {
+        width: 100%;
+    }
+}

@@ -125,58 +125,71 @@
     <div class="modal" id="adminModal" aria-hidden="true">
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
             <div class="modal-header">
-                <h3 id="adminModalTitle">Add Head Admin</h3>
+                <div class="cm-header-text">
+                    <h3 id="adminModalTitle">Add Head Admin</h3>
+                    <p class="cm-subtitle">Create or update a Head Admin account and assign their campus scope.</p>
+                </div>
                 <button class="icon-button" type="button" id="closeAdminModal" aria-label="Close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="form-grid">
-                <label class="form-field">
-                    <span>First Name</span>
-                    <input class="form-control" id="adminFirstName" type="text">
-                </label>
-                <label class="form-field">
-                    <span>Last Name</span>
-                    <input class="form-control" id="adminLastName" type="text">
-                </label>
-                <label class="form-field">
-                    <span>Email</span>
-                    <input class="form-control" id="adminEmail" type="email" placeholder="example@gmail.com" pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$">
-                    <small class="form-field-hint" id="adminEmailHint">Must be a Google account (@gmail.com).</small>
-                </label>
-                <label class="form-field">
-                    <span>Campus (Optional)</span>
-                    <select class="form-control" id="adminCampus">
-                        <option value="">-- Unassigned (Assign Later) --</option>
-                    </select>
-                </label>
-                <div class="form-field wide-field">
-                    <span>Password</span>
-                    <div class="password-input-row">
-                        <input class="form-control" id="adminPassword" type="text" maxlength="12" autocomplete="new-password" placeholder="Enter password or click Generate">
-                        <button class="btn-secondary generate-password-btn" type="button" id="generateAdminPasswordBtn" title="Generate a random password">
-                            <i class="fas fa-wand-magic-sparkles"></i>
-                            Generate
-                        </button>
-                    </div>
-                    <div class="password-meta-row">
-                        <small class="form-field-hint" id="adminPasswordHint">Required for new account (6–12 characters).</small>
-                        <small class="password-char-count" id="adminPasswordCount">0/12</small>
+            <div class="cm-body">
+                <div class="cm-section">
+                    <h4 class="cm-section-title"><i class="fas fa-user-shield"></i> Account Information</h4>
+                    <div class="form-grid">
+                        <label class="form-field">
+                            <span>First Name <strong class="cm-required">*</strong></span>
+                            <input class="form-control" id="adminFirstName" type="text" placeholder="e.g. Maria">
+                        </label>
+                        <label class="form-field">
+                            <span>Last Name <strong class="cm-required">*</strong></span>
+                            <input class="form-control" id="adminLastName" type="text" placeholder="e.g. Santos">
+                        </label>
+                        <label class="form-field wide-field">
+                            <span>Email <strong class="cm-required">*</strong></span>
+                            <input class="form-control" id="adminEmail" type="email" placeholder="example@gmail.com" pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$">
+                            <small class="form-field-hint" id="adminEmailHint">Must be a Google account (@gmail.com).</small>
+                        </label>
+                        <div class="form-field wide-field">
+                            <span>Password <strong class="cm-required">*</strong></span>
+                            <div class="password-input-row">
+                                <input class="form-control" id="adminPassword" type="text" maxlength="12" autocomplete="new-password" placeholder="Enter password or click Generate">
+                                <button class="btn-secondary generate-password-btn" type="button" id="generateAdminPasswordBtn" title="Generate a random password">
+                                    <i class="fas fa-wand-magic-sparkles"></i>
+                                    Generate
+                                </button>
+                            </div>
+                            <div class="password-meta-row">
+                                <small class="form-field-hint" id="adminPasswordHint">Required for new account (6–12 characters).</small>
+                                <small class="password-char-count" id="adminPasswordCount">0/12</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <label class="form-field">
-                    <span>Role</span>
-                    <select class="form-control" id="adminRole">
-                        <option value="head_admin">Head Admin</option>
-                    </select>
-                </label>
-                <label class="form-field">
-                    <span>Status</span>
-                    <select class="form-control" id="adminStatus">
-                        <option>Active</option>
-                        <option>Locked</option>
-                    </select>
-                </label>
+                <div class="cm-section">
+                    <h4 class="cm-section-title"><i class="fas fa-building-columns"></i> Campus &amp; Access Assignment</h4>
+                    <div class="form-grid">
+                        <label class="form-field wide-field">
+                            <span>Campus (Optional)</span>
+                            <select class="form-control" id="adminCampus">
+                                <option value="">-- Unassigned (Assign Later) --</option>
+                            </select>
+                        </label>
+                        <label class="form-field">
+                            <span>Role</span>
+                            <select class="form-control" id="adminRole">
+                                <option value="head_admin">Head Admin</option>
+                            </select>
+                        </label>
+                        <label class="form-field">
+                            <span>Status</span>
+                            <select class="form-control" id="adminStatus">
+                                <option>Active</option>
+                                <option>Locked</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" type="button" id="cancelAdminModal">Cancel</button>

@@ -120,45 +120,58 @@
             </section>
 
             <div class="modal" id="campusModal" aria-hidden="true">
-                <div class="modal-content">
+                <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="campusModalTitle">
                     <div class="modal-header">
-                        <h3 id="campusModalTitle">Add Campus</h3>
+                        <div class="cm-header-text">
+                            <h3 id="campusModalTitle">Add Campus</h3>
+                            <p class="cm-subtitle">Register a campus and optionally assign its Head Admin.</p>
+                        </div>
                         <button class="icon-button" type="button" id="closeCampusModal" aria-label="Close modal">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div class="form-grid">
-                        <label class="form-field">
-                            <span>School Name *</span>
-                            <input class="form-control" id="campusSchoolName" type="text">
-                        </label>
-                        <label class="form-field">
-                            <span>Abbreviation *</span>
-                            <input class="form-control" id="campusAbbreviation" type="text">
-                        </label>
-                        <label class="form-field">
-                            <span>Campus *</span>
-                            <input class="form-control" id="campusName" type="text">
-                        </label>
-                        <label class="form-field">
-                            <span>Alumni Head</span>
-                            <select class="form-control" id="campusAlumniHeadEmail"></select>
-                        </label>
-                        <label class="form-field">
-                            <span>Province</span>
-                            <select class="form-control" id="campusProvince"></select>
-                        </label>
-                        <label class="form-field">
-                            <span>Municipality / City</span>
-                            <select class="form-control" id="campusMunicipality"></select>
-                        </label>
-                        <label class="form-field">
-                            <span>Barangay</span>
-                            <select class="form-control" id="campusBarangay"></select>
-                        </label>
-                        <input type="hidden" id="campusAddress" value="">
+                    <div class="cm-body">
+                        <div class="cm-section">
+                            <h4 class="cm-section-title"><i class="fas fa-school"></i> Campus Information</h4>
+                            <div class="form-grid">
+                                <label class="form-field">
+                                    <span>School Name <strong class="cm-required">*</strong></span>
+                                    <input class="form-control" id="campusSchoolName" type="text" placeholder="e.g. University of Science and Technology">
+                                </label>
+                                <label class="form-field">
+                                    <span>Abbreviation <strong class="cm-required">*</strong></span>
+                                    <input class="form-control" id="campusAbbreviation" type="text" placeholder="e.g. USTP">
+                                </label>
+                                <label class="form-field">
+                                    <span>Campus <strong class="cm-required">*</strong></span>
+                                    <input class="form-control" id="campusName" type="text" placeholder="e.g. Cagayan de Oro">
+                                </label>
+                                <label class="form-field">
+                                    <span>Alumni Head</span>
+                                    <select class="form-control" id="campusAlumniHeadEmail"></select>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="cm-section">
+                            <h4 class="cm-section-title"><i class="fas fa-location-dot"></i> Location &amp; Address</h4>
+                            <div class="form-grid">
+                                <label class="form-field">
+                                    <span>Province</span>
+                                    <select class="form-control" id="campusProvince"></select>
+                                </label>
+                                <label class="form-field">
+                                    <span>Municipality / City</span>
+                                    <select class="form-control" id="campusMunicipality"></select>
+                                </label>
+                                <label class="form-field wide-field">
+                                    <span>Barangay</span>
+                                    <select class="form-control" id="campusBarangay"></select>
+                                </label>
+                                <input type="hidden" id="campusAddress" value="">
+                            </div>
+                        </div>
+                        <input type="hidden" id="campusExistingId" value="0">
                     </div>
-                    <input type="hidden" id="campusExistingId" value="0">
                     <div class="modal-actions">
                         <button class="btn-secondary" type="button" id="cancelCampusModal">Cancel</button>
                         <button class="btn-primary" type="button" id="saveCampus">

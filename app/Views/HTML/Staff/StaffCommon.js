@@ -8684,3 +8684,32 @@ function setupDepartmentsSearch() {
 function toggleDeptMembers(index) {
     // Deprecated: members detail row removed in simplified directory view
 }
+
+// Close any open Head Admin creation modal on Escape key (when ActionConfirm is not active)
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const acBackdrop = document.getElementById('gvActionConfirmBackdrop');
+    if (acBackdrop && acBackdrop.classList.contains('is-open')) return;
+
+    const closers = [
+        ['addBatchModal', () => typeof closeAddBatchModal === 'function' && closeAddBatchModal()],
+        ['addAlumniModal', () => typeof closeAddAlumniModal === 'function' && closeAddAlumniModal()],
+        ['importAlumniModal', () => typeof closeImportAlumniModal === 'function' && closeImportAlumniModal()],
+        ['createEventModal', () => typeof closeCreateEventModal === 'function' && closeCreateEventModal()],
+        ['addCollegeModal', () => typeof closeAddCollegeModal === 'function' && closeAddCollegeModal()],
+        ['addDepartmentModal', () => typeof closeAddDepartmentModal === 'function' && closeAddDepartmentModal()],
+        ['addCoordinatorModal', () => typeof closeAddCoordinatorModal === 'function' && closeAddCoordinatorModal()],
+        ['assignCoordinatorModal', () => typeof closeAssignCoordinatorModal === 'function' && closeAssignCoordinatorModal()],
+        ['recordPaymentModal', () => typeof closeRecordPaymentModal === 'function' && closeRecordPaymentModal()],
+    ];
+
+    for (const [id, fn] of closers) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const isVisible = el.classList.contains('open') || el.classList.contains('active') || el.style.display === 'flex' || el.style.display === 'block';
+        if (isVisible) {
+            fn();
+            break;
+        }
+    }
+});

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -128,16 +128,38 @@
     </div>
 
     <!-- Create Event Modal -->
-    <div id="createEventModal" class="modal">
+    <div id="createEventModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle" onclick="if (event.target === this) closeCreateEventModal();">
         <div class="modal-content">
-            <h3 id="eventModalTitle">Create New Event</h3>
-            <input type="text" id="eventName" placeholder="Event Name">
-            <input type="date" id="eventDate">
-            <input type="time" id="eventTime">
-            <input type="text" id="eventLocation" placeholder="Location">
-            <div class="modal-buttons">
-                <button class="btn-secondary" onclick="closeCreateEventModal()">Cancel</button>
-                <button class="btn-primary" id="eventModalSubmitBtn" onclick="submitEventForm()">Create Event</button>
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="eventModalTitle">Create New Event</h3>
+                    <p class="cm-subtitle">Schedule an alumni event with date, time, and venue details.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeCreateEventModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-field">
+                    <label class="cm-label" for="eventName">Event Name <span class="cm-required">*</span></label>
+                    <input type="text" id="eventName" placeholder="e.g. Annual Alumni Homecoming">
+                </div>
+                <div class="cm-grid-2">
+                    <div class="cm-field">
+                        <label class="cm-label" for="eventDate">Event Date <span class="cm-required">*</span></label>
+                        <input type="date" id="eventDate">
+                    </div>
+                    <div class="cm-field">
+                        <label class="cm-label" for="eventTime">Event Time</label>
+                        <input type="time" id="eventTime">
+                    </div>
+                </div>
+                <div class="cm-field">
+                    <label class="cm-label" for="eventLocation">Location <span class="cm-required">*</span></label>
+                    <input type="text" id="eventLocation" placeholder="e.g. University Gymnasium">
+                </div>
+            </div>
+            <div class="cm-footer modal-buttons">
+                <button class="btn-secondary" type="button" onclick="closeCreateEventModal()">Cancel</button>
+                <button class="btn-primary" type="button" id="eventModalSubmitBtn" onclick="submitEventForm()">Create Event</button>
             </div>
         </div>
     </div>

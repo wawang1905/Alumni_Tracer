@@ -149,33 +149,83 @@
         </div>
     </div>
 
-    <div id="addAlumniModal" class="modal">
+    <div id="addAlumniModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addAlumniModalTitle" onclick="if (event.target === this) closeAddAlumniModal();">
         <div class="modal-content">
-            <h3>Add New Alumni</h3>
-            <input type="text" id="alumniGraduationYear" placeholder="Graduation Year" readonly>
-            <input type="text" id="alumniLastName" placeholder="Last Name">
-            <input type="text" id="alumniFirstName" placeholder="First Name">
-            <select id="alumniStatus">
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-            </select>
-            <input type="text" id="alumniCollege" placeholder="College" readonly>
-            <input type="text" id="alumniCourse" placeholder="Department" readonly>
-            <div class="modal-buttons">
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="addAlumniModalTitle">Add New Alumni</h3>
+                    <p class="cm-subtitle">Register an individual graduate record under the selected batch and program.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeAddAlumniModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-section">
+                    <h4 class="cm-section-title"><i class="fas fa-user-graduate"></i> Personal Information</h4>
+                    <div class="cm-grid-2">
+                        <div class="cm-field">
+                            <label class="cm-label" for="alumniLastName">Last Name <span class="cm-required">*</span></label>
+                            <input type="text" id="alumniLastName" placeholder="e.g. Reyes">
+                        </div>
+                        <div class="cm-field">
+                            <label class="cm-label" for="alumniFirstName">First Name <span class="cm-required">*</span></label>
+                            <input type="text" id="alumniFirstName" placeholder="e.g. Carlo">
+                        </div>
+                        <div class="cm-field">
+                            <label class="cm-label" for="alumniGraduationYear">Graduation Year</label>
+                            <input type="text" id="alumniGraduationYear" placeholder="Graduation Year" readonly>
+                        </div>
+                        <div class="cm-field">
+                            <label class="cm-label" for="alumniStatus">Account Status</label>
+                            <select id="alumniStatus">
+                                <option value="active">Active</option>
+                                <option value="pending">Pending</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="cm-section">
+                    <h4 class="cm-section-title"><i class="fas fa-building-columns"></i> Academic Program</h4>
+                    <div class="cm-grid-2">
+                        <div class="cm-field">
+                            <label class="cm-label" for="alumniCollege">College</label>
+                            <input type="text" id="alumniCollege" placeholder="College" readonly>
+                        </div>
+                        <div class="cm-field">
+                            <label class="cm-label" for="alumniCourse">Department / Program</label>
+                            <input type="text" id="alumniCourse" placeholder="Department" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="cm-footer modal-buttons">
                 <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAddAlumniModal()">Cancel</button>
                 <button class="alumni-btn alumni-btn-primary" type="button" onclick="addAlumni()">Add Alumni</button>
             </div>
         </div>
     </div>
 
-    <div id="importAlumniModal" class="modal">
+    <div id="importAlumniModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="importAlumniModalTitle" onclick="if (event.target === this) closeImportAlumniModal();">
         <div class="modal-content">
-            <h3>Import Alumni (.xlsx)</h3>
-            <p style="margin-bottom: 12px; color: #64748b; font-size: 12.5px;">Upload the completed Excel template for the selected batch.</p>
-            <input type="text" id="importBatchYear" readonly>
-            <input type="file" id="alumniImportFile" accept=".xlsx">
-            <div class="modal-buttons">
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="importAlumniModalTitle">Import Alumni (.xlsx)</h3>
+                    <p class="cm-subtitle">Upload the completed Excel template for the selected graduation batch.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeImportAlumniModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-field">
+                    <label class="cm-label" for="importBatchYear">Selected Batch Year</label>
+                    <input type="text" id="importBatchYear" readonly>
+                </div>
+                <div class="cm-field">
+                    <label class="cm-label" for="alumniImportFile">Excel File (.xlsx) <span class="cm-required">*</span></label>
+                    <input type="file" id="alumniImportFile" accept=".xlsx">
+                    <span class="cm-helper">Only registered colleges and departments in your campus will be accepted.</span>
+                </div>
+            </div>
+            <div class="cm-footer modal-buttons">
                 <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeImportAlumniModal()">Cancel</button>
                 <button class="alumni-btn alumni-btn-primary" type="button" onclick="importAlumniExcel()">Import</button>
             </div>
