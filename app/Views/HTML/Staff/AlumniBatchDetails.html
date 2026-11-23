@@ -91,15 +91,23 @@
                             <i class="fas fa-arrow-left"></i>
                             <span>Batches</span>
                         </button>
+                        <button class="alumni-btn alumni-btn-secondary" id="importBatchCollegesBtn" type="button" onclick="openImportBatchCollegesModal()" title="Import Colleges &amp; Departments (CSV/Excel)">
+                            <i class="fas fa-file-import"></i>
+                            <span>Import Colleges &amp; Depts</span>
+                        </button>
+                        <button class="alumni-btn alumni-btn-primary" id="addBatchCollegeBtn" type="button" onclick="openAddBatchCollegeModal()" title="Add College Manually">
+                            <i class="fas fa-plus"></i>
+                            <span>Add College</span>
+                        </button>
                         <button class="alumni-btn alumni-btn-secondary" id="exportBatchBtn" type="button" onclick="exportSelectedBatchExcel()" title="Export Batch (.xlsx)">
                             <i class="fas fa-file-export"></i>
-                            <span>Export</span>
+                            <span>Export Alumni</span>
                         </button>
                         <button class="alumni-btn alumni-btn-secondary" id="importBatchBtn" type="button" onclick="openImportAlumniModal()" title="Import Alumni (.xlsx)">
-                            <i class="fas fa-file-import"></i>
-                            <span>Import</span>
+                            <i class="fas fa-upload"></i>
+                            <span>Import Alumni</span>
                         </button>
-                        <button class="alumni-btn alumni-btn-primary" id="addBatchAlumniBtn" type="button" onclick="openAddAlumniModal()">
+                        <button class="alumni-btn alumni-btn-primary" id="addBatchAlumniBtn" type="button" onclick="openAddAlumniModal()" hidden>
                             <i class="fas fa-plus"></i>
                             <span>Add Alumni</span>
                         </button>
@@ -110,13 +118,6 @@
                 <div class="alumni-kpi-grid alumni-kpi-grid-3">
                     <div class="alumni-kpi-card">
                         <div class="alumni-kpi-top">
-                            <span class="alumni-kpi-label">Alumni in Batch</span>
-                            <div class="alumni-kpi-icon"><i class="fas fa-users"></i></div>
-                        </div>
-                        <div class="alumni-kpi-value" id="batchTotalAlumniStat">—</div>
-                    </div>
-                    <div class="alumni-kpi-card">
-                        <div class="alumni-kpi-top">
                             <span class="alumni-kpi-label">Colleges</span>
                             <div class="alumni-kpi-icon"><i class="fas fa-building-columns"></i></div>
                         </div>
@@ -124,10 +125,17 @@
                     </div>
                     <div class="alumni-kpi-card">
                         <div class="alumni-kpi-top">
-                            <span class="alumni-kpi-label">Pending Accounts</span>
-                            <div class="alumni-kpi-icon"><i class="fas fa-clock"></i></div>
+                            <span class="alumni-kpi-label">Departments</span>
+                            <div class="alumni-kpi-icon"><i class="fas fa-network-wired"></i></div>
                         </div>
-                        <div class="alumni-kpi-value" id="batchFurtherStudiesCountStat">—</div>
+                        <div class="alumni-kpi-value" id="batchDepartmentCountStat">—</div>
+                    </div>
+                    <div class="alumni-kpi-card">
+                        <div class="alumni-kpi-top">
+                            <span class="alumni-kpi-label">Alumni in Batch</span>
+                            <div class="alumni-kpi-icon"><i class="fas fa-users"></i></div>
+                        </div>
+                        <div class="alumni-kpi-value" id="batchTotalAlumniStat">—</div>
                     </div>
                 </div>
 
@@ -228,6 +236,74 @@
             <div class="cm-footer modal-buttons">
                 <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeImportAlumniModal()">Cancel</button>
                 <button class="alumni-btn alumni-btn-primary" type="button" onclick="importAlumniExcel()">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add College Manually to Batch Modal -->
+    <div id="addBatchCollegeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addBatchCollegeModalTitle" onclick="if (event.target === this) closeAddBatchCollegeModal();">
+        <div class="modal-content">
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="addBatchCollegeModalTitle">Add College to Batch</h3>
+                    <p class="cm-subtitle">Create a college without departments yet. You can add or import departments after opening the college.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeAddBatchCollegeModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-field">
+                    <label class="cm-label" for="batchManualCollegeName">College Name <span class="cm-required">*</span></label>
+                    <input type="text" id="batchManualCollegeName" placeholder="e.g. College of Engineering" maxlength="150">
+                </div>
+                <div class="cm-field">
+                    <label class="cm-label" for="batchManualCollegeAbbr">College Abbreviation (Optional)</label>
+                    <input type="text" id="batchManualCollegeAbbr" placeholder="e.g. COE" maxlength="20">
+                    <span class="cm-helper">Short acronym or campus division code.</span>
+                </div>
+            </div>
+            <div class="cm-footer modal-buttons">
+                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAddBatchCollegeModal()">Cancel</button>
+                <button class="alumni-btn alumni-btn-primary" id="submitBatchCollegeBtn" type="button" onclick="submitAddBatchCollege()">Add College</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Colleges & Departments Modal -->
+    <div id="importBatchCollegesModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="importBatchCollegesModalTitle" onclick="if (event.target === this) closeImportBatchCollegesModal();">
+        <div class="modal-content" style="max-width: 720px; width: min(720px, 100%);">
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="importBatchCollegesModalTitle">Import Colleges &amp; Departments</h3>
+                    <p class="cm-subtitle">Upload a CSV or Excel (.xlsx, .xls) file containing colleges and their corresponding departments.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeImportBatchCollegesModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-section">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;">
+                        <span class="cm-helper">Download a sample template with the required columns:</span>
+                        <div style="display: flex; gap: 8px;">
+                            <a class="alumni-btn alumni-btn-secondary" href="../alumni/batches/colleges-template?format=xlsx" download>
+                                <i class="fas fa-file-excel"></i> <span>Excel Template</span>
+                            </a>
+                            <a class="alumni-btn alumni-btn-secondary" href="../alumni/batches/colleges-template?format=csv" download>
+                                <i class="fas fa-file-csv"></i> <span>CSV Template</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="cm-section">
+                    <div class="cm-field">
+                        <label class="cm-label" for="batchCollegesImportFile">Select File (.csv, .xlsx, .xls) <span class="cm-required">*</span></label>
+                        <input type="file" id="batchCollegesImportFile" accept=".csv,.xlsx,.xls" onchange="previewBatchCollegesFile()">
+                        <span class="cm-helper">Maximum file size: 5 MB. Columns: College Name, College Abbreviation, Department Name, Department Abbreviation.</span>
+                    </div>
+                </div>
+                <div id="batchCollegesImportPreview" hidden></div>
+            </div>
+            <div class="cm-footer modal-buttons">
+                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeImportBatchCollegesModal()">Cancel</button>
+                <button class="alumni-btn alumni-btn-primary" id="confirmImportBatchCollegesBtn" type="button" onclick="executeImportBatchColleges()" disabled>Import Colleges &amp; Departments</button>
             </div>
         </div>
     </div>

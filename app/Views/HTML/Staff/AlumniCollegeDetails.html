@@ -91,15 +91,23 @@
                             <i class="fas fa-arrow-left"></i>
                             <span>Colleges</span>
                         </button>
+                        <button class="alumni-btn alumni-btn-secondary" id="importBatchDeptsBtn" type="button" onclick="openImportBatchDepartmentsModal()" title="Import Departments (CSV/Excel)">
+                            <i class="fas fa-file-import"></i>
+                            <span>Import Departments</span>
+                        </button>
+                        <button class="alumni-btn alumni-btn-primary" id="addBatchDeptBtn" type="button" onclick="openAddBatchDepartmentModal()" title="Add Department Manually">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Department</span>
+                        </button>
                         <button class="alumni-btn alumni-btn-secondary" id="exportBatchBtn" type="button" onclick="exportSelectedBatchExcel()" title="Export (.xlsx)">
                             <i class="fas fa-file-export"></i>
-                            <span>Export</span>
+                            <span>Export Alumni</span>
                         </button>
-                        <button class="alumni-btn alumni-btn-secondary" id="importBatchBtn" type="button" onclick="openImportAlumniModal()" title="Import (.xlsx)">
-                            <i class="fas fa-file-import"></i>
-                            <span>Import</span>
+                        <button class="alumni-btn alumni-btn-secondary" id="importBatchBtn" type="button" onclick="openImportAlumniModal()" title="Import Alumni (.xlsx)">
+                            <i class="fas fa-upload"></i>
+                            <span>Import Alumni</span>
                         </button>
-                        <button class="alumni-btn alumni-btn-primary" id="addBatchAlumniBtn" type="button" onclick="openAddAlumniModal()">
+                        <button class="alumni-btn alumni-btn-primary" id="addBatchAlumniBtn" type="button" onclick="openAddAlumniModal()" hidden>
                             <i class="fas fa-plus"></i>
                             <span>Add Alumni</span>
                         </button>
@@ -228,6 +236,77 @@
             <div class="cm-footer modal-buttons">
                 <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeImportAlumniModal()">Cancel</button>
                 <button class="alumni-btn alumni-btn-primary" type="button" onclick="importAlumniExcel()">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Department Manually Under Selected College Modal -->
+    <div id="addBatchDepartmentModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addBatchDepartmentModalTitle" onclick="if (event.target === this) closeAddBatchDepartmentModal();">
+        <div class="modal-content">
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="addBatchDepartmentModalTitle">Add Department</h3>
+                    <p class="cm-subtitle">Create a department directly under the currently selected college.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeAddBatchDepartmentModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-field">
+                    <label class="cm-label" for="batchManualDeptCollege">Selected College</label>
+                    <input type="text" id="batchManualDeptCollege" readonly>
+                </div>
+                <div class="cm-field">
+                    <label class="cm-label" for="batchManualDeptName">Department Name <span class="cm-required">*</span></label>
+                    <input type="text" id="batchManualDeptName" placeholder="e.g. BS Information Technology" maxlength="150">
+                </div>
+                <div class="cm-field">
+                    <label class="cm-label" for="batchManualDeptAbbr">Department Abbreviation (Optional)</label>
+                    <input type="text" id="batchManualDeptAbbr" placeholder="e.g. BSIT" maxlength="20">
+                </div>
+            </div>
+            <div class="cm-footer modal-buttons">
+                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAddBatchDepartmentModal()">Cancel</button>
+                <button class="alumni-btn alumni-btn-primary" id="submitBatchDepartmentBtn" type="button" onclick="submitAddBatchDepartment()">Add Department</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Departments Only Modal -->
+    <div id="importBatchDepartmentsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="importBatchDepartmentsModalTitle" onclick="if (event.target === this) closeImportBatchDepartmentsModal();">
+        <div class="modal-content" style="max-width: 680px; width: min(680px, 100%);">
+            <div class="cm-header">
+                <div class="cm-header-text">
+                    <h3 id="importBatchDepartmentsModalTitle">Import Departments</h3>
+                    <p class="cm-subtitle" id="importBatchDeptsSubtitle">Upload a CSV or Excel (.xlsx, .xls) file containing departments for this college.</p>
+                </div>
+                <button type="button" class="cm-close" onclick="closeImportBatchDepartmentsModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cm-body">
+                <div class="cm-section">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;">
+                        <span class="cm-helper">Download the departments-only template:</span>
+                        <div style="display: flex; gap: 8px;">
+                            <a class="alumni-btn alumni-btn-secondary" href="../alumni/batches/departments-template?format=xlsx" download>
+                                <i class="fas fa-file-excel"></i> <span>Excel Template</span>
+                            </a>
+                            <a class="alumni-btn alumni-btn-secondary" href="../alumni/batches/departments-template?format=csv" download>
+                                <i class="fas fa-file-csv"></i> <span>CSV Template</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="cm-section">
+                    <div class="cm-field">
+                        <label class="cm-label" for="batchDepartmentsImportFile">Select File (.csv, .xlsx, .xls) <span class="cm-required">*</span></label>
+                        <input type="file" id="batchDepartmentsImportFile" accept=".csv,.xlsx,.xls" onchange="previewBatchDepartmentsFile()">
+                        <span class="cm-helper">Maximum file size: 5 MB. Columns: Department Name, Department Abbreviation.</span>
+                    </div>
+                </div>
+                <div id="batchDepartmentsImportPreview" hidden></div>
+            </div>
+            <div class="cm-footer modal-buttons">
+                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeImportBatchDepartmentsModal()">Cancel</button>
+                <button class="alumni-btn alumni-btn-primary" id="confirmImportBatchDepartmentsBtn" type="button" onclick="executeImportBatchDepartments()" disabled>Import Departments</button>
             </div>
         </div>
     </div>

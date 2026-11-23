@@ -417,3 +417,90 @@
         width: 100%;
     }
 }
+
+/* New Batch College/Department Manual & Import Modals */
+#addBatchCollegeModal.modal,
+#importBatchCollegesModal.modal,
+#addBatchDepartmentModal.modal,
+#importBatchDepartmentsModal.modal {
+    background: rgba(15, 23, 42, 0.54);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 16px;
+}
+
+#addBatchCollegeModal .modal-content,
+#addBatchDepartmentModal .modal-content {
+    width: min(520px, 100%);
+    max-width: min(520px, calc(100vw - 32px));
+    max-height: min(90vh, 820px);
+    padding: 0 !important;
+    border-radius: 14px !important;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24) !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#importBatchCollegesModal .modal-content,
+#importBatchDepartmentsModal .modal-content {
+    max-height: min(90vh, 860px);
+    padding: 0 !important;
+    border-radius: 14px !important;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24) !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cm-preview-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cm-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.cm-pill-new { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.cm-pill-existing { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.cm-pill-dup { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.cm-pill-invalid { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+.cm-preview-table-wrap {
+    max-height: 240px;
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.cm-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.cm-preview-table th,
+.cm-preview-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+
+.cm-preview-table th {
+    background: #f8fafc;
+    position: sticky;
+    top: 0;
+    font-weight: 600;
+    color: #334155;
+}

@@ -128,6 +128,15 @@ $routes->group('', ['filter' => 'role:staff'], static function (RouteCollection 
     $routes->get('alumni/batches', 'AlumniController::batches');
     $routes->post('alumni/batches/create', 'AlumniController::createBatch');
     $routes->delete('alumni/batches/delete/(:num)', 'AlumniController::deleteBatch/$1');
+    $routes->get('alumni/batches/colleges-template', 'AlumniController::downloadBatchCollegesTemplate');
+    $routes->get('alumni/batches/departments-template', 'AlumniController::downloadBatchDepartmentsTemplate');
+    $routes->get('alumni/batches/(:num)/structure', 'AlumniController::batchStructure/$1');
+    $routes->post('alumni/batches/(:num)/colleges', 'AlumniController::addBatchCollege/$1');
+    $routes->post('alumni/batches/(:num)/colleges/import/preview', 'AlumniController::previewBatchCollegesImport/$1');
+    $routes->post('alumni/batches/(:num)/colleges/import', 'AlumniController::importBatchColleges/$1');
+    $routes->post('alumni/batches/(:num)/colleges/(:num)/departments', 'AlumniController::addBatchDepartment/$1/$2');
+    $routes->post('alumni/batches/(:num)/colleges/(:num)/departments/import/preview', 'AlumniController::previewBatchDepartmentsImport/$1/$2');
+    $routes->post('alumni/batches/(:num)/colleges/(:num)/departments/import', 'AlumniController::importBatchDepartments/$1/$2');
     $routes->get('alumni/export', 'AlumniController::export');
     $routes->post('alumni/create', 'AlumniController::create');
     $routes->post('alumni/import', 'AlumniController::import');

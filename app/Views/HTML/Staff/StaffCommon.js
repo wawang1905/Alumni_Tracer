@@ -2451,12 +2451,39 @@ async function addAlumni() {
 
 async function addBatch() {
     const input = document.getElementById('batchGraduationYear');
+    const submitBtn = document.getElementById('createBatchSubmitBtn');
     if (!input) return;
 
     const graduationYear = input.value.trim();
-    if (!/^\d{4}$/.test(graduationYear)) {
-        alert('Please enter a valid 4-digit batch year.');
+    if (!/^\d{4}$/.test(graduationYear) || Number(graduationYear) < 1900 || Number(graduationYear) > 2100) {
+        alert('Please enter a valid 4-digit graduation year (1900–2100).');
+        input.focus();
         return;
+    }
+
+    // Check for duplicate batch within current campus scope before confirming
+    if (Array.isArray(alumniBatchesData) && alumniBatchesData.some((b) => String(b.graduationYear) === graduationYear)) {
+        alert(`Batch ${graduationYear} already exists in your campus.`);
+        input.focus();
+        return;
+    }
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.basic({
+            title: `Create Batch ${graduationYear}?`,
+            message: `You are about to create Graduation Batch ${graduationYear}. You can add or import colleges and departments inside the batch next.`,
+            record: `Batch ${graduationYear}`,
+            confirmText: 'Create Batch',
+            icon: 'fa-layer-group'
+        });
+        if (!confirmed) return;
+    }
+
+    const origHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
     }
 
     try {
@@ -2477,6 +2504,11 @@ async function addBatch() {
     } catch (error) {
         alert('Unable to create batch right now.');
         return;
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origHtml || 'Create Batch';
+        }
     }
 
     closeAddBatchModal();
@@ -8378,6 +8410,18 @@ async function submitCollegeForm() {
         return;
     }
 
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.basic({
+            title: 'Create New College?',
+            message: `Are you sure you want to register "${collegeName}" under your campus?`,
+            record: abbreviation ? `${collegeName} (${abbreviation})` : collegeName,
+            confirmText: 'Create College',
+            icon: 'fa-building-columns'
+        });
+        if (!confirmed) return;
+    }
+
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Creating...</span>';
@@ -8473,6 +8517,21 @@ async function submitDepartmentForm() {
         alert('Please select a college.');
         return;
     }
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.basic({
+            title: 'Create New Department?',
+            message: `Are you sure you want to create "${departmentName}" under the selected college?`,
+            record: abbreviation ? `${departmentName} (${abbreviation})` : departmentName,
+            confirmText: 'Create Department',
+            icon: 'fa-network-wired'
+        });
+        if (!confirmed) return;
+    }
+
+    const deptSubmitBtn = document.getElementById('addDepartmentSubmitBtn');
+    if (deptSubmitBtn) deptSubmitBtn.disabled = true;
 
     const formData = new FormData();
     formData.append('department_name', departmentName);
@@ -8712,4 +8771,518 @@ document.addEventListener('keydown', (event) => {
             break;
         }
     }
+});
+
+// ==========================================================================
+// Redesigned Multi-Campus Batch -> College -> Department Management & Import
+// ==========================================================================
+let currentBatchStructureData = null;
+
+async function loadCurrentBatchStructure(year) {
+    if (!year || !/^\d{4}$/.test(String(year))) return null;
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(year)}/structure`), {
+            credentials: 'same-origin',
+            cache: 'no-store'
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            currentBatchStructureData = data;
+            return data;
+        }
+    } catch (e) {
+        // Fallback to existing alumni data
+    }
+    return null;
+}
+
+function getSelectedCollegeStructureObj() {
+    if (!currentBatchStructureData || !Array.isArray(currentBatchStructureData.colleges) || !selectedAlumniCollege) {
+        return null;
+    }
+    const target = String(selectedAlumniCollege).trim().toLowerCase();
+    return currentBatchStructureData.colleges.find((c) => String(c.college || '').trim().toLowerCase() === target) || null;
+}
+
+async function refreshBatchDetailsWithStructure() {
+    const collegeGrid = document.getElementById('alumniCollegeGrid');
+    const courseGrid = document.getElementById('alumniCourseGrid');
+    if ((!collegeGrid && !courseGrid) || !selectedAlumniBatchYear) return;
+
+    const structure = await loadCurrentBatchStructure(selectedAlumniBatchYear);
+    if (!structure) return;
+
+    if (collegeGrid) {
+        const state = document.getElementById('alumniBatchDetailsState');
+        const collegeSection = document.getElementById('alumniCollegeSection');
+        const copy = document.getElementById('alumniBatchDetailsCopy');
+        const collegeCountEl = document.getElementById('batchCollegeCountStat');
+        const deptCountEl = document.getElementById('batchDepartmentCountStat');
+        const totalEl = document.getElementById('batchTotalAlumniStat');
+
+        const colleges = Array.isArray(structure.colleges) ? structure.colleges : [];
+        if (collegeCountEl) collegeCountEl.textContent = structure.counts?.colleges ?? colleges.length;
+        if (deptCountEl) deptCountEl.textContent = structure.counts?.departments ?? 0;
+        if (totalEl) totalEl.textContent = structure.counts?.alumni ?? 0;
+        if (copy) {
+            copy.textContent = `${colleges.length} college(s), ${structure.counts?.departments ?? 0} department(s), and ${structure.counts?.alumni ?? 0} alumni record(s) in Batch ${selectedAlumniBatchYear}.`;
+        }
+
+        if (colleges.length === 0) {
+            if (state) {
+                state.innerHTML = '<div class="alumni-batch-empty">No colleges have been added to this batch yet. Click <strong>Import Colleges &amp; Depts</strong> or <strong>Add College</strong> above to get started.</div>';
+            }
+            if (collegeSection) collegeSection.hidden = true;
+        } else {
+            if (state) state.innerHTML = '';
+            if (collegeSection) collegeSection.hidden = false;
+            collegeGrid.innerHTML = colleges.map((c) => {
+                const deptCount = Number(c.departmentCount || (c.departments ? c.departments.length : 0));
+                const alumniCount = Number(c.alumniCount || 0);
+                const deptBadge = deptCount === 0
+                    ? '<span class="cm-status-pill cm-pill-dup">No departments yet</span>'
+                    : `<span class="alumni-card-tag">${deptCount} department${deptCount === 1 ? '' : 's'}</span>`;
+                return `
+                    <article class="alumni-card alumni-nested-card" onclick='selectAlumniCollege(${JSON.stringify(c.college)})'>
+                        <div class="alumni-card-header">
+                            <div class="alumni-card-icon"><i class="fas fa-building-columns"></i></div>
+                            <div class="alumni-card-title">
+                                <h4>${escapeHtml(c.college)}</h4>
+                                <p>${escapeHtml(c.abbreviation || 'College')}</p>
+                            </div>
+                            <i class="fas fa-arrow-right alumni-card-arrow" aria-hidden="true"></i>
+                        </div>
+                        <div class="alumni-card-metadata">
+                            ${deptBadge}
+                            <span class="alumni-card-tag">${alumniCount} alumni</span>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+    }
+
+    if (courseGrid && selectedAlumniCollege) {
+        const state = document.getElementById('alumniCollegeDetailsState');
+        const courseSection = document.getElementById('alumniCourseSection');
+        const copy = document.getElementById('alumniCollegeDetailsCopy');
+        const courseCountEl = document.getElementById('collegeCourseCountStat');
+        const totalEl = document.getElementById('collegeTotalAlumniStat');
+
+        const colObj = getSelectedCollegeStructureObj();
+        const depts = colObj && Array.isArray(colObj.departments) ? colObj.departments : [];
+        if (courseCountEl) courseCountEl.textContent = depts.length;
+        if (totalEl) totalEl.textContent = colObj ? Number(colObj.alumniCount || 0) : 0;
+        if (copy) {
+            copy.textContent = `${depts.length} department(s) and ${colObj ? Number(colObj.alumniCount || 0) : 0} alumni record(s) under ${selectedAlumniCollege} for Batch ${selectedAlumniBatchYear}.`;
+        }
+
+        if (depts.length === 0) {
+            if (state) {
+                state.innerHTML = '<div class="alumni-batch-empty">This college has no departments yet for this batch. Click <strong>Import Departments</strong> or <strong>Add Department</strong> above to add them.</div>';
+            }
+            if (courseSection) courseSection.hidden = true;
+        } else {
+            if (state) state.innerHTML = '';
+            if (courseSection) courseSection.hidden = false;
+            courseGrid.innerHTML = depts.map((d) => `
+                <article class="alumni-card alumni-nested-card" onclick='selectAlumniCourse(${JSON.stringify(d.department)})'>
+                    <div class="alumni-card-header">
+                        <div class="alumni-card-icon"><i class="fas fa-network-wired"></i></div>
+                        <div class="alumni-card-title">
+                            <h4>${escapeHtml(d.department)}</h4>
+                            <p>${escapeHtml(d.abbreviation || 'Department')}</p>
+                        </div>
+                        <i class="fas fa-arrow-right alumni-card-arrow" aria-hidden="true"></i>
+                    </div>
+                    <div class="alumni-card-metadata">
+                        <span class="alumni-card-tag">${Number(d.alumniCount || 0)} alumni</span>
+                    </div>
+                </article>
+            `).join('');
+        }
+    }
+}
+
+// Manual Add College to Batch
+function openAddBatchCollegeModal() {
+    const modal = document.getElementById('addBatchCollegeModal');
+    if (!modal) return;
+    const nameEl = document.getElementById('batchManualCollegeName');
+    const abbrEl = document.getElementById('batchManualCollegeAbbr');
+    if (nameEl) nameEl.value = '';
+    if (abbrEl) abbrEl.value = '';
+    modal.style.display = 'flex';
+    nameEl?.focus();
+}
+
+function closeAddBatchCollegeModal() {
+    const modal = document.getElementById('addBatchCollegeModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function submitAddBatchCollege() {
+    const nameEl = document.getElementById('batchManualCollegeName');
+    const abbrEl = document.getElementById('batchManualCollegeAbbr');
+    const btn = document.getElementById('submitBatchCollegeBtn');
+    const collegeName = nameEl ? nameEl.value.trim() : '';
+    const abbreviation = abbrEl ? abbrEl.value.trim() : '';
+
+    if (!collegeName) {
+        alert('Please enter a college name.');
+        nameEl?.focus();
+        return;
+    }
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.basic({
+            title: 'Add College to Batch?',
+            message: `Add "${collegeName}" to Batch ${selectedAlumniBatchYear} without requiring departments yet?`,
+            record: abbreviation ? `${collegeName} (${abbreviation})` : collegeName,
+            confirmText: 'Add College',
+            icon: 'fa-building-columns'
+        });
+        if (!confirmed) return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(selectedAlumniBatchYear)}/colleges`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ college_name: collegeName, abbreviation })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.message || 'Unable to add college.');
+            return;
+        }
+        closeAddBatchCollegeModal();
+        await refreshBatchDetailsWithStructure();
+    } catch (e) {
+        alert('Unable to add college right now.');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// Import Colleges & Departments Modal
+function openImportBatchCollegesModal() {
+    const modal = document.getElementById('importBatchCollegesModal');
+    if (!modal) return;
+    const fileInput = document.getElementById('batchCollegesImportFile');
+    const preview = document.getElementById('batchCollegesImportPreview');
+    const confirmBtn = document.getElementById('confirmImportBatchCollegesBtn');
+    if (fileInput) fileInput.value = '';
+    if (preview) { preview.hidden = true; preview.innerHTML = ''; }
+    if (confirmBtn) confirmBtn.disabled = true;
+    modal.style.display = 'flex';
+}
+
+function closeImportBatchCollegesModal() {
+    const modal = document.getElementById('importBatchCollegesModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderImportPreviewMarkup(rows, counts, includeCollegeCol) {
+    const pills = [
+        `<span class="cm-status-pill cm-pill-new">Valid: ${Number(counts.valid_rows || 0)}</span>`,
+        counts.new_colleges !== undefined ? `<span class="cm-status-pill cm-pill-new">New Colleges: ${Number(counts.new_colleges || 0)}</span>` : '',
+        counts.new_departments !== undefined ? `<span class="cm-status-pill cm-pill-new">New Depts: ${Number(counts.new_departments || 0)}</span>` : '',
+        Number(counts.duplicate_rows || 0) > 0 ? `<span class="cm-status-pill cm-pill-dup">Duplicates: ${Number(counts.duplicate_rows)}</span>` : '',
+        Number(counts.invalid_rows || 0) > 0 ? `<span class="cm-status-pill cm-pill-invalid">Invalid: ${Number(counts.invalid_rows)}</span>` : ''
+    ].filter(Boolean).join('');
+
+    const bodyRows = (rows || []).slice(0, 100).map((r) => {
+        const pillClass = r.status === 'invalid' ? 'cm-pill-invalid'
+            : (r.status === 'duplicate_in_file' ? 'cm-pill-dup'
+                : (r.status === 'existing' ? 'cm-pill-existing' : 'cm-pill-new'));
+        return `
+            <tr>
+                <td>${Number(r.row || 0)}</td>
+                ${includeCollegeCol ? `<td>${escapeHtml(r.collegeName || '')}${r.collegeAbbreviation ? ' <small>(' + escapeHtml(r.collegeAbbreviation) + ')</small>' : ''}</td>` : ''}
+                <td>${escapeHtml(r.departmentName || '—')}${r.departmentAbbreviation ? ' <small>(' + escapeHtml(r.departmentAbbreviation) + ')</small>' : ''}</td>
+                <td><span class="cm-status-pill ${pillClass}">${escapeHtml(r.status)}</span></td>
+                <td>${escapeHtml(r.message || '')}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="cm-preview-summary">${pills}</div>
+        <div class="cm-preview-table-wrap">
+            <table class="cm-preview-table">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        ${includeCollegeCol ? '<th>College</th>' : ''}
+                        <th>Department</th>
+                        <th>Status</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>${bodyRows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function previewBatchCollegesFile() {
+    const fileInput = document.getElementById('batchCollegesImportFile');
+    const preview = document.getElementById('batchCollegesImportPreview');
+    const confirmBtn = document.getElementById('confirmImportBatchCollegesBtn');
+    const file = fileInput?.files?.[0];
+    if (!file || !preview) return;
+
+    preview.hidden = false;
+    preview.innerHTML = '<div class="cm-helper"><i class="fas fa-spinner fa-spin"></i> Reading and validating file...</div>';
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(selectedAlumniBatchYear)}/colleges/import/preview`), {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            preview.innerHTML = `<div class="cm-status-pill cm-pill-invalid">${escapeHtml(data.message || 'Unable to parse file.')}</div>`;
+            return;
+        }
+        preview.innerHTML = renderImportPreviewMarkup(data.rows, data.counts, true);
+        if (confirmBtn) confirmBtn.disabled = Number(data.counts?.valid_rows || 0) === 0;
+    } catch (e) {
+        preview.innerHTML = '<div class="cm-status-pill cm-pill-invalid">Failed to preview file.</div>';
+    }
+}
+
+async function executeImportBatchColleges() {
+    const fileInput = document.getElementById('batchCollegesImportFile');
+    const confirmBtn = document.getElementById('confirmImportBatchCollegesBtn');
+    const file = fileInput?.files?.[0];
+    if (!file) return;
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.medium({
+            title: 'Import Colleges & Departments?',
+            message: `You are about to import the validated colleges and departments into Batch ${selectedAlumniBatchYear}.`,
+            record: file.name,
+            consequence: 'Existing colleges and departments in your campus will be reused without duplication; invalid rows will be skipped.',
+            confirmText: 'Yes, Import Now',
+            icon: 'fa-file-import'
+        });
+        if (!confirmed) return;
+    }
+
+    if (confirmBtn) confirmBtn.disabled = true;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(selectedAlumniBatchYear)}/colleges/import`), {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.message || 'Import failed.');
+            return;
+        }
+        const s = data.summary || {};
+        alert(`Import complete!\n\nColleges created: ${s.colleges_created || 0} (reused: ${s.colleges_reused || 0})\nDepartments created: ${s.departments_created || 0} (reused: ${s.departments_reused || 0})\nSkipped invalid/duplicate rows: ${(s.invalid_rows || 0) + (s.duplicate_rows || 0)}`);
+        closeImportBatchCollegesModal();
+        await refreshBatchDetailsWithStructure();
+    } catch (e) {
+        alert('Import failed right now.');
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
+}
+
+// Manual Add Department under Selected College
+function openAddBatchDepartmentModal() {
+    const modal = document.getElementById('addBatchDepartmentModal');
+    if (!modal) return;
+    const colInput = document.getElementById('batchManualDeptCollege');
+    const nameEl = document.getElementById('batchManualDeptName');
+    const abbrEl = document.getElementById('batchManualDeptAbbr');
+    if (colInput) colInput.value = selectedAlumniCollege || '';
+    if (nameEl) nameEl.value = '';
+    if (abbrEl) abbrEl.value = '';
+    modal.style.display = 'flex';
+    nameEl?.focus();
+}
+
+function closeAddBatchDepartmentModal() {
+    const modal = document.getElementById('addBatchDepartmentModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function submitAddBatchDepartment() {
+    const colObj = getSelectedCollegeStructureObj();
+    if (!colObj || !colObj.college_id) {
+        alert('Unable to resolve the selected college ID. Please reload this page.');
+        return;
+    }
+    const nameEl = document.getElementById('batchManualDeptName');
+    const abbrEl = document.getElementById('batchManualDeptAbbr');
+    const btn = document.getElementById('submitBatchDepartmentBtn');
+    const deptName = nameEl ? nameEl.value.trim() : '';
+    const abbreviation = abbrEl ? abbrEl.value.trim() : '';
+
+    if (!deptName) {
+        alert('Please enter a department name.');
+        nameEl?.focus();
+        return;
+    }
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.basic({
+            title: 'Add Department?',
+            message: `Add "${deptName}" under ${colObj.college} for Batch ${selectedAlumniBatchYear}?`,
+            record: abbreviation ? `${deptName} (${abbreviation})` : deptName,
+            confirmText: 'Add Department',
+            icon: 'fa-network-wired'
+        });
+        if (!confirmed) return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(selectedAlumniBatchYear)}/colleges/${colObj.college_id}/departments`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ department_name: deptName, abbreviation })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.message || 'Unable to add department.');
+            return;
+        }
+        closeAddBatchDepartmentModal();
+        await refreshBatchDetailsWithStructure();
+    } catch (e) {
+        alert('Unable to add department right now.');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// Import Departments Only under Selected College
+function openImportBatchDepartmentsModal() {
+    const modal = document.getElementById('importBatchDepartmentsModal');
+    if (!modal) return;
+    const sub = document.getElementById('importBatchDeptsSubtitle');
+    const fileInput = document.getElementById('batchDepartmentsImportFile');
+    const preview = document.getElementById('batchDepartmentsImportPreview');
+    const confirmBtn = document.getElementById('confirmImportBatchDepartmentsBtn');
+    if (sub && selectedAlumniCollege) {
+        sub.textContent = `Upload a CSV or Excel (.xlsx, .xls) file containing departments strictly under ${selectedAlumniCollege}.`;
+    }
+    if (fileInput) fileInput.value = '';
+    if (preview) { preview.hidden = true; preview.innerHTML = ''; }
+    if (confirmBtn) confirmBtn.disabled = true;
+    modal.style.display = 'flex';
+}
+
+function closeImportBatchDepartmentsModal() {
+    const modal = document.getElementById('importBatchDepartmentsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function previewBatchDepartmentsFile() {
+    const colObj = getSelectedCollegeStructureObj();
+    const fileInput = document.getElementById('batchDepartmentsImportFile');
+    const preview = document.getElementById('batchDepartmentsImportPreview');
+    const confirmBtn = document.getElementById('confirmImportBatchDepartmentsBtn');
+    const file = fileInput?.files?.[0];
+    if (!file || !preview || !colObj?.college_id) return;
+
+    preview.hidden = false;
+    preview.innerHTML = '<div class="cm-helper"><i class="fas fa-spinner fa-spin"></i> Reading and validating file...</div>';
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(selectedAlumniBatchYear)}/colleges/${colObj.college_id}/departments/import/preview`), {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            preview.innerHTML = `<div class="cm-status-pill cm-pill-invalid">${escapeHtml(data.message || 'Unable to parse file.')}</div>`;
+            return;
+        }
+        preview.innerHTML = renderImportPreviewMarkup(data.rows, data.counts, false);
+        if (confirmBtn) confirmBtn.disabled = Number(data.counts?.valid_rows || 0) === 0;
+    } catch (e) {
+        preview.innerHTML = '<div class="cm-status-pill cm-pill-invalid">Failed to preview file.</div>';
+    }
+}
+
+async function executeImportBatchDepartments() {
+    const colObj = getSelectedCollegeStructureObj();
+    const fileInput = document.getElementById('batchDepartmentsImportFile');
+    const confirmBtn = document.getElementById('confirmImportBatchDepartmentsBtn');
+    const file = fileInput?.files?.[0];
+    if (!file || !colObj?.college_id) return;
+
+    const ac = await ensureStaffActionConfirm();
+    if (ac) {
+        const confirmed = await ac.medium({
+            title: 'Import Departments?',
+            message: `You are about to import the validated departments under ${colObj.college} for Batch ${selectedAlumniBatchYear}.`,
+            record: `${colObj.college} — ${file.name}`,
+            consequence: 'Only departments under this college will be created or linked; no other colleges will be modified.',
+            confirmText: 'Yes, Import Departments',
+            icon: 'fa-file-import'
+        });
+        if (!confirmed) return;
+    }
+
+    if (confirmBtn) confirmBtn.disabled = true;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(selectedAlumniBatchYear)}/colleges/${colObj.college_id}/departments/import`), {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.message || 'Import failed.');
+            return;
+        }
+        const s = data.summary || {};
+        alert(`Department import complete!\n\nDepartments created: ${s.departments_created || 0} (reused: ${s.departments_reused || 0})\nSkipped invalid/duplicate rows: ${(s.invalid_rows || 0) + (s.duplicate_rows || 0)}`);
+        closeImportBatchDepartmentsModal();
+        await refreshBatchDetailsWithStructure();
+    } catch (e) {
+        alert('Import failed right now.');
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
+}
+
+// Auto-hydrate batch structure on AlumniBatchDetails.html & AlumniCollegeDetails.html after initial page init
+window.addEventListener('load', () => {
+    window.setTimeout(() => {
+        if (document.getElementById('alumniCollegeGrid') || document.getElementById('alumniCourseGrid')) {
+            void refreshBatchDetailsWithStructure();
+        }
+    }, 350);
 });

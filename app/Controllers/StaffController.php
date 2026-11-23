@@ -5777,95 +5777,76 @@ class StaffController extends BaseController
 
     public function createCollege(): ResponseInterface
     {
-        log_message('error', 'createCollege called');
-        
         if (! $this->isStaffAuthorized()) {
-            log_message('error', 'createCollege: Unauthorized');
             return $this->response->setStatusCode(401)->setJSON([
                 'success' => false,
                 'message' => 'Unauthorized.',
             ]);
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Your account does not have a valid campus assignment.',
+            ]);
+        }
+
+        $campusId = (int) $scope['campus_id'];
         $collegeModel = new \App\Models\CollegeModel();
-        $campusModel = new \App\Models\CampusModel();
+        $collegeName = trim((string) ($this->request->getPost('college_name') ?? ''));
+        $abbreviation = trim((string) ($this->request->getPost('abbreviation') ?? ''));
 
-        $collegeName = $this->request->getPost('college_name');
-        $abbreviation = $this->request->getPost('abbreviation');
-
-        log_message('error', 'createCollege: college_name=' . $collegeName . ', abbreviation=' . $abbreviation);
-
-        if (empty($collegeName)) {
-            log_message('error', 'createCollege: College name is empty');
-            return $this->response->setStatusCode(400)->setJSON([
+        if ($collegeName === '') {
+            return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'College name is required.',
             ]);
         }
 
+        if (mb_strlen($collegeName) > 150 || mb_strlen($abbreviation) > 20) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'College name or abbreviation exceeds the allowed length.',
+            ]);
+        }
+
         try {
-            $authUser = session('auth_user');
-            log_message('error', 'createCollege: auth_user session data: ' . json_encode($authUser));
-            
-            // Campus is stored as Campus_ID (int) in the session
-            $campusId = session('auth_user.campus') 
-                ?? session('auth_user.Campus') 
-                ?? '';
-            
-            log_message('error', 'createCollege: campusId=' . $campusId);
-            
-            if (empty($campusId)) {
-                log_message('error', 'createCollege: Campus is empty in session');
-                return $this->response->setStatusCode(400)->setJSON([
+            $duplicate = $collegeModel
+                ->where('Campus_ID', $campusId)
+                ->where('LOWER("College_Name")', strtolower($collegeName))
+                ->first();
+
+            if (is_array($duplicate)) {
+                return $this->response->setStatusCode(409)->setJSON([
                     'success' => false,
-                    'message' => 'Campus information not found in session. Please log in again.',
-                ]);
-            }
-            
-            // Verify the campus exists in the campuses table
-            $campus = $campusModel->where('Campus_ID', $campusId)->first();
-            
-            if (!$campus) {
-                // Try getting all campuses to see what's available
-                $allCampuses = $campusModel->findAll();
-                log_message('error', 'createCollege: All campuses: ' . json_encode($allCampuses));
-                log_message('error', 'createCollege: Campus not found for ID: ' . $campusId);
-                return $this->response->setStatusCode(400)->setJSON([
-                    'success' => false,
-                    'message' => 'Campus not found in database. Campus ID: ' . $campusId,
+                    'message' => 'A college with this name already exists in your campus.',
                 ]);
             }
 
-            $collegeData = [
-                'Campus_ID' => $campusId,
+            $collegeId = $collegeModel->insert([
+                'Campus_ID'    => $campusId,
                 'College_Name' => $collegeName,
-                'Abbreviation' => $abbreviation ?? '',
-            ];
+                'Abbreviation' => $abbreviation,
+            ]);
 
-            log_message('error', 'createCollege: Inserting college data: ' . json_encode($collegeData));
-            
-            $collegeId = $collegeModel->insert($collegeData);
-
-            if (!$collegeId) {
-                log_message('error', 'createCollege: Failed to insert college');
+            if (! $collegeId) {
                 return $this->response->setStatusCode(500)->setJSON([
                     'success' => false,
                     'message' => 'Failed to create college.',
                 ]);
             }
 
-            log_message('error', 'createCollege: College created with ID: ' . $collegeId);
-            
             return $this->response->setJSON([
-                'success' => true,
-                'message' => 'College created successfully.',
-                'college_id' => $collegeId,
+                'success'    => true,
+                'message'    => 'College created successfully.',
+                'college_id' => (int) $collegeId,
             ]);
-        } catch (\Exception $e) {
-            log_message('error', 'createCollege Exception: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            log_message('error', 'StaffController::createCollege failed: {msg}', ['msg' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Unable to create college right now. Please try again.',
             ]);
         }
     }
@@ -5879,50 +5860,59 @@ class StaffController extends BaseController
             ]);
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Your account does not have a valid campus assignment.',
+            ]);
+        }
+
+        $campusId = (int) $scope['campus_id'];
         $departmentModel = new \App\Models\DepartmentModel();
         $collegeModel = new \App\Models\CollegeModel();
 
-        $departmentName = $this->request->getPost('department_name');
-        $abbreviation = $this->request->getPost('abbreviation');
-        $collegeId = $this->request->getPost('college_id');
-        $coordinatorName = $this->request->getPost('coordinator_name');
+        $departmentName = trim((string) ($this->request->getPost('department_name') ?? ''));
+        $abbreviation = trim((string) ($this->request->getPost('abbreviation') ?? ''));
+        $collegeId = (int) ($this->request->getPost('college_id') ?? 0);
+        $coordinatorName = trim((string) ($this->request->getPost('coordinator_name') ?? ''));
 
-        if (empty($departmentName)) {
-            return $this->response->setStatusCode(400)->setJSON([
+        if ($departmentName === '') {
+            return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'Department name is required.',
             ]);
         }
 
-        if (empty($collegeId)) {
-            return $this->response->setStatusCode(400)->setJSON([
+        if ($collegeId <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'College is required.',
             ]);
         }
 
         try {
-            // Campus is stored as Campus_ID (int) in the session
-            $campusId = session('auth_user.campus') 
-                ?? session('auth_user.Campus') 
-                ?? '';
-            
-            if (empty($campusId)) {
-                return $this->response->setStatusCode(400)->setJSON([
-                    'success' => false,
-                    'message' => 'Campus information not found in session. Please log in again.',
-                ]);
-            }
-            
-            // Verify the college exists and belongs to this campus
             $college = $collegeModel->where('College_ID', $collegeId)
                 ->where('Campus_ID', $campusId)
                 ->first();
 
-            if (!$college) {
-                return $this->response->setStatusCode(400)->setJSON([
+            if (! is_array($college)) {
+                return $this->response->setStatusCode(403)->setJSON([
                     'success' => false,
                     'message' => 'College not found or does not belong to your campus.',
+                ]);
+            }
+
+            $duplicate = $departmentModel
+                ->where('Campus_ID', $campusId)
+                ->where('College_ID', $collegeId)
+                ->where('LOWER("Department_Name")', strtolower($departmentName))
+                ->first();
+
+            if (is_array($duplicate)) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'success' => false,
+                    'message' => 'A department with this name already exists under this college.',
                 ]);
             }
 
@@ -5930,13 +5920,13 @@ class StaffController extends BaseController
                 'Campus_ID' => $campusId,
                 'College_ID' => $collegeId,
                 'Department_Name' => $departmentName,
-                'Abbreviation' => $abbreviation ?? '',
-                'Coordinator_Name' => $coordinatorName ?? '',
+                'Abbreviation' => $abbreviation,
+                'Coordinator_Name' => $coordinatorName,
             ];
 
             $departmentId = $departmentModel->insert($departmentData);
 
-            if (!$departmentId) {
+            if (! $departmentId) {
                 return $this->response->setStatusCode(500)->setJSON([
                     'success' => false,
                     'message' => 'Failed to create department.',
@@ -5946,12 +5936,13 @@ class StaffController extends BaseController
             return $this->response->setJSON([
                 'success' => true,
                 'message' => 'Department created successfully.',
-                'department_id' => $departmentId,
+                'department_id' => (int) $departmentId,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            log_message('error', 'StaffController::createDepartment failed: {msg}', ['msg' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Unable to create department right now. Please try again.',
             ]);
         }
     }

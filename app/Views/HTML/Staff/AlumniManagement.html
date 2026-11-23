@@ -143,41 +143,28 @@
         </div>
     </div>
 
-    <!-- Add Batch Modal -->
+    <!-- Add Batch Modal (Graduation Year Only) -->
     <div id="addBatchModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addBatchModalTitle" onclick="if (event.target === this) closeAddBatchModal();">
         <div class="modal-content add-batch-modal-content">
             <div class="cm-header">
                 <div class="cm-header-text">
                     <h3 id="addBatchModalTitle">Create New Batch</h3>
-                    <p class="cm-subtitle">Register a graduation batch year and select participating colleges and departments.</p>
+                    <p class="cm-subtitle">Start by entering the graduation year. You can add or import colleges and departments inside the batch afterwards.</p>
                 </div>
                 <button type="button" class="cm-close" onclick="closeAddBatchModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
             </div>
             <div class="cm-body">
                 <div class="cm-section">
                     <div class="cm-field">
-                        <label class="cm-label" for="batchGraduationYear">Batch Year <span class="cm-required">*</span></label>
-                        <input type="text" id="batchGraduationYear" placeholder="e.g. 2024">
-                    </div>
-                </div>
-                <div class="cm-section">
-                    <div class="batch-picker-block">
-                        <label class="batch-picker-label cm-label">Colleges</label>
-                        <div id="batchCollegeOptions" class="batch-checkbox-grid">
-                            <div class="batch-picker-state">Loading colleges...</div>
-                        </div>
-                    </div>
-                    <div class="batch-picker-block">
-                        <label class="batch-picker-label cm-label">Departments</label>
-                        <div id="batchDepartmentOptions" class="batch-checkbox-grid">
-                            <div class="batch-picker-state">Choose college(s) first.</div>
-                        </div>
+                        <label class="cm-label" for="batchGraduationYear">Graduation Year <span class="cm-required">*</span></label>
+                        <input type="text" id="batchGraduationYear" maxlength="4" inputmode="numeric" placeholder="e.g. 2024">
+                        <span class="cm-helper">Enter a 4-digit graduation year (1900–2100).</span>
                     </div>
                 </div>
             </div>
             <div class="cm-footer modal-buttons">
                 <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAddBatchModal()">Cancel</button>
-                <button class="alumni-btn alumni-btn-primary" type="button" onclick="addBatch()">Create Batch</button>
+                <button class="alumni-btn alumni-btn-primary" id="createBatchSubmitBtn" type="button" onclick="addBatch()">Create Batch</button>
             </div>
         </div>
     </div>

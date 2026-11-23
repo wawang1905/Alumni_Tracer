@@ -168,15 +168,22 @@ class AlumniController extends BaseController
 
         $db = \Config\Database::connect();
         $yearColumn = $this->getBatchRegistryYearColumn();
+        $campusId = $scope !== null ? (int) ($scope['campus_id'] ?? 0) : 0;
+
+        $this->ensureMultiCampusBatchSchema();
 
         try {
-            $registered = $db->table('alumni_batches')
+            $regBuilder = $db->table('alumni_batches')
                 ->select($yearColumn)
-                ->orderBy($yearColumn, 'DESC')
-                ->get()
-                ->getResultArray();
+                ->orderBy($yearColumn, 'DESC');
+            if ($campusId > 0) {
+                $regBuilder->groupStart()
+                    ->where('"Campus_ID"', $campusId)
+                    ->orWhere('"Campus_ID" IS NULL', null, false)
+                    ->groupEnd();
+            }
+            $registered = $regBuilder->get()->getResultArray();
         } catch (\Throwable) {
-            $this->ensureBatchRegistryTable();
             $registered = [];
         }
 
@@ -197,9 +204,9 @@ class AlumniController extends BaseController
         }
 
         try {
-            $this->attachBatchDepartmentSelections($batchMap);
+            $this->attachBatchDepartmentSelections($batchMap, $campusId);
         } catch (\Throwable) {
-            $this->ensureBatchDepartmentTable();
+            $this->ensureMultiCampusBatchSchema();
         }
 
         $batches = array_values($batchMap);
@@ -226,82 +233,580 @@ class AlumniController extends BaseController
             ]);
         }
 
-        $graduationYear = trim((string) $this->request->getPost('graduationYear'));
-        if (! preg_match('/^\d{4}$/', $graduationYear)) {
-            return $this->response->setStatusCode(422)->setJSON([
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
                 'success' => false,
-                'message' => 'Please enter a valid 4-digit batch year.',
+                'message' => 'Your account does not have a valid campus assignment.',
             ]);
         }
 
-        $selectedCollegeIds = $this->normalizeIdList($this->request->getPost('colleges'));
-        $selectedDepartmentIds = $this->normalizeIdList($this->request->getPost('departments'));
-
-        if ($selectedCollegeIds === []) {
+        $campusId = (int) $scope['campus_id'];
+        $graduationYear = trim((string) ($this->request->getPost('graduationYear') ?? $this->request->getJSON(true)['graduationYear'] ?? ''));
+        if (! preg_match('/^\d{4}$/', $graduationYear) || (int) $graduationYear < 1900 || (int) $graduationYear > 2100) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
-                'message' => 'Please select at least one college.',
+                'message' => 'Please enter a valid 4-digit graduation year (1900–2100).',
             ]);
         }
 
-        if ($selectedDepartmentIds === []) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'success' => false,
-                'message' => 'Please select at least one department.',
-            ]);
-        }
-
-        $validDepartments = $this->getValidBatchDepartments($selectedCollegeIds, $selectedDepartmentIds);
-        if (count($validDepartments) !== count($selectedDepartmentIds)) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'success' => false,
-                'message' => 'Please choose departments that belong to the selected college(s).',
-            ]);
-        }
-
+        $this->ensureMultiCampusBatchSchema();
         $db = \Config\Database::connect();
         $yearColumn = $this->getBatchRegistryYearColumn();
-        $existing = $db->table('alumni_batches')
-            ->select('id')
-            ->where($yearColumn, $graduationYear)
-            ->get()
-            ->getRowArray();
 
-        if (! $existing) {
+        try {
+            // Prevent duplicate batch creation within the Head Admin's campus only
+            $existing = $db->table('alumni_batches')
+                ->select('id')
+                ->where($yearColumn, (int) $graduationYear)
+                ->where('"Campus_ID"', $campusId)
+                ->get()
+                ->getRowArray();
+
+            if (is_array($existing)) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'success' => false,
+                    'message' => "Batch {$graduationYear} already exists in your campus.",
+                ]);
+            }
+
             $db->table('alumni_batches')->insert([
-                $yearColumn => $graduationYear,
+                'Campus_ID' => $campusId,
+                $yearColumn => (int) $graduationYear,
+            ]);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => "Batch {$graduationYear} created successfully.",
+                'batch' => [
+                    'graduationYear' => $graduationYear,
+                    'alumniCount' => 0,
+                    'activeCount' => 0,
+                    'colleges' => [],
+                    'departments' => [],
+                    'departmentSelections' => [],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'AlumniController::createBatch failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Unable to create batch right now. Please try again.',
             ]);
         }
+    }
 
-        $db->table('alumni_batch_departments')
-            ->where('GraduationYear', $graduationYear)
-            ->delete();
-
-        $batchRows = array_map(static fn (array $department): array => [
-            'GraduationYear' => $graduationYear,
-            'College_ID' => (int) $department['College_ID'],
-            'Department_ID' => (int) $department['Department_ID'],
-        ], $validDepartments);
-
-        if ($batchRows !== []) {
-            $db->table('alumni_batch_departments')->insertBatch($batchRows);
+    public function batchStructure(int $graduationYear): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
         }
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $yearStr = (string) $graduationYear;
+        if (! preg_match('/^\d{4}$/', $yearStr)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => 'Invalid batch year.']);
+        }
+
+        $this->ensureMultiCampusBatchSchema();
+        $db = \Config\Database::connect();
+
+        // Collect all campus colleges linked to this batch (via alumni_batch_colleges, alumni_batch_departments, or alumni rows)
+        $collegesById = [];
+
+        $bcRows = $db->table('alumni_batch_colleges abc')
+            ->select('c."College_ID", c."College_Name", c."Abbreviation"')
+            ->join('colleges c', 'c."College_ID" = abc."College_ID"', 'inner')
+            ->where('abc."Campus_ID"', $campusId)
+            ->where('abc."GraduationYear"', $graduationYear)
+            ->where('c."Campus_ID"', $campusId)
+            ->orderBy('c."College_Name"', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        foreach ($bcRows as $r) {
+            $cid = (int) $r['College_ID'];
+            $collegesById[$cid] = [
+                'college_id'   => $cid,
+                'college'      => (string) $r['College_Name'],
+                'abbreviation' => (string) ($r['Abbreviation'] ?? ''),
+                'departments'  => [],
+                'alumniCount'  => 0,
+            ];
+        }
+
+        $bdRows = $db->table('alumni_batch_departments abd')
+            ->select('c."College_ID", c."College_Name", c."Abbreviation" AS college_abbr, d."Department_ID", d."Department_Name", d."Abbreviation" AS dept_abbr')
+            ->join('colleges c', 'c."College_ID" = abd."College_ID"', 'inner')
+            ->join('departments d', 'd."Department_ID" = abd."Department_ID"', 'inner')
+            ->where('abd."GraduationYear"', $graduationYear)
+            ->where('c."Campus_ID"', $campusId)
+            ->where('d."Campus_ID"', $campusId)
+            ->orderBy('c."College_Name"', 'ASC')
+            ->orderBy('d."Department_Name"', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        foreach ($bdRows as $r) {
+            $cid = (int) $r['College_ID'];
+            $did = (int) $r['Department_ID'];
+            if (! isset($collegesById[$cid])) {
+                $collegesById[$cid] = [
+                    'college_id'   => $cid,
+                    'college'      => (string) $r['College_Name'],
+                    'abbreviation' => (string) ($r['college_abbr'] ?? ''),
+                    'departments'  => [],
+                    'alumniCount'  => 0,
+                ];
+            }
+            $collegesById[$cid]['departments'][$did] = [
+                'department_id' => $did,
+                'department'    => (string) $r['Department_Name'],
+                'abbreviation'  => (string) ($r['dept_abbr'] ?? ''),
+                'alumniCount'   => 0,
+            ];
+        }
+
+        // Also include colleges/departments inferred from existing alumni records in this campus & batch
+        $alRows = $db->table('alumni a')
+            ->select('c."College_ID", c."College_Name", c."Abbreviation" AS college_abbr, d."Department_ID", d."Department_Name", d."Abbreviation" AS dept_abbr, COUNT(a.id) AS alumni_count')
+            ->join('colleges c', 'c."College_ID" = a."College_ID"', 'inner')
+            ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
+            ->where('a."GraduationYear"', $yearStr)
+            ->where('c."Campus_ID"', $campusId)
+            ->groupBy('c."College_ID", c."College_Name", c."Abbreviation", d."Department_ID", d."Department_Name", d."Abbreviation"')
+            ->get()
+            ->getResultArray();
+
+        $totalAlumni = 0;
+        foreach ($alRows as $r) {
+            $cid = (int) $r['College_ID'];
+            $did = (int) ($r['Department_ID'] ?? 0);
+            $cnt = (int) ($r['alumni_count'] ?? 0);
+            $totalAlumni += $cnt;
+
+            if (! isset($collegesById[$cid])) {
+                $collegesById[$cid] = [
+                    'college_id'   => $cid,
+                    'college'      => (string) $r['College_Name'],
+                    'abbreviation' => (string) ($r['college_abbr'] ?? ''),
+                    'departments'  => [],
+                    'alumniCount'  => 0,
+                ];
+            }
+            $collegesById[$cid]['alumniCount'] += $cnt;
+
+            if ($did > 0) {
+                if (! isset($collegesById[$cid]['departments'][$did])) {
+                    $collegesById[$cid]['departments'][$did] = [
+                        'department_id' => $did,
+                        'department'    => (string) ($r['Department_Name'] ?? ''),
+                        'abbreviation'  => (string) ($r['dept_abbr'] ?? ''),
+                        'alumniCount'   => 0,
+                    ];
+                }
+                $collegesById[$cid]['departments'][$did]['alumniCount'] += $cnt;
+            }
+        }
+
+        $collegesList = [];
+        $totalDepartments = 0;
+        foreach ($collegesById as $c) {
+            $depts = array_values($c['departments']);
+            usort($depts, static fn (array $a, array $b): int => strcasecmp($a['department'], $b['department']));
+            $c['departments'] = $depts;
+            $c['departmentCount'] = count($depts);
+            $totalDepartments += count($depts);
+            $collegesList[] = $c;
+        }
+        usort($collegesList, static fn (array $a, array $b): int => strcasecmp($a['college'], $b['college']));
 
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'Batch year is ready.',
-            'batch' => [
-                'graduationYear' => $graduationYear,
-                'alumniCount' => 0,
-                'activeCount' => 0,
-                'colleges' => array_values(array_unique(array_map(static fn (array $row): string => (string) $row['College_Name'], $validDepartments))),
-                'departments' => array_map(static fn (array $row): string => (string) $row['Department_Name'], $validDepartments),
-                'departmentSelections' => array_map(static fn (array $row): array => [
-                    'college' => (string) $row['College_Name'],
-                    'department' => (string) $row['Department_Name'],
-                ], $validDepartments),
+            'graduationYear' => $yearStr,
+            'colleges' => $collegesList,
+            'counts' => [
+                'colleges'    => count($collegesList),
+                'departments' => $totalDepartments,
+                'alumni'      => $totalAlumni,
             ],
         ]);
+    }
+
+    public function addBatchCollege(int $graduationYear): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $payload = $this->request->getJSON(true);
+        if (! is_array($payload)) {
+            $payload = $this->request->getPost();
+        }
+
+        $collegeName = trim((string) ($payload['college_name'] ?? $payload['collegeName'] ?? ''));
+        $abbreviation = trim((string) ($payload['abbreviation'] ?? ''));
+
+        if ($collegeName === '') {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => 'College name is required.']);
+        }
+        if (mb_strlen($collegeName) > 150 || mb_strlen($abbreviation) > 20) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => 'College name or abbreviation exceeds maximum length.']);
+        }
+
+        $this->ensureMultiCampusBatchSchema();
+        $db = \Config\Database::connect();
+        $collegeModel = new \App\Models\CollegeModel();
+        $importSvc = new \App\Services\BatchStructureImportService();
+
+        $db->transBegin();
+        try {
+            $existing = $collegeModel
+                ->where('Campus_ID', $campusId)
+                ->where('LOWER("College_Name")', strtolower($collegeName))
+                ->first();
+
+            if (is_array($existing)) {
+                $collegeId = (int) $existing['College_ID'];
+                $alreadyLinked = $db->table('alumni_batch_colleges')
+                    ->where('"Campus_ID"', $campusId)
+                    ->where('"GraduationYear"', $graduationYear)
+                    ->where('"College_ID"', $collegeId)
+                    ->countAllResults() > 0;
+
+                if ($alreadyLinked) {
+                    $db->transRollback();
+                    return $this->response->setStatusCode(409)->setJSON([
+                        'success' => false,
+                        'message' => 'This college is already added to Batch ' . $graduationYear . '.',
+                    ]);
+                }
+                $importSvc->linkBatchCollege($db, $campusId, $graduationYear, $collegeId);
+                $message = 'Existing campus college linked to Batch ' . $graduationYear . '.';
+            } else {
+                $collegeId = (int) $collegeModel->insert([
+                    'Campus_ID'    => $campusId,
+                    'College_Name' => $collegeName,
+                    'Abbreviation' => $abbreviation,
+                ]);
+                $importSvc->linkBatchCollege($db, $campusId, $graduationYear, $collegeId);
+                $message = 'College created and added to Batch ' . $graduationYear . '.';
+            }
+
+            $db->transCommit();
+            return $this->response->setJSON([
+                'success'    => true,
+                'message'    => $message,
+                'college_id' => $collegeId,
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            log_message('error', 'AlumniController::addBatchCollege failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON(['success' => false, 'message' => 'Unable to add college right now.']);
+        }
+    }
+
+    public function previewBatchCollegesImport(int $graduationYear): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $importSvc = new \App\Services\BatchStructureImportService();
+        $parsed = $importSvc->parseUploadedFile($this->request->getFile('file'));
+        if (! ($parsed['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $parsed['error']]);
+        }
+
+        $analysis = $importSvc->analyzeCollegesAndDepartments($parsed['rows'], (int) $scope['campus_id']);
+        if (! ($analysis['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $analysis['error']]);
+        }
+
+        return $this->response->setJSON([
+            'success'  => true,
+            'colleges' => $analysis['colleges'],
+            'rows'     => $analysis['rows'],
+            'counts'   => $analysis['counts'],
+        ]);
+    }
+
+    public function importBatchColleges(int $graduationYear): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $this->ensureMultiCampusBatchSchema();
+
+        $importSvc = new \App\Services\BatchStructureImportService();
+        $parsed = $importSvc->parseUploadedFile($this->request->getFile('file'));
+        if (! ($parsed['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $parsed['error']]);
+        }
+
+        $analysis = $importSvc->analyzeCollegesAndDepartments($parsed['rows'], $campusId);
+        if (! ($analysis['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $analysis['error']]);
+        }
+
+        if (($analysis['counts']['valid_rows'] ?? 0) === 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'No valid rows found to import. Please fix the validation errors and try again.',
+                'rows'    => $analysis['rows'],
+                'counts'  => $analysis['counts'],
+            ]);
+        }
+
+        try {
+            $summary = $importSvc->commitCollegesAndDepartments($analysis, $campusId, $graduationYear);
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Colleges and departments imported successfully.',
+                'summary' => $summary,
+                'rows'    => $analysis['rows'],
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'AlumniController::importBatchColleges failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON(['success' => false, 'message' => 'Import failed and was rolled back. No partial records were saved.']);
+        }
+    }
+
+    public function downloadBatchCollegesTemplate(): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setBody('Unauthorized.');
+        }
+
+        $format = (string) ($this->request->getGet('format') ?? 'xlsx');
+        $rows = [
+            ['College Name', 'College Abbreviation', 'Department Name', 'Department Abbreviation'],
+            ['College of Engineering', 'COE', 'BS Information Technology', 'BSIT'],
+            ['College of Engineering', 'COE', 'BS Computer Science', 'BSCS'],
+            ['College of Agriculture', 'COA', 'BS Agriculture', 'BSA'],
+        ];
+
+        $tpl = (new \App\Services\BatchStructureImportService())->buildTemplate($rows, $format);
+        return $this->response
+            ->setHeader('Content-Type', $tpl['mime'])
+            ->setHeader('Content-Disposition', 'attachment; filename="colleges_departments_template.' . $tpl['ext'] . '"')
+            ->setBody($tpl['content']);
+    }
+
+    public function addBatchDepartment(int $graduationYear, int $collegeId): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $collegeModel = new \App\Models\CollegeModel();
+        $college = $collegeModel->where('College_ID', $collegeId)->where('Campus_ID', $campusId)->first();
+        if (! is_array($college)) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Selected college does not belong to your campus.']);
+        }
+
+        $payload = $this->request->getJSON(true);
+        if (! is_array($payload)) {
+            $payload = $this->request->getPost();
+        }
+        $deptName = trim((string) ($payload['department_name'] ?? $payload['departmentName'] ?? ''));
+        $abbreviation = trim((string) ($payload['abbreviation'] ?? ''));
+
+        if ($deptName === '') {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => 'Department name is required.']);
+        }
+        if (mb_strlen($deptName) > 150 || mb_strlen($abbreviation) > 20) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => 'Department name or abbreviation exceeds maximum length.']);
+        }
+
+        $this->ensureMultiCampusBatchSchema();
+        $db = \Config\Database::connect();
+        $deptModel = new \App\Models\DepartmentModel();
+        $importSvc = new \App\Services\BatchStructureImportService();
+
+        $db->transBegin();
+        try {
+            $existing = $deptModel
+                ->where('Campus_ID', $campusId)
+                ->where('College_ID', $collegeId)
+                ->where('LOWER("Department_Name")', strtolower($deptName))
+                ->first();
+
+            if (is_array($existing)) {
+                $deptId = (int) $existing['Department_ID'];
+                $alreadyLinked = $db->table('alumni_batch_departments')
+                    ->where('"GraduationYear"', $graduationYear)
+                    ->where('"Department_ID"', $deptId)
+                    ->countAllResults() > 0;
+                if ($alreadyLinked) {
+                    $db->transRollback();
+                    return $this->response->setStatusCode(409)->setJSON([
+                        'success' => false,
+                        'message' => 'This department already exists under this college in Batch ' . $graduationYear . '.',
+                    ]);
+                }
+                $importSvc->linkBatchCollege($db, $campusId, $graduationYear, $collegeId);
+                $importSvc->linkBatchDepartment($db, $graduationYear, $collegeId, $deptId);
+                $message = 'Existing department linked to Batch ' . $graduationYear . '.';
+            } else {
+                $deptId = (int) $deptModel->insert([
+                    'Campus_ID'        => $campusId,
+                    'College_ID'       => $collegeId,
+                    'Department_Name'  => $deptName,
+                    'Abbreviation'     => $abbreviation,
+                    'Coordinator_Name' => '',
+                ]);
+                $importSvc->linkBatchCollege($db, $campusId, $graduationYear, $collegeId);
+                $importSvc->linkBatchDepartment($db, $graduationYear, $collegeId, $deptId);
+                $message = 'Department created and added to ' . $college['College_Name'] . '.';
+            }
+
+            $db->transCommit();
+            return $this->response->setJSON([
+                'success'       => true,
+                'message'       => $message,
+                'department_id' => $deptId,
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            log_message('error', 'AlumniController::addBatchDepartment failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON(['success' => false, 'message' => 'Unable to add department right now.']);
+        }
+    }
+
+    public function previewBatchDepartmentsImport(int $graduationYear, int $collegeId): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $college = (new \App\Models\CollegeModel())->where('College_ID', $collegeId)->where('Campus_ID', $campusId)->first();
+        if (! is_array($college)) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Selected college does not belong to your campus.']);
+        }
+
+        $importSvc = new \App\Services\BatchStructureImportService();
+        $parsed = $importSvc->parseUploadedFile($this->request->getFile('file'));
+        if (! ($parsed['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $parsed['error']]);
+        }
+
+        $analysis = $importSvc->analyzeDepartmentsForCollege($parsed['rows'], $campusId, $collegeId);
+        if (! ($analysis['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $analysis['error']]);
+        }
+
+        return $this->response->setJSON([
+            'success'     => true,
+            'college'     => (string) $college['College_Name'],
+            'departments' => $analysis['departments'],
+            'rows'        => $analysis['rows'],
+            'counts'      => $analysis['counts'],
+        ]);
+    }
+
+    public function importBatchDepartments(int $graduationYear, int $collegeId): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $college = (new \App\Models\CollegeModel())->where('College_ID', $collegeId)->where('Campus_ID', $campusId)->first();
+        if (! is_array($college)) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Selected college does not belong to your campus.']);
+        }
+
+        $this->ensureMultiCampusBatchSchema();
+        $importSvc = new \App\Services\BatchStructureImportService();
+        $parsed = $importSvc->parseUploadedFile($this->request->getFile('file'));
+        if (! ($parsed['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $parsed['error']]);
+        }
+
+        $analysis = $importSvc->analyzeDepartmentsForCollege($parsed['rows'], $campusId, $collegeId);
+        if (! ($analysis['ok'] ?? false)) {
+            return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => $analysis['error']]);
+        }
+
+        if (($analysis['counts']['valid_rows'] ?? 0) === 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'No valid department rows found to import.',
+                'rows'    => $analysis['rows'],
+                'counts'  => $analysis['counts'],
+            ]);
+        }
+
+        try {
+            $summary = $importSvc->commitDepartmentsForCollege($analysis, $campusId, $graduationYear, $collegeId);
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Departments imported successfully under ' . $college['College_Name'] . '.',
+                'summary' => $summary,
+                'rows'    => $analysis['rows'],
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'AlumniController::importBatchDepartments failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON(['success' => false, 'message' => 'Import failed and was rolled back. No partial records were saved.']);
+        }
+    }
+
+    public function downloadBatchDepartmentsTemplate(): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setBody('Unauthorized.');
+        }
+
+        $format = (string) ($this->request->getGet('format') ?? 'xlsx');
+        $rows = [
+            ['Department Name', 'Department Abbreviation'],
+            ['BS Information Technology', 'BSIT'],
+            ['BS Computer Science', 'BSCS'],
+            ['BS Information Systems', 'BSIS'],
+        ];
+
+        $tpl = (new \App\Services\BatchStructureImportService())->buildTemplate($rows, $format);
+        return $this->response
+            ->setHeader('Content-Type', $tpl['mime'])
+            ->setHeader('Content-Disposition', 'attachment; filename="departments_template.' . $tpl['ext'] . '"')
+            ->setBody($tpl['content']);
     }
 
     public function deleteBatch(string $graduationYear): ResponseInterface
@@ -321,26 +826,41 @@ class AlumniController extends BaseController
             ]);
         }
 
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Forbidden.',
+            ]);
+        }
+        $campusId = (int) $scope['campus_id'];
+        $this->ensureMultiCampusBatchSchema();
+
         $db = \Config\Database::connect();
         $yearColumn = $this->getBatchRegistryYearColumn();
 
-        // Check if batch exists in registry
         $existing = $db->table('alumni_batches')
-            ->select('id')
-            ->where($yearColumn, $year)
+            ->select('id, "Campus_ID"')
+            ->where($yearColumn, (int) $year)
+            ->groupStart()
+                ->where('"Campus_ID"', $campusId)
+                ->orWhere('"Campus_ID" IS NULL', null, false)
+            ->groupEnd()
             ->get()
             ->getRowArray();
 
         if (! $existing) {
             return $this->response->setStatusCode(404)->setJSON([
                 'success' => false,
-                'message' => 'Batch not found.',
+                'message' => 'Batch not found in your campus.',
             ]);
         }
 
-        // Check if there are alumni records in this batch
-        $alumniCount = $db->table('alumni')
-            ->where('GraduationYear', $year)
+        // Check if alumni records exist in this batch FOR THIS CAMPUS ONLY
+        $alumniCount = $db->table('alumni a')
+            ->join('colleges c', 'c."College_ID" = a."College_ID"', 'inner')
+            ->where('a."GraduationYear"', $year)
+            ->where('c."Campus_ID"', $campusId)
             ->countAllResults();
 
         if ($alumniCount > 0) {
@@ -350,13 +870,22 @@ class AlumniController extends BaseController
             ]);
         }
 
-        // Delete the batch from registry (no alumni records to delete)
-        $db->table('alumni_batch_departments')
-            ->where('GraduationYear', $year)
+        // Delete ONLY this campus's batch relationships (never affect other campuses)
+        $campusCollegeIds = $scope['college_ids'] ?? [];
+        if ($campusCollegeIds !== []) {
+            $db->table('alumni_batch_departments')
+                ->where('"GraduationYear"', (int) $year)
+                ->whereIn('"College_ID"', $campusCollegeIds)
+                ->delete();
+        }
+
+        $db->table('alumni_batch_colleges')
+            ->where('"Campus_ID"', $campusId)
+            ->where('"GraduationYear"', (int) $year)
             ->delete();
 
         $db->table('alumni_batches')
-            ->where($yearColumn, $year)
+            ->where('id', (int) $existing['id'])
             ->delete();
 
         return $this->response->setJSON([
@@ -909,17 +1438,85 @@ class AlumniController extends BaseController
         );
     }
 
-    private function attachBatchDepartmentSelections(array &$batchMap): void
+    private function ensureMultiCampusBatchSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        try {
+            $db = \Config\Database::connect();
+            $this->ensureBatchRegistryTable();
+            $this->ensureBatchDepartmentTable();
+            $db->query('ALTER TABLE public.alumni_batches ADD COLUMN IF NOT EXISTS "Campus_ID" bigint NULL');
+            $db->query(
+                'CREATE TABLE IF NOT EXISTS public.alumni_batch_colleges (
+                    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    "Campus_ID" bigint NOT NULL,
+                    "GraduationYear" integer NOT NULL,
+                    "College_ID" bigint NOT NULL,
+                    created_at timestamptz DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT unique_batch_campus_college UNIQUE ("Campus_ID", "GraduationYear", "College_ID")
+                )'
+            );
+        } catch (\Throwable $e) {
+            log_message('warning', 'ensureMultiCampusBatchSchema skipped: {msg}', ['msg' => $e->getMessage()]);
+        }
+    }
+
+    private function attachBatchDepartmentSelections(array &$batchMap, int $campusId = 0): void
     {
         $db = \Config\Database::connect();
         $builder = $db->table('alumni_batch_departments abd')
-            ->select('abd.GraduationYear, c.College_Name, d.Department_Name')
-            ->join('colleges c', 'c.College_ID = abd.College_ID', 'left')
-            ->join('departments d', 'd.Department_ID = abd.Department_ID', 'left')
-            ->orderBy('c.College_Name', 'ASC')
-            ->orderBy('d.Department_Name', 'ASC');
+            ->select('abd."GraduationYear", c."College_Name", d."Department_Name"')
+            ->join('colleges c', 'c."College_ID" = abd."College_ID"', 'inner')
+            ->join('departments d', 'd."Department_ID" = abd."Department_ID"', 'inner')
+            ->orderBy('c."College_Name"', 'ASC')
+            ->orderBy('d."Department_Name"', 'ASC');
+
+        if ($campusId > 0) {
+            $builder->where('c."Campus_ID"', $campusId);
+        }
 
         $rows = $builder->get()->getResultArray();
+
+        // Also attach colleges linked via alumni_batch_colleges (even if 0 departments yet)
+        if ($campusId > 0) {
+            try {
+                $bcRows = $db->table('alumni_batch_colleges abc')
+                    ->select('abc."GraduationYear", c."College_Name"')
+                    ->join('colleges c', 'c."College_ID" = abc."College_ID"', 'inner')
+                    ->where('abc."Campus_ID"', $campusId)
+                    ->where('c."Campus_ID"', $campusId)
+                    ->orderBy('c."College_Name"', 'ASC')
+                    ->get()
+                    ->getResultArray();
+                foreach ($bcRows as $bcRow) {
+                    $yr = (string) ($bcRow['GraduationYear'] ?? '');
+                    $cName = trim((string) ($bcRow['College_Name'] ?? ''));
+                    if ($yr === '' || $cName === '') {
+                        continue;
+                    }
+                    if (! isset($batchMap[$yr])) {
+                        $batchMap[$yr] = [
+                            'graduationYear' => $yr,
+                            'alumniCount' => 0,
+                            'activeCount' => 0,
+                            'colleges' => [],
+                            'departments' => [],
+                            'departmentSelections' => [],
+                        ];
+                    }
+                    if (! in_array($cName, $batchMap[$yr]['colleges'], true)) {
+                        $batchMap[$yr]['colleges'][] = $cName;
+                    }
+                }
+            } catch (\Throwable) {
+                // Table may not exist yet
+            }
+        }
 
         foreach ($rows as $row) {
             $year = (string) ($row['GraduationYear'] ?? '');
