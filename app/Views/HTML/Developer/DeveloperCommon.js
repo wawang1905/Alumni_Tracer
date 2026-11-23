@@ -763,12 +763,12 @@ function renderAdminTable() {
             return false;
         }
 
-        const haystack = `${admin.firstName} ${admin.lastName} ${admin.email} ${admin.department}`.toLowerCase();
+        const haystack = `${admin.firstName} ${admin.lastName} ${admin.email} ${admin.campus || ''}`.toLowerCase();
         return haystack.includes(search);
     });
 
     if (visibleUsers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted);">No Head Admin accounts found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted);">No Head Admin accounts found.</td></tr>';
         return;
     }
 
@@ -778,7 +778,6 @@ function renderAdminTable() {
             <tr>
                 <td><strong>${escapeHtml(admin.firstName)} ${escapeHtml(admin.lastName)}</strong></td>
                 <td>${escapeHtml(admin.email)}</td>
-                <td>${escapeHtml(admin.department)}</td>
                 <td>${escapeHtml(admin.role)}</td>
                 <td>${escapeHtml(campusValue)}</td>
                 <td>
@@ -792,6 +791,65 @@ function renderAdminTable() {
             </tr>
         `;
     }).join('');
+}
+
+function generateRandomPassword(length = 12) {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnopqrstuvwxyz';
+    const digits = '23456789';
+    const symbols = '!@#$%^&*';
+    const all = upper + lower + digits + symbols;
+
+    const getRandomIndex = (max) => {
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+            const arr = new Uint32Array(1);
+            window.crypto.getRandomValues(arr);
+            return arr[0] % max;
+        }
+        return Math.floor(Math.random() * max);
+    };
+
+    const chars = [
+        upper[getRandomIndex(upper.length)],
+        lower[getRandomIndex(lower.length)],
+        digits[getRandomIndex(digits.length)],
+        symbols[getRandomIndex(symbols.length)]
+    ];
+
+    for (let i = chars.length; i < length; i += 1) {
+        chars.push(all[getRandomIndex(all.length)]);
+    }
+
+    for (let i = chars.length - 1; i > 0; i -= 1) {
+        const j = getRandomIndex(i + 1);
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+
+    return chars.join('');
+}
+
+function populateAdminCampusDropdown(selectedCampusId = '') {
+    const select = document.getElementById('adminCampus');
+    if (!select) return;
+
+    const selectedStr = selectedCampusId !== null && selectedCampusId !== undefined ? String(selectedCampusId) : '';
+    const options = ['<option value="">-- Unassigned (Assign Later) --</option>'];
+
+    if (Array.isArray(developerCampuses) && developerCampuses.length > 0) {
+        developerCampuses.forEach((campus) => {
+            const idStr = String(campus.id ?? '');
+            const label = campus.abbreviation
+                ? `${campus.campus} (${campus.abbreviation})`
+                : String(campus.campus || 'Unnamed Campus');
+            const selectedAttr = idStr === selectedStr ? ' selected' : '';
+            options.push(`<option value="${escapeHtml(idStr)}"${selectedAttr}>${escapeHtml(label)}</option>`);
+        });
+    }
+
+    select.innerHTML = options.join('');
+    if (selectedStr) {
+        select.value = selectedStr;
+    }
 }
 
 function populateRoleDropdown() {
@@ -816,7 +874,22 @@ function openAdminModal(admin = null) {
     document.getElementById('adminFirstName').value = admin?.firstName || '';
     document.getElementById('adminLastName').value = admin?.lastName || '';
     document.getElementById('adminEmail').value = admin?.email || '';
-    document.getElementById('adminDepartment').value = admin?.department || '';
+    populateAdminCampusDropdown(admin?.campusId ?? '');
+
+    const passwordInput = document.getElementById('adminPassword');
+    const passwordHint = document.getElementById('adminPasswordHint');
+    if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.placeholder = admin
+            ? 'Leave blank to keep current password'
+            : 'Enter password or click Generate';
+    }
+    if (passwordHint) {
+        passwordHint.textContent = admin
+            ? 'Optional: enter or generate a new password to replace the current one.'
+            : 'Required for new account (min. 6 characters).';
+    }
+
     document.getElementById('adminRole').value = 'head_admin';
     document.getElementById('adminStatus').value = admin?.status || 'Active';
     const modal = document.getElementById('adminModal');
@@ -831,11 +904,18 @@ function closeAdminModal() {
 }
 
 async function saveAdminAccount() {
+    const passwordInput = document.getElementById('adminPassword');
+    const campusSelect = document.getElementById('adminCampus');
+    const password = passwordInput ? passwordInput.value.trim() : '';
+    const campusId = campusSelect ? campusSelect.value.trim() : '';
+    const isEdit = Boolean(editingAdminId);
+
     const account = {
         firstName: document.getElementById('adminFirstName').value.trim(),
         lastName: document.getElementById('adminLastName').value.trim(),
         email: document.getElementById('adminEmail').value.trim(),
-        department: document.getElementById('adminDepartment').value.trim(),
+        campusId: campusId,
+        password: password,
         role: document.getElementById('adminRole').value,
         status: document.getElementById('adminStatus').value,
         existingEmail: editingAdminId || ''
@@ -846,7 +926,18 @@ async function saveAdminAccount() {
         return;
     }
 
-    const isEdit = Boolean(editingAdminId);
+    if (!isEdit && !account.password) {
+        showToast('Please enter or generate a password for the new Head Admin.');
+        passwordInput?.focus();
+        return;
+    }
+
+    if (account.password && account.password.length < 6) {
+        showToast('Password must be at least 6 characters long.');
+        passwordInput?.focus();
+        return;
+    }
+
     const confirmed = await askConfirmation({
         title: isEdit ? 'Confirm Update Account' : 'Confirm Add Head Admin',
         message: isEdit
@@ -871,7 +962,7 @@ async function saveAdminAccount() {
         }
 
         closeAdminModal();
-        await loadDeveloperUsers();
+        await Promise.all([loadDeveloperUsers(), loadCampuses()]);
         showToast('Account saved.');
     } catch (error) {
         showToast(error.message || 'Account save failed.');
@@ -1592,6 +1683,7 @@ async function loadCampuses() {
         if (!response.ok) throw new Error('Unable to load campuses');
         const data = await response.json();
         developerCampuses = Array.isArray(data.campuses) ? data.campuses : [];
+        populateAdminCampusDropdown(document.getElementById('adminCampus')?.value || '');
         renderCampusTable();
         renderMetrics();
     } catch (error) {
@@ -1756,6 +1848,18 @@ function bindEvents() {
 
     const saveAdminAccountButton = document.getElementById('saveAdminAccount');
     if (saveAdminAccountButton) saveAdminAccountButton.addEventListener('click', saveAdminAccount);
+
+    const generateAdminPasswordBtn = document.getElementById('generateAdminPasswordBtn');
+    if (generateAdminPasswordBtn) {
+        generateAdminPasswordBtn.addEventListener('click', () => {
+            const passwordInput = document.getElementById('adminPassword');
+            if (!passwordInput) return;
+            passwordInput.value = generateRandomPassword(12);
+            passwordInput.focus();
+            passwordInput.select();
+            showToast('Random password generated.');
+        });
+    }
 
     const saveSystemSettingsButton = document.getElementById('saveSystemSettings');
     if (saveSystemSettingsButton) saveSystemSettingsButton.addEventListener('click', saveSystemSettings);

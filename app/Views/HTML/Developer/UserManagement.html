@@ -100,7 +100,7 @@
                     <div class="toolbar-row">
                         <label class="search-field">
                             <i class="fas fa-search"></i>
-                            <input type="search" id="adminSearch" placeholder="Search name, email, department">
+                            <input type="search" id="adminSearch" placeholder="Search name, email, campus">
                         </label>
                     </div>
                     <div class="table-wrap">
@@ -109,7 +109,6 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Email</th>
-                                    <th>Department</th>
                                     <th>Role</th>
                                     <th>Campus</th>
                                     <th>Actions</th>
@@ -145,9 +144,22 @@
                     <input class="form-control" id="adminEmail" type="email">
                 </label>
                 <label class="form-field">
-                    <span>Department</span>
-                    <input class="form-control" id="adminDepartment" type="text">
+                    <span>Campus (Optional)</span>
+                    <select class="form-control" id="adminCampus">
+                        <option value="">-- Unassigned (Assign Later) --</option>
+                    </select>
                 </label>
+                <div class="form-field wide-field">
+                    <span>Password</span>
+                    <div class="password-input-row">
+                        <input class="form-control" id="adminPassword" type="text" autocomplete="new-password" placeholder="Enter password or click Generate">
+                        <button class="btn-secondary generate-password-btn" type="button" id="generateAdminPasswordBtn" title="Generate a random password">
+                            <i class="fas fa-wand-magic-sparkles"></i>
+                            Generate
+                        </button>
+                    </div>
+                    <small class="form-field-hint" id="adminPasswordHint">Required for new account (min. 6 characters).</small>
+                </div>
                 <label class="form-field">
                     <span>Role</span>
                     <select class="form-control" id="adminRole">

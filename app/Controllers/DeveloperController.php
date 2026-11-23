@@ -340,9 +340,10 @@ class DeveloperController extends BaseController
         $firstName = trim((string) ($payload['firstName'] ?? $payload['first_name'] ?? ''));
         $lastName = trim((string) ($payload['lastName'] ?? $payload['last_name'] ?? ''));
         $email = strtolower(trim((string) ($payload['email'] ?? '')));
-        $department = trim((string) ($payload['department'] ?? ''));
         $roleValue = $this->normalizeRoleValue((string) ($payload['role'] ?? ''));
         $existingEmail = strtolower(trim((string) ($payload['existingEmail'] ?? '')));
+        $passwordInput = trim((string) ($payload['password'] ?? ''));
+        $resetPassword = isset($payload['resetPassword']) && (bool) $payload['resetPassword'];
 
         if ($firstName === '' || $lastName === '' || $email === '') {
             return $this->response->setStatusCode(422)->setJSON([
@@ -352,14 +353,60 @@ class DeveloperController extends BaseController
         }
 
         $existingUser = $existingEmail !== '' ? $this->userAccountModel->findByEmail($existingEmail) : null;
-        $password = $existingUser['Password'] ?? (isset($payload['resetPassword']) && (bool) $payload['resetPassword'] ? 'ustp123' : 'ustp123');
+
+        if ($existingUser === null) {
+            if ($passwordInput === '') {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => 'Please enter or generate a password for the new Head Admin.',
+                ]);
+            }
+            if (strlen($passwordInput) < 6) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => 'Password must be at least 6 characters long.',
+                ]);
+            }
+            $password = $passwordInput;
+        } elseif ($resetPassword) {
+            $password = $passwordInput !== '' ? $passwordInput : 'ustp123';
+        } elseif ($passwordInput !== '') {
+            if (strlen($passwordInput) < 6) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => 'Password must be at least 6 characters long.',
+                ]);
+            }
+            $password = $passwordInput;
+        } else {
+            $password = (string) ($existingUser['Password'] ?? 'ustp123');
+        }
+
+        $hasCampusField = array_key_exists('campusId', $payload) || array_key_exists('campus_id', $payload);
+        $campusId = null;
+        if ($hasCampusField) {
+            $rawCampus = $payload['campusId'] ?? $payload['campus_id'] ?? null;
+            if ($rawCampus !== null && $rawCampus !== '' && (int) $rawCampus > 0) {
+                $campusRecord = $this->campusModel->where('Campus_ID', (int) $rawCampus)->first();
+                if (! is_array($campusRecord)) {
+                    return $this->response->setStatusCode(422)->setJSON([
+                        'success' => false,
+                        'message' => 'Selected campus does not exist.',
+                    ]);
+                }
+                $campusId = (int) $rawCampus;
+            }
+        } elseif ($existingUser !== null && isset($existingUser['Campus']) && (int) $existingUser['Campus'] > 0) {
+            $campusId = (int) $existingUser['Campus'];
+        }
 
         $userData = [
             'First_Name' => $firstName,
             'Last_Name' => $lastName,
             'Role' => $roleValue,
             'Email' => $email,
-            'Department' => $department,
+            'Department' => '',
+            'Campus' => $campusId,
             'Password' => $password,
         ];
 
@@ -373,6 +420,11 @@ class DeveloperController extends BaseController
             $this->userAccountModel->insert($userData);
         }
 
+        // Keep campuses.Alumni_Head_Email in sync with Head Admin campus assignment
+        if ($hasCampusField || ($existingEmail !== '' && $existingEmail !== $email)) {
+            $this->syncHeadAdminCampusAssignment($email, $campusId, $existingEmail);
+        }
+
         // Sync user and app_metadata role to Supabase Auth
         $this->supabaseAuth->syncLocalUserToSupabase($userData, (string) $password);
 
@@ -380,6 +432,41 @@ class DeveloperController extends BaseController
             'success' => true,
             'message' => 'User account saved.',
         ]);
+    }
+
+    private function syncHeadAdminCampusAssignment(string $email, ?int $campusId, string $previousEmail = ''): void
+    {
+        $normalizedEmail = strtolower(trim($email));
+        $normalizedPrev = strtolower(trim($previousEmail));
+
+        // Clear any previous campus pointing to this admin (or their previous email)
+        if ($normalizedPrev !== '') {
+            $this->campusModel->set(['Alumni_Head_Email' => null])
+                ->where('LOWER("Alumni_Head_Email")', $normalizedPrev)
+                ->update();
+        }
+        $this->campusModel->set(['Alumni_Head_Email' => null])
+            ->where('LOWER("Alumni_Head_Email")', $normalizedEmail)
+            ->update();
+
+        if ($campusId === null || $campusId <= 0) {
+            return;
+        }
+
+        // If another Head Admin was previously assigned to this campus, unassign them
+        $targetCampus = $this->campusModel->where('Campus_ID', $campusId)->first();
+        if (is_array($targetCampus)) {
+            $oldHeadEmail = strtolower(trim((string) ($targetCampus['Alumni_Head_Email'] ?? '')));
+            if ($oldHeadEmail !== '' && $oldHeadEmail !== $normalizedEmail) {
+                $this->userAccountModel->set(['Campus' => null])
+                    ->where('LOWER("Email")', $oldHeadEmail)
+                    ->update();
+            }
+        }
+
+        $this->campusModel->set(['Alumni_Head_Email' => $normalizedEmail])
+            ->where('Campus_ID', $campusId)
+            ->update();
     }
 
     public function deleteUser(string $email): ResponseInterface
@@ -1199,6 +1286,7 @@ class DeveloperController extends BaseController
             'department' => (string) ($user['Department'] ?? ''),
             'role' => format_user_role_label($role),
             'roleValue' => $role,
+            'campusId' => ($campusId !== null && $campusId !== '' && (int) $campusId > 0) ? (int) $campusId : null,
             'campus' => $campusName,
             'status' => 'Active',
             'lastActive' => 'Database synced',
