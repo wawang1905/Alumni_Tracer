@@ -802,11 +802,16 @@ function generateRandomPassword(length = 12) {
 
     const getRandomIndex = (max) => {
         if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+            const maxValid = Math.floor(0x100000000 / max) * max;
             const arr = new Uint32Array(1);
-            window.crypto.getRandomValues(arr);
-            return arr[0] % max;
+            let value = 0;
+            do {
+                window.crypto.getRandomValues(arr);
+                value = arr[0];
+            } while (value >= maxValid);
+            return value % max;
         }
-        return Math.floor(Math.random() * max);
+        throw new Error('Secure random number generation is not available in this browser.');
     };
 
     const chars = [
@@ -868,6 +873,30 @@ function populateRoleDropdown() {
     }
 }
 
+function isValidGmailAddress(email) {
+    return /^[a-z0-9._%+-]+@gmail\.com$/i.test(String(email || '').trim());
+}
+
+function updateAdminEmailValidationState(forceShow = false) {
+    const emailInput = document.getElementById('adminEmail');
+    const emailHint = document.getElementById('adminEmailHint');
+    if (!emailInput) return true;
+
+    const value = emailInput.value.trim();
+    const isValid = isValidGmailAddress(value);
+    const showInvalid = (value !== '' && !isValid) || (forceShow && !isValid);
+
+    emailInput.classList.toggle('is-limit-reached', showInvalid);
+    if (emailHint) {
+        emailHint.classList.toggle('is-limit-reached', showInvalid);
+        emailHint.textContent = showInvalid
+            ? 'Please enter a valid Google account (@gmail.com).'
+            : 'Must be a Google account (@gmail.com).';
+    }
+
+    return isValid;
+}
+
 function updateAdminPasswordLimitState() {
     const passwordInput = document.getElementById('adminPassword');
     const passwordHint = document.getElementById('adminPasswordHint');
@@ -906,6 +935,7 @@ function openAdminModal(admin = null) {
     document.getElementById('adminFirstName').value = admin?.firstName || '';
     document.getElementById('adminLastName').value = admin?.lastName || '';
     document.getElementById('adminEmail').value = admin?.email || '';
+    updateAdminEmailValidationState(false);
     populateAdminCampusDropdown(admin?.campusId ?? '');
 
     const passwordInput = document.getElementById('adminPassword');
@@ -925,9 +955,72 @@ function openAdminModal(admin = null) {
 }
 
 function closeAdminModal() {
+    const passwordInput = document.getElementById('adminPassword');
+    if (passwordInput) {
+        passwordInput.value = '';
+    }
     const modal = document.getElementById('adminModal');
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function openCreatedCredentialsModal({ title = 'Head Admin Credentials', name = '', email = '', campus = 'Not Assigned', password = '' }) {
+    const modal = document.getElementById('createdAdminCredentialsModal');
+    if (!modal || !password) return;
+
+    const titleEl = document.getElementById('createdCredentialsTitle');
+    const nameEl = document.getElementById('createdCredName');
+    const emailEl = document.getElementById('createdCredEmail');
+    const campusEl = document.getElementById('createdCredCampus');
+    const passwordEl = document.getElementById('createdCredPassword');
+
+    if (titleEl) titleEl.textContent = title;
+    if (nameEl) nameEl.textContent = name || '—';
+    if (emailEl) emailEl.textContent = email || '—';
+    if (campusEl) campusEl.textContent = campus || 'Not Assigned';
+    if (passwordEl) passwordEl.textContent = password;
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeCreatedCredentialsModal() {
+    const modal = document.getElementById('createdAdminCredentialsModal');
+    const passwordEl = document.getElementById('createdCredPassword');
+    if (passwordEl) {
+        passwordEl.textContent = '';
+    }
+    if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+async function copyCreatedAdminPassword() {
+    const passwordEl = document.getElementById('createdCredPassword');
+    const password = passwordEl ? passwordEl.textContent.trim() : '';
+    if (!password) return;
+
+    try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(password);
+        } else {
+            const temp = document.createElement('textarea');
+            temp.value = password;
+            temp.setAttribute('readonly', '');
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+        }
+        showToast('Password copied to clipboard.');
+    } catch (error) {
+        showToast('Could not copy password automatically. Please select and copy it manually.');
+    }
 }
 
 async function saveAdminAccount() {
@@ -950,6 +1043,12 @@ async function saveAdminAccount() {
 
     if (!account.firstName || !account.lastName || !account.email) {
         showToast('Please complete the required account fields.');
+        return;
+    }
+
+    if (!updateAdminEmailValidationState(true)) {
+        showToast('Email must be a valid Google account (@gmail.com).');
+        document.getElementById('adminEmail')?.focus();
         return;
     }
 
@@ -994,9 +1093,24 @@ async function saveAdminAccount() {
             throw new Error(data.message || 'Could not save the account.');
         }
 
+        const selectedCampusText = campusSelect && campusSelect.value
+            ? (campusSelect.options[campusSelect.selectedIndex]?.textContent?.trim() || 'Assigned')
+            : 'Not Assigned';
+        const displayPassword = data.generatedPassword || account.password || '';
+
         closeAdminModal();
         await Promise.all([loadDeveloperUsers(), loadCampuses()]);
-        showToast('Account saved.');
+        showToast(data.message || 'Account saved.');
+
+        if (displayPassword && (!isEdit || Boolean(account.password))) {
+            openCreatedCredentialsModal({
+                title: isEdit ? 'Head Admin Password Updated' : 'Head Admin Account Created',
+                name: `${account.firstName} ${account.lastName}`.trim(),
+                email: account.email,
+                campus: selectedCampusText,
+                password: displayPassword
+            });
+        }
     } catch (error) {
         showToast(error.message || 'Account save failed.');
     }
@@ -1013,7 +1127,7 @@ async function resetAdminPassword(email) {
 
     const confirmed = await askConfirmation({
         title: 'Confirm Password Reset',
-        message: `Are you sure you want to reset the password for ${admin.firstName} ${admin.lastName} (${admin.email})?`,
+        message: `Are you sure you want to generate a new random password for ${admin.firstName} ${admin.lastName} (${admin.email})?`,
         confirmText: 'Reset Password',
         icon: 'fa-key'
     });
@@ -1030,7 +1144,16 @@ async function resetAdminPassword(email) {
         if (!response.ok || !data.success) {
             throw new Error(data.message || 'Password reset failed.');
         }
-        showToast('Password reset flag created.');
+        showToast(data.message || 'Password reset successfully.');
+        if (data.generatedPassword) {
+            openCreatedCredentialsModal({
+                title: 'Head Admin Password Reset',
+                name: `${admin.firstName} ${admin.lastName}`.trim(),
+                email: admin.email,
+                campus: admin.campus || 'Not Assigned',
+                password: data.generatedPassword
+            });
+        }
     } catch (error) {
         showToast(error.message || 'Password reset failed.');
     }
@@ -1882,6 +2005,12 @@ function bindEvents() {
     const saveAdminAccountButton = document.getElementById('saveAdminAccount');
     if (saveAdminAccountButton) saveAdminAccountButton.addEventListener('click', saveAdminAccount);
 
+    const adminEmailInput = document.getElementById('adminEmail');
+    if (adminEmailInput) {
+        adminEmailInput.addEventListener('input', () => updateAdminEmailValidationState(false));
+        adminEmailInput.addEventListener('blur', () => updateAdminEmailValidationState(false));
+    }
+
     const adminPasswordInput = document.getElementById('adminPassword');
     if (adminPasswordInput) {
         adminPasswordInput.addEventListener('input', updateAdminPasswordLimitState);
@@ -1892,12 +2021,31 @@ function bindEvents() {
         generateAdminPasswordBtn.addEventListener('click', () => {
             const passwordInput = document.getElementById('adminPassword');
             if (!passwordInput) return;
-            passwordInput.value = generateRandomPassword(12);
-            updateAdminPasswordLimitState();
-            passwordInput.focus();
-            passwordInput.select();
-            showToast('Random password generated.');
+            try {
+                passwordInput.value = generateRandomPassword(12);
+                updateAdminPasswordLimitState();
+                passwordInput.focus();
+                passwordInput.select();
+                showToast('Random password generated.');
+            } catch (error) {
+                showToast('Could not generate a secure password in this browser.');
+            }
         });
+    }
+
+    const closeCreatedCredentialsBtn = document.getElementById('closeCreatedCredentialsModal');
+    if (closeCreatedCredentialsBtn) {
+        closeCreatedCredentialsBtn.addEventListener('click', closeCreatedCredentialsModal);
+    }
+
+    const doneCreatedCredentialsBtn = document.getElementById('doneCreatedCredentialsModal');
+    if (doneCreatedCredentialsBtn) {
+        doneCreatedCredentialsBtn.addEventListener('click', closeCreatedCredentialsModal);
+    }
+
+    const copyCreatedPasswordBtn = document.getElementById('copyCreatedPasswordBtn');
+    if (copyCreatedPasswordBtn) {
+        copyCreatedPasswordBtn.addEventListener('click', copyCreatedAdminPassword);
     }
 
     const saveSystemSettingsButton = document.getElementById('saveSystemSettings');

@@ -873,6 +873,62 @@ textarea {
     font-weight: 700;
 }
 
+.credentials-summary-box {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.credentials-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.credentials-row {
+    display: grid;
+    gap: 4px;
+}
+
+.credentials-row span {
+    color: #4c5e6f;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.credentials-row strong {
+    color: var(--nav);
+    font-size: 14px;
+}
+
+.credentials-password-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.credentials-password-value {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    user-select: all;
+}
+
 .wide-field {
     grid-column: span 2;
 }

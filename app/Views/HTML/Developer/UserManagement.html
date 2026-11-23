@@ -141,7 +141,8 @@
                 </label>
                 <label class="form-field">
                     <span>Email</span>
-                    <input class="form-control" id="adminEmail" type="email">
+                    <input class="form-control" id="adminEmail" type="email" placeholder="example@gmail.com" pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$">
+                    <small class="form-field-hint" id="adminEmailHint">Must be a Google account (@gmail.com).</small>
                 </label>
                 <label class="form-field">
                     <span>Campus (Optional)</span>
@@ -180,6 +181,48 @@
             <div class="modal-actions">
                 <button class="btn-secondary" type="button" id="cancelAdminModal">Cancel</button>
                 <button class="btn-primary" type="button" id="saveAdminAccount">Save Account</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="createdAdminCredentialsModal" aria-hidden="true">
+        <div class="modal-content confirm-modal-content" role="dialog" aria-modal="true" aria-labelledby="createdCredentialsTitle">
+            <div class="modal-header">
+                <h3 id="createdCredentialsTitle">Head Admin Credentials</h3>
+                <button class="icon-button" type="button" id="closeCreatedCredentialsModal" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="credentials-summary-box">
+                <p class="credentials-warning">
+                    <i class="fas fa-shield-halved"></i>
+                    Save or copy this password now. For security, it will not be shown again after you close this window.
+                </p>
+                <div class="credentials-row">
+                    <span>Account Name</span>
+                    <strong id="createdCredName"></strong>
+                </div>
+                <div class="credentials-row">
+                    <span>Email</span>
+                    <strong id="createdCredEmail"></strong>
+                </div>
+                <div class="credentials-row">
+                    <span>Campus</span>
+                    <strong id="createdCredCampus"></strong>
+                </div>
+                <div class="credentials-row">
+                    <span>Temporary Password</span>
+                    <div class="credentials-password-row">
+                        <code id="createdCredPassword" class="credentials-password-value"></code>
+                        <button class="btn-secondary" type="button" id="copyCreatedPasswordBtn">
+                            <i class="fas fa-copy"></i>
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" type="button" id="doneCreatedCredentialsModal">Done</button>
             </div>
         </div>
     </div>

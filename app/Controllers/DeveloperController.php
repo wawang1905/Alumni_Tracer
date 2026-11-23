@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\Activity_Model;
 use App\Models\UserAccountModel;
 use App\Models\CampusModel;
 use App\Services\SupabaseAuthService;
@@ -11,12 +12,14 @@ class DeveloperController extends BaseController
 {
     private UserAccountModel $userAccountModel;
     private CampusModel $campusModel;
+    private Activity_Model $activityModel;
     private SupabaseAuthService $supabaseAuth;
 
     public function __construct()
     {
         $this->userAccountModel = new UserAccountModel();
         $this->campusModel = new CampusModel();
+        $this->activityModel = new Activity_Model();
         $this->supabaseAuth = new SupabaseAuthService();
     }
 
@@ -337,8 +340,8 @@ class DeveloperController extends BaseController
             $payload = $this->request->getPost();
         }
 
-        $firstName = trim((string) ($payload['firstName'] ?? $payload['first_name'] ?? ''));
-        $lastName = trim((string) ($payload['lastName'] ?? $payload['last_name'] ?? ''));
+        $firstName = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', (string) ($payload['firstName'] ?? $payload['first_name'] ?? '')) ?? '');
+        $lastName = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', (string) ($payload['lastName'] ?? $payload['last_name'] ?? '')) ?? '');
         $email = strtolower(trim((string) ($payload['email'] ?? '')));
         $roleValue = $this->normalizeRoleValue((string) ($payload['role'] ?? ''));
         $existingEmail = strtolower(trim((string) ($payload['existingEmail'] ?? '')));
@@ -352,24 +355,75 @@ class DeveloperController extends BaseController
             ]);
         }
 
-        $existingUser = $existingEmail !== '' ? $this->userAccountModel->findByEmail($existingEmail) : null;
+        if (mb_strlen($firstName) > 100 || mb_strlen($lastName) > 100) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'First name and last name must not exceed 100 characters.',
+            ]);
+        }
 
-        if ($existingUser === null) {
+        if (strlen($email) > 255 || ! filter_var($email, FILTER_VALIDATE_EMAIL) || ! str_ends_with($email, '@gmail.com')) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'Email must be a valid Google account (@gmail.com).',
+            ]);
+        }
+
+        $isEdit = $existingEmail !== '';
+        $existingUser = $isEdit ? $this->userAccountModel->findByEmail($existingEmail) : null;
+
+        if ($isEdit && $existingUser === null) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'success' => false,
+                'message' => 'Head Admin account not found.',
+            ]);
+        }
+
+        if ($existingUser !== null && normalize_role((string) ($existingUser['Role'] ?? '')) !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Only Head Admin accounts can be managed here.',
+            ]);
+        }
+
+        // Prevent duplicate accounts on creation or email rename
+        $emailOwner = $this->userAccountModel->findByEmail($email);
+        if (! $isEdit && $emailOwner !== null) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'success' => false,
+                'message' => 'An account with this email address already exists.',
+            ]);
+        }
+        if ($isEdit && $existingEmail !== $email && $emailOwner !== null) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'success' => false,
+                'message' => 'Another account with this email address already exists.',
+            ]);
+        }
+
+        $supabasePlainPassword = null;
+        $serverGeneratedPassword = null;
+
+        if (! $isEdit) {
             if ($passwordInput === '') {
-                return $this->response->setStatusCode(422)->setJSON([
-                    'success' => false,
-                    'message' => 'Please enter or generate a password for the new Head Admin.',
-                ]);
+                $plainPassword = $this->generateSecureRandomPassword(12);
+                $serverGeneratedPassword = $plainPassword;
+            } else {
+                if (strlen($passwordInput) < 6 || strlen($passwordInput) > 12) {
+                    return $this->response->setStatusCode(422)->setJSON([
+                        'success' => false,
+                        'message' => 'Password must be between 6 and 12 characters long.',
+                    ]);
+                }
+                $plainPassword = $passwordInput;
             }
-            if (strlen($passwordInput) < 6 || strlen($passwordInput) > 12) {
-                return $this->response->setStatusCode(422)->setJSON([
-                    'success' => false,
-                    'message' => 'Password must be between 6 and 12 characters long.',
-                ]);
-            }
-            $password = $passwordInput;
+            $storedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
+            $supabasePlainPassword = $plainPassword;
         } elseif ($resetPassword) {
-            $password = $passwordInput !== '' ? $passwordInput : 'ustp123';
+            $plainPassword = $this->generateSecureRandomPassword(12);
+            $serverGeneratedPassword = $plainPassword;
+            $storedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
+            $supabasePlainPassword = $plainPassword;
         } elseif ($passwordInput !== '') {
             if (strlen($passwordInput) < 6 || strlen($passwordInput) > 12) {
                 return $this->response->setStatusCode(422)->setJSON([
@@ -377,13 +431,20 @@ class DeveloperController extends BaseController
                     'message' => 'Password must be between 6 and 12 characters long.',
                 ]);
             }
-            $password = $passwordInput;
+            $storedPassword = password_hash($passwordInput, PASSWORD_DEFAULT);
+            $supabasePlainPassword = $passwordInput;
         } else {
-            $password = (string) ($existingUser['Password'] ?? 'ustp123');
+            $existingPassword = (string) ($existingUser['Password'] ?? '');
+            if ($existingPassword !== '' && ! str_starts_with($existingPassword, '$2y$') && ! str_starts_with($existingPassword, '$argon2')) {
+                $storedPassword = password_hash($existingPassword, PASSWORD_DEFAULT);
+            } else {
+                $storedPassword = $existingPassword;
+            }
         }
 
         $hasCampusField = array_key_exists('campusId', $payload) || array_key_exists('campus_id', $payload);
         $campusId = null;
+        $campusName = '';
         if ($hasCampusField) {
             $rawCampus = $payload['campusId'] ?? $payload['campus_id'] ?? null;
             if ($rawCampus !== null && $rawCampus !== '' && (int) $rawCampus > 0) {
@@ -395,9 +456,12 @@ class DeveloperController extends BaseController
                     ]);
                 }
                 $campusId = (int) $rawCampus;
+                $campusName = (string) ($campusRecord['Campus'] ?? '');
             }
         } elseif ($existingUser !== null && isset($existingUser['Campus']) && (int) $existingUser['Campus'] > 0) {
             $campusId = (int) $existingUser['Campus'];
+            $campusRecord = $this->campusModel->where('Campus_ID', $campusId)->first();
+            $campusName = is_array($campusRecord) ? (string) ($campusRecord['Campus'] ?? '') : '';
         }
 
         $userData = [
@@ -407,31 +471,136 @@ class DeveloperController extends BaseController
             'Email' => $email,
             'Department' => '',
             'Campus' => $campusId,
-            'Password' => $password,
+            'Password' => $storedPassword,
         ];
 
+        $db = \Config\Database::connect();
+        try {
+            $db->transBegin();
+
+            if ($existingUser !== null && $existingEmail !== '' && $existingEmail !== $email) {
+                $this->userAccountModel->where('LOWER("Email")', $existingEmail)->delete();
+                $this->userAccountModel->insert($userData);
+            } elseif ($existingUser !== null) {
+                $this->userAccountModel->set($userData)->where('LOWER("Email")', $existingEmail)->update();
+            } else {
+                $this->userAccountModel->insert($userData);
+            }
+
+            // Keep campuses.Alumni_Head_Email in sync with Head Admin campus assignment
+            if ($hasCampusField || ($existingEmail !== '' && $existingEmail !== $email)) {
+                $this->syncHeadAdminCampusAssignment($email, $campusId, $existingEmail);
+            }
+
+            if ($db->transStatus() === false) {
+                $db->transRollback();
+                throw new \RuntimeException('Database transaction failed while saving Head Admin account.');
+            }
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            if ($db->transStatus() === false) {
+                $db->transRollback();
+            }
+            log_message('error', 'DeveloperController::saveUser failed for email {email}: {msg}', [
+                'email' => $email,
+                'msg'   => $e->getMessage(),
+            ]);
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Failed to save Head Admin account. Please try again.',
+            ]);
+        }
+
         if ($existingUser !== null && $existingEmail !== '' && $existingEmail !== $email) {
-            $this->userAccountModel->where('Email', $existingEmail)->delete();
-            $this->userAccountModel->insert($userData);
             $this->supabaseAuth->adminDeleteUserByEmail($existingEmail);
-        } elseif ($existingUser !== null) {
-            $this->userAccountModel->set($userData)->where('Email', $existingEmail !== '' ? $existingEmail : $email)->update();
-        } else {
-            $this->userAccountModel->insert($userData);
         }
 
-        // Keep campuses.Alumni_Head_Email in sync with Head Admin campus assignment
-        if ($hasCampusField || ($existingEmail !== '' && $existingEmail !== $email)) {
-            $this->syncHeadAdminCampusAssignment($email, $campusId, $existingEmail);
-        }
+        // Sync user and app_metadata role to Supabase Auth (never pass password hash as plaintext)
+        $this->supabaseAuth->syncLocalUserToSupabase($userData, $supabasePlainPassword);
 
-        // Sync user and app_metadata role to Supabase Auth
-        $this->supabaseAuth->syncLocalUserToSupabase($userData, (string) $password);
+        // Record activity log (never include password or password hash)
+        $this->recordHeadAdminActivity(
+            ! $isEdit ? 'Created Head Admin Account' : ($resetPassword ? 'Reset Head Admin Password' : 'Updated Head Admin Account'),
+            [
+                'name'        => trim($firstName . ' ' . $lastName),
+                'email'       => $email,
+                'target_role' => $roleValue,
+                'campus_id'   => $campusId,
+                'campus_name' => $campusName !== '' ? $campusName : 'Unassigned',
+            ]
+        );
 
-        return $this->response->setJSON([
+        $responsePayload = [
             'success' => true,
-            'message' => 'User account saved.',
-        ]);
+            'message' => ! $isEdit
+                ? 'Head Admin account created successfully.'
+                : ($resetPassword ? 'Head Admin password reset successfully.' : 'Head Admin account updated successfully.'),
+        ];
+
+        if ($serverGeneratedPassword !== null) {
+            $responsePayload['generatedPassword'] = $serverGeneratedPassword;
+        }
+
+        return $this->response
+            ->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->setHeader('Pragma', 'no-cache')
+            ->setJSON($responsePayload);
+    }
+
+    private function generateSecureRandomPassword(int $length = 12): string
+    {
+        $length = max(12, $length);
+        $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $lower = 'abcdefghijkmnopqrstuvwxyz';
+        $digits = '23456789';
+        $symbols = '!@#$%^&*';
+        $all = $upper . $lower . $digits . $symbols;
+
+        $chars = [
+            $upper[random_int(0, strlen($upper) - 1)],
+            $lower[random_int(0, strlen($lower) - 1)],
+            $digits[random_int(0, strlen($digits) - 1)],
+            $symbols[random_int(0, strlen($symbols) - 1)],
+        ];
+
+        for ($i = count($chars); $i < $length; $i++) {
+            $chars[] = $all[random_int(0, strlen($all) - 1)];
+        }
+
+        for ($i = count($chars) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            [$chars[$i], $chars[$j]] = [$chars[$j], $chars[$i]];
+        }
+
+        return implode('', $chars);
+    }
+
+    private function recordHeadAdminActivity(string $action, array $details): void
+    {
+        try {
+            $authUser = session('auth_user');
+            $actor = is_array($authUser) ? $authUser : [];
+
+            // Explicitly strip any sensitive keys if ever passed
+            unset($details['password'], $details['Password'], $details['password_hash'], $details['generatedPassword']);
+
+            $this->activityModel->logActivity(
+                $actor,
+                $action,
+                'user_management',
+                $details,
+                'developer',
+                (string) $this->request->getIPAddress(),
+                (string) $this->request->getUserAgent()
+            );
+        } catch (\Throwable $e) {
+            log_message('warning', 'Failed to record Head Admin activity log ({action}): {msg}', [
+                'action' => $action,
+                'msg'    => $e->getMessage(),
+            ]);
+        }
     }
 
     private function syncHeadAdminCampusAssignment(string $email, ?int $campusId, string $previousEmail = ''): void
@@ -488,8 +657,31 @@ class DeveloperController extends BaseController
 
         $normalizedEmail = strtolower(trim(urldecode($email)));
         if ($normalizedEmail !== '') {
-            $this->userAccountModel->where('Email', $normalizedEmail)->delete();
+            $existingUser = $this->userAccountModel->findByEmail($normalizedEmail);
+            if ($existingUser === null) {
+                return $this->response->setStatusCode(404)->setJSON([
+                    'success' => false,
+                    'message' => 'Head Admin account not found.',
+                ]);
+            }
+
+            if (normalize_role((string) ($existingUser['Role'] ?? '')) !== 'head_admin') {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => 'Only Head Admin accounts can be deleted here.',
+                ]);
+            }
+
+            $this->userAccountModel->where('LOWER("Email")', $normalizedEmail)->delete();
+            $this->campusModel->set(['Alumni_Head_Email' => null])
+                ->where('LOWER("Alumni_Head_Email")', $normalizedEmail)
+                ->update();
             $this->supabaseAuth->adminDeleteUserByEmail($normalizedEmail);
+
+            $this->recordHeadAdminActivity('Deleted Head Admin Account', [
+                'name'  => trim((string) ($existingUser['First_Name'] ?? '') . ' ' . (string) ($existingUser['Last_Name'] ?? '')),
+                'email' => $normalizedEmail,
+            ]);
         }
 
         return $this->response->setJSON([
