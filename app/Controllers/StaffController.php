@@ -692,31 +692,25 @@ class StaffController extends BaseController
         unset($colInfo);
 
         // If the current user is a Program Coordinator, restrict the hierarchy strictly
-        // to their assigned college and department so reports only show their department.
+        // to their assigned college (all departments belonging to that college).
         $coordScope = $this->resolveCoordinatorReportScope();
-        if ($coordScope !== null && ($coordScope['department_id'] > 0 || $coordScope['department'] !== '')) {
+        if ($coordScope !== null) {
             $scopedHierarchy = [];
             foreach ($hierarchy as $colKey => $colInfo) {
-                $matchedDepts = [];
-                foreach ($colInfo['departments'] as $dKey => $dInfo) {
-                    $matchesId = $coordScope['department_id'] > 0 && (int) ($dInfo['id'] ?? 0) === $coordScope['department_id'];
-                    $matchesName = $coordScope['department'] !== '' && (
-                        strcasecmp((string) ($dInfo['name'] ?? ''), $coordScope['department']) === 0
-                        || strcasecmp((string) ($dInfo['abbr'] ?? ''), $coordScope['department']) === 0
-                    );
-                    if ($matchesId || $matchesName) {
-                        $matchedDepts[$dKey] = $dInfo;
-                    }
-                }
-                if (! empty($matchedDepts)) {
-                    $colCopy = $colInfo;
-                    $colCopy['departments'] = $matchedDepts;
-                    $scopedHierarchy[$colKey] = $colCopy;
+                $matchesCollegeId = ($coordScope['college_id'] ?? 0) > 0
+                    && (int) ($colInfo['id'] ?? 0) === (int) $coordScope['college_id'];
+                $matchesCollegeName = ($coordScope['college'] ?? '') !== '' && (
+                    strcasecmp((string) ($colInfo['name'] ?? ''), (string) $coordScope['college']) === 0
+                    || strcasecmp((string) ($colInfo['abbr'] ?? ''), (string) $coordScope['college']) === 0
+                );
+                if ($matchesCollegeId || $matchesCollegeName) {
+                    $scopedHierarchy[$colKey] = $colInfo;
                 }
             }
             if (! empty($scopedHierarchy)) {
                 return $scopedHierarchy;
             }
+            return [];
         }
 
         return $hierarchy;
@@ -1376,6 +1370,12 @@ class StaffController extends BaseController
             ->select('a.id, a.alumni_id, a.FirstName, a.LastName, a.Email, a.College_ID, a.Department_ID, a.GraduationYear, a.Status, c.Abbreviation as college_abbr, c.College_Name, d.Department_Name, d.Abbreviation as dept_abbr')
             ->join('colleges c', 'c.College_ID = a.College_ID', 'left')
             ->join('departments d', 'd.Department_ID = a.Department_ID', 'left');
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $userScope = $scopeService->resolveCurrentUserScope();
+        if ($userScope !== null) {
+            $scopeService->applyAlumniScope($alumniBuilder, $userScope, 'a', 'c', 'd');
+        }
 
         $filterYear = trim((string) ($filters['graduation_year'] ?? $filters['graduationYear'] ?? ''));
         $filterCollege = trim((string) ($filters['college'] ?? ''));
@@ -4923,10 +4923,10 @@ class StaffController extends BaseController
     }
 
     /**
-     * Resolves the assigned department and college for a logged-in Coordinator.
+     * Resolves the assigned college (and optional campus/department metadata) for a logged-in Coordinator.
      * Returns null for Head Admin / Admin users (unrestricted campus scope).
      *
-     * @return array{department: string, department_id: int, college: string, college_id: int}|null
+     * @return array{campus_id: int, college: string, college_id: int, department: string, department_id: int, department_ids: list<int>, valid: bool}|null
      */
     private function resolveCoordinatorReportScope(): ?array
     {
@@ -4939,71 +4939,45 @@ class StaffController extends BaseController
             return null;
         }
 
-        $email = strtolower(trim((string) (session('auth_user.email') ?? '')));
-        $department = trim((string) (session('auth_user.department') ?? ''));
-        $college = '';
-
-        if ($email !== '') {
-            $accountModel = new \App\Models\UserAccountModel();
-            $account = $accountModel->findByEmail($email);
-            if (is_array($account)) {
-                $accDept = trim((string) ($account['Department'] ?? ''));
-                if ($accDept !== '') {
-                    $department = $accDept;
-                }
-                $college = trim((string) ($account['College'] ?? ''));
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $verifiedScope = $scopeService->resolveCurrentUserScope();
+        if (is_array($verifiedScope) && ($verifiedScope['role'] ?? '') === 'coordinator') {
+            if (($verifiedScope['valid'] ?? false) !== true) {
+                return [
+                    'campus_id'      => 0,
+                    'college'        => '',
+                    'college_id'     => 0,
+                    'department'     => '',
+                    'department_id'  => 0,
+                    'department_ids' => [],
+                    'valid'          => false,
+                ];
             }
-        }
 
-        $departmentId = 0;
-        $collegeId = 0;
-        $db = \Config\Database::connect();
-
-        if ($department !== '') {
-            $deptRow = $db->table('departments')
-                ->groupStart()
-                    ->where('LOWER("Department_Name")', strtolower($department))
-                    ->orWhere('LOWER("Abbreviation")', strtolower($department))
-                ->groupEnd()
-                ->get()
-                ->getRowArray();
-
-            if (is_array($deptRow)) {
-                $departmentId = (int) ($deptRow['Department_ID'] ?? 0);
-                $collegeId = (int) ($deptRow['College_ID'] ?? 0);
-                $department = trim((string) ($deptRow['Department_Name'] ?? $department));
-            }
-        }
-
-        if ($collegeId > 0) {
-            $colRow = $db->table('colleges')
-                ->where('"College_ID"', $collegeId)
-                ->get()
-                ->getRowArray();
-            if (is_array($colRow)) {
-                $college = trim((string) ($colRow['College_Name'] ?? $college));
-            }
-        } elseif ($college !== '') {
-            $colRow = $db->table('colleges')
-                ->where('LOWER("College_Name")', strtolower($college))
-                ->get()
-                ->getRowArray();
-            if (is_array($colRow)) {
-                $collegeId = (int) ($colRow['College_ID'] ?? 0);
-                $college = trim((string) ($colRow['College_Name'] ?? $college));
-            }
+            return [
+                'campus_id'      => (int) ($verifiedScope['campus_id'] ?? 0),
+                'college'        => trim((string) ($verifiedScope['college_name'] ?? '')),
+                'college_id'     => (int) ($verifiedScope['college_id'] ?? 0),
+                'department'     => trim((string) ($verifiedScope['department_name'] ?? '')),
+                'department_id'  => (int) ($verifiedScope['department_id'] ?? 0),
+                'department_ids' => array_values(array_map('intval', $verifiedScope['department_ids'] ?? [])),
+                'valid'          => true,
+            ];
         }
 
         return [
-            'department'    => $department,
-            'department_id' => $departmentId,
-            'college'       => $college,
-            'college_id'    => $collegeId,
+            'campus_id'      => 0,
+            'college'        => '',
+            'college_id'     => 0,
+            'department'     => '',
+            'department_id'  => 0,
+            'department_ids' => [],
+            'valid'          => false,
         ];
     }
 
     /**
-     * Enforces strict department/college scoping on report filters when the requester is a Coordinator.
+     * Enforces strict college-level scoping on report filters when the requester is a Coordinator.
      *
      * @param array<string, mixed> $filters
      * @return array<string, mixed>
@@ -5016,17 +4990,39 @@ class StaffController extends BaseController
         }
 
         $filters['_coordinator_scoped'] = true;
-        if ($scope['department'] !== '') {
-            $filters['course'] = $scope['department'];
-            $filters['department'] = $scope['department'];
-        } else {
-            // Deny accidental full-campus fallback if coordinator has no assigned department
-            $filters['course'] = '__UNASSIGNED_DEPARTMENT__';
-            $filters['department'] = '__UNASSIGNED_DEPARTMENT__';
+
+        if (($scope['valid'] ?? false) !== true || ($scope['college'] ?? '') === '' || ($scope['college_id'] ?? 0) <= 0) {
+            // Deny accidental cross-college or campus-wide fallback if coordinator assignment is invalid
+            $filters['college'] = '__UNASSIGNED_COLLEGE__';
+            unset($filters['course'], $filters['department']);
+            return $filters;
         }
 
-        if ($scope['college'] !== '') {
-            $filters['college'] = $scope['college'];
+        // Always lock the college filter to the coordinator's verified assigned college
+        $filters['college'] = $scope['college'];
+
+        // Optional department sub-filter is allowed only when it belongs to the coordinator's college
+        $requestedCourse = trim((string) ($filters['course'] ?? $filters['department'] ?? ''));
+        if ($requestedCourse !== '') {
+            $db = \Config\Database::connect();
+            $deptRow = $db->table('departments')
+                ->where('"College_ID"', (int) $scope['college_id'])
+                ->groupStart()
+                    ->where('LOWER("Department_Name")', strtolower($requestedCourse))
+                    ->orWhere('LOWER("Abbreviation")', strtolower($requestedCourse))
+                ->groupEnd()
+                ->get()
+                ->getRowArray();
+
+            if (is_array($deptRow)) {
+                $canonicalDept = trim((string) ($deptRow['Department_Name'] ?? $requestedCourse));
+                $filters['course'] = $canonicalDept;
+                $filters['department'] = $canonicalDept;
+            } else {
+                unset($filters['course'], $filters['department']);
+            }
+        } else {
+            unset($filters['course'], $filters['department']);
         }
 
         return $filters;
@@ -5179,19 +5175,61 @@ class StaffController extends BaseController
         }
 
         $input = $this->request->getJSON(true);
-        
-        // Validate required fields
-        if (empty($input['firstName']) || empty($input['lastName']) || empty($input['email']) || empty($input['password'])) {
+        if (! is_array($input)) {
+            $input = $this->request->getPost();
+        }
+
+        $firstName = trim((string) ($input['firstName'] ?? ''));
+        $lastName = trim((string) ($input['lastName'] ?? ''));
+        $email = trim((string) ($input['email'] ?? ''));
+        $password = (string) ($input['password'] ?? '');
+        $collegeInput = trim((string) ($input['college'] ?? $input['college_id'] ?? ''));
+
+        // Validate required fields (college-based assignment only; department is not required)
+        if ($firstName === '' || $lastName === '' || $email === '' || $password === '') {
             return $this->response->setStatusCode(400)->setJSON([
                 'success' => false,
                 'message' => 'Missing required fields.',
             ]);
         }
 
+        if ($collegeInput === '') {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Please select a college.',
+            ]);
+        }
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Your account does not have a valid campus assignment.',
+            ]);
+        }
+
+        $headAdminCampusId = (int) ($scope['campus_id'] ?? 0);
+        $collegeModel = new \App\Models\CollegeModel();
+        $collegeBuilder = $collegeModel->where('Campus_ID', $headAdminCampusId);
+        if (ctype_digit($collegeInput) && (int) $collegeInput > 0) {
+            $collegeBuilder->where('College_ID', (int) $collegeInput);
+        } else {
+            $collegeBuilder->where('LOWER("College_Name")', strtolower($collegeInput));
+        }
+        $collegeRow = $collegeBuilder->first();
+
+        if (! is_array($collegeRow)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Selected college does not belong to your assigned campus.',
+            ]);
+        }
+
         $userAccountModel = new \App\Models\UserAccountModel();
         
         // Check if email already exists
-        $existingUser = $userAccountModel->findByEmail($input['email']);
+        $existingUser = $userAccountModel->findByEmail($email);
         if ($existingUser !== null) {
             return $this->response->setStatusCode(400)->setJSON([
                 'success' => false,
@@ -5199,19 +5237,16 @@ class StaffController extends BaseController
             ]);
         }
 
-        // Get head admin's campus from account or session
-        $headAdminCampus = $this->getHeadAdminCampusId() ?? session('auth_user.campus') ?? '';
-
-        // Prepare coordinator data
+        // Prepare college-assigned coordinator data (Department remains NULL unless set manually in DB)
         $coordinatorData = [
-            'Email' => $input['email'],
-            'First_Name' => $input['firstName'],
-            'Last_Name' => $input['lastName'],
-            'Password' => (string) $input['password'],
-            'Role' => 'coordinator',
-            'Campus' => $headAdminCampus,
-            'Department' => $input['department'] ?? null,
-            'College' => $input['college'] ?? null,
+            'Email'      => $email,
+            'First_Name' => $firstName,
+            'Last_Name'  => $lastName,
+            'Password'   => $password,
+            'Role'       => 'coordinator',
+            'Campus'     => $headAdminCampusId,
+            'Department' => null,
+            'College'    => (string) $collegeRow['College_Name'],
         ];
 
         try {
@@ -5219,7 +5254,7 @@ class StaffController extends BaseController
             $userAccountModel->insert($coordinatorData);
 
             // Sync new coordinator account to Supabase Auth with app_metadata role=coordinator
-            (new \App\Services\SupabaseAuthService())->syncLocalUserToSupabase($coordinatorData, (string) $input['password']);
+            (new \App\Services\SupabaseAuthService())->syncLocalUserToSupabase($coordinatorData, $password);
             
             return $this->response->setJSON([
                 'success' => true,
@@ -5301,8 +5336,7 @@ class StaffController extends BaseController
         }
 
         $email = trim((string) ($input['email'] ?? ''));
-        $college = trim((string) ($input['college'] ?? ''));
-        $department = trim((string) ($input['department'] ?? ''));
+        $college = trim((string) ($input['college'] ?? $input['college_id'] ?? ''));
 
         if ($email === '') {
             return $this->response->setStatusCode(400)->setJSON([
@@ -5315,13 +5349,6 @@ class StaffController extends BaseController
             return $this->response->setStatusCode(400)->setJSON([
                 'success' => false,
                 'message' => 'Please select a college.',
-            ]);
-        }
-
-        if ($department === '') {
-            return $this->response->setStatusCode(400)->setJSON([
-                'success' => false,
-                'message' => 'Please select a department.',
             ]);
         }
 
@@ -5346,13 +5373,15 @@ class StaffController extends BaseController
 
         $headAdminCampusId = (int) $scope['campus_id'];
 
-        // Verify the selected college belongs to the Head Admin's campus and the department belongs to that college
+        // Verify the selected college belongs to the Head Admin's campus
         $collegeModel = new \App\Models\CollegeModel();
-        $departmentModel = new \App\Models\DepartmentModel();
-        $collegeRow = $collegeModel
-            ->where('Campus_ID', $headAdminCampusId)
-            ->where('LOWER("College_Name")', strtolower($college))
-            ->first();
+        $collegeBuilder = $collegeModel->where('Campus_ID', $headAdminCampusId);
+        if (ctype_digit($college) && (int) $college > 0) {
+            $collegeBuilder->where('College_ID', (int) $college);
+        } else {
+            $collegeBuilder->where('LOWER("College_Name")', strtolower($college));
+        }
+        $collegeRow = $collegeBuilder->first();
         if (! is_array($collegeRow)) {
             return $this->response->setStatusCode(403)->setJSON([
                 'success' => false,
@@ -5360,23 +5389,11 @@ class StaffController extends BaseController
             ]);
         }
 
-        $deptRow = $departmentModel
-            ->where('Campus_ID', $headAdminCampusId)
-            ->where('College_ID', (int) $collegeRow['College_ID'])
-            ->where('LOWER("Department_Name")', strtolower($department))
-            ->first();
-        if (! is_array($deptRow)) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'success' => false,
-                'message' => 'Selected department does not belong to the selected college in your campus.',
-            ]);
-        }
-
         $updateData = [
             'Role' => 'coordinator',
             'Campus' => $headAdminCampusId,
             'College' => (string) $collegeRow['College_Name'],
-            'Department' => (string) $deptRow['Department_Name'],
+            'Department' => null,
         ];
 
         try {
@@ -5678,11 +5695,10 @@ class StaffController extends BaseController
         $campus = $campusModel->where('Campus_ID', $campusId)->first();
         $headAdminCampus = $campus['Campus'] ?? '';
         
-        // Coordinators see only their assigned department; Head Admins see all departments in their assigned campus
+        // Coordinators see all departments belonging to their assigned college; Head Admins see all departments in their assigned campus
         $deptQuery = $departmentModel->where('Campus_ID', $campusId);
         if ($scope !== null && ($scope['role'] ?? '') === 'coordinator') {
-            $deptQuery->where('College_ID', (int) ($scope['college_id'] ?? 0))
-                ->where('Department_ID', (int) ($scope['department_id'] ?? 0));
+            $deptQuery->where('College_ID', (int) ($scope['college_id'] ?? 0));
         }
         $departments = $deptQuery->findAll();
         if ($departments === []) {
@@ -5730,11 +5746,14 @@ class StaffController extends BaseController
         // 3. Batch-load coordinator user_accounts for this campus once
         $allAccountCoordinators = $this->getCampusCoordinatorAccounts((string) $campusId, (string) $headAdminCampus);
         $accountCoordinatorsByCollegeAndDept = [];
+        $collegeWideCoordinatorsByCollege = [];
         foreach ($allAccountCoordinators as $coordinator) {
             $normCollege = $this->normalizeCollegeName((string) ($coordinator['College'] ?? ''));
             $normDept = $this->normalizeCollegeName((string) ($coordinator['Department'] ?? ''));
             if ($normCollege !== '' && $normDept !== '') {
                 $accountCoordinatorsByCollegeAndDept[$normCollege . '|' . $normDept][] = $coordinator;
+            } elseif ($normCollege !== '') {
+                $collegeWideCoordinatorsByCollege[$normCollege][] = $coordinator;
             }
         }
 
@@ -5745,9 +5764,13 @@ class StaffController extends BaseController
             $departmentId = (int) $deptRow['Department_ID'];
             $collegeName = $collegeNameById[$collegeId] ?? 'Unknown College';
 
-            $normKey = $this->normalizeCollegeName($collegeName) . '|' . $this->normalizeCollegeName($departmentName);
+            $normCollegeKey = $this->normalizeCollegeName($collegeName);
+            $normKey = $normCollegeKey . '|' . $this->normalizeCollegeName($departmentName);
             $staffCoordinators = $staffCoordinatorsByDeptId[$departmentId] ?? [];
-            $accountCoordinators = $accountCoordinatorsByCollegeAndDept[$normKey] ?? [];
+            $accountCoordinators = array_merge(
+                $accountCoordinatorsByCollegeAndDept[$normKey] ?? [],
+                $collegeWideCoordinatorsByCollege[$normCollegeKey] ?? []
+            );
             $deptCoordinators = $this->mergeCoordinatorRows($staffCoordinators, $accountCoordinators);
 
             $totalUsers = 0;
@@ -5967,38 +5990,36 @@ class StaffController extends BaseController
             $alumniModel = new \App\Models\AlumniModel();
             $purposeModel = new \App\Models\PaymentPurposeModel();
 
+            $scopeService = new \App\Services\AssignmentScopeService();
+            $scope = $scopeService->resolveCurrentUserScope();
+            if ($scope !== null && ($scope['valid'] ?? false) !== true) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => (string) ($scope['message'] ?? 'Forbidden.'),
+                ]);
+            }
+
             $userRole = strtolower(trim((string) (session('auth_user.role') ?? '')));
             $isCoordinator = ($userRole === 'coordinator');
-            $campusId = $this->getHeadAdminCampusId();
+            $campusId = $scope !== null ? (int) ($scope['campus_id'] ?? 0) : $this->getHeadAdminCampusId();
             $db = \Config\Database::connect();
 
-            $coordDeptName = '';
-            $coordDeptId = 0;
-            $coordCollegeId = 0;
+            $coordCollegeId = $isCoordinator && $scope !== null ? (int) ($scope['college_id'] ?? 0) : 0;
+            $coordCollegeName = $isCoordinator && $scope !== null ? trim((string) ($scope['college_name'] ?? '')) : '';
             $coordUserId = (int) (session('auth_user.id') ?? session('auth_user.ID') ?? 0);
 
             if ($isCoordinator) {
-                $coordEmail = strtolower(trim((string) (session('auth_user.email') ?? '')));
-                $accModel = new \App\Models\UserAccountModel();
-                $coordAcc = $coordEmail !== '' ? $accModel->findByEmail($coordEmail) : null;
-                $coordDeptName = trim((string) ($coordAcc['Department'] ?? session('auth_user.department') ?? ''));
-                if (! empty($coordAcc['id'])) {
-                    $coordUserId = (int) $coordAcc['id'];
-                }
-                if ($coordDeptName !== '') {
-                    $deptRow = $db->table('departments')
-                        ->where('LOWER("Department_Name")', strtolower($coordDeptName))
-                        ->get()
-                        ->getRowArray();
-                    if (is_array($deptRow)) {
-                        $coordDeptId = (int) ($deptRow['Department_ID'] ?? 0);
-                        $coordCollegeId = (int) ($deptRow['College_ID'] ?? 0);
-                        $coordDeptName = trim((string) ($deptRow['Department_Name'] ?? $coordDeptName));
+                if ($coordUserId <= 0) {
+                    $coordEmail = strtolower(trim((string) (session('auth_user.email') ?? '')));
+                    $accModel = new \App\Models\UserAccountModel();
+                    $coordAcc = $coordEmail !== '' ? $accModel->findByEmail($coordEmail) : null;
+                    if (! empty($coordAcc['id'])) {
+                        $coordUserId = (int) $coordAcc['id'];
                     }
                 }
 
-                // A coordinator without an assigned department must not receive campus-wide payment or alumni records
-                if ($coordDeptName === '' && $coordDeptId <= 0) {
+                // A coordinator without an assigned college must not receive campus-wide payment or alumni records
+                if ($coordCollegeId <= 0 && $coordCollegeName === '') {
                     return $this->response->setJSON([
                         'success'    => true,
                         'payments'   => [],
@@ -6030,29 +6051,29 @@ class StaffController extends BaseController
                 'date_to' => $this->request->getGet('date_to') ?? '',
             ];
 
-            if ($campusId !== null && is_numeric($campusId)) {
+            if ($campusId !== null && is_numeric($campusId) && (int) $campusId > 0) {
                 $filters['campus_id'] = (int) $campusId;
             }
 
-            $departmentScope = [];
+            $collegeScope = [];
             if ($isCoordinator) {
-                $departmentScope = [
-                    'department_id'       => $coordDeptId,
-                    'department_name'     => $coordDeptName,
-                    'coordinator_user_id' => $coordUserId,
+                $collegeScope = [
+                    'coordinator_college_id'   => $coordCollegeId,
+                    'coordinator_college_name' => $coordCollegeName,
+                    'coordinator_user_id'      => $coordUserId,
                 ];
-                $filters['department_id'] = $coordDeptId;
-                $filters['department_name'] = $coordDeptName;
+                $filters['coordinator_college_id'] = $coordCollegeId;
+                $filters['coordinator_college_name'] = $coordCollegeName;
                 $filters['coordinator_user_id'] = $coordUserId;
             }
 
             $payments = $paymentModel->getFilteredPayments($filters);
-            $statistics = $paymentModel->getPaymentStatistics($campusId !== null && is_numeric($campusId) ? (int) $campusId : null, $departmentScope);
+            $statistics = $paymentModel->getPaymentStatistics($campusId !== null && is_numeric($campusId) && (int) $campusId > 0 ? (int) $campusId : null, $collegeScope);
             $purposes = $purposeModel->getActivePurposes();
 
             // Colleges list for filter
             $collegeBuilder = $collegeModel;
-            if ($campusId !== null && is_numeric($campusId)) {
+            if ($campusId !== null && is_numeric($campusId) && (int) $campusId > 0) {
                 $collegeBuilder = $collegeBuilder->where('Campus_ID', (int) $campusId);
             }
             if ($isCoordinator && $coordCollegeId > 0) {
@@ -6073,11 +6094,12 @@ class StaffController extends BaseController
 
             if ($isCoordinator) {
                 $alumniQuery->groupStart();
-                if ($coordDeptId > 0) {
-                    $alumniQuery->where('a."Department_ID"', $coordDeptId);
+                if ($coordCollegeId > 0) {
+                    $alumniQuery->where('a."College_ID"', $coordCollegeId);
+                    $alumniQuery->orWhere('c."College_ID"', $coordCollegeId);
                 }
-                if ($coordDeptName !== '') {
-                    $alumniQuery->orWhere('LOWER(ua."Department")', strtolower($coordDeptName));
+                if ($coordCollegeName !== '') {
+                    $alumniQuery->orWhere('LOWER(ua."College")', strtolower($coordCollegeName));
                 }
                 $alumniQuery->groupEnd();
             }
@@ -6185,46 +6207,29 @@ class StaffController extends BaseController
 
             $forcedCollegeId = !empty($input['college_id']) ? (int) $input['college_id'] : null;
             if ($isCoordinator) {
-                $db = \Config\Database::connect();
-                $coordEmail = strtolower(trim((string) (session('auth_user.email') ?? '')));
-                $accModel = new \App\Models\UserAccountModel();
-                $coordAcc = $coordEmail !== '' ? $accModel->findByEmail($coordEmail) : null;
-                $coordDeptName = trim((string) ($coordAcc['Department'] ?? session('auth_user.department') ?? ''));
-                $coordDeptId = 0;
-
-                if ($coordDeptName !== '') {
-                    $deptRow = $db->table('departments')
-                        ->where('LOWER("Department_Name")', strtolower($coordDeptName))
-                        ->get()
-                        ->getRowArray();
-                    if (is_array($deptRow)) {
-                        $coordDeptId = (int) ($deptRow['Department_ID'] ?? 0);
-                        $forcedCollegeId = (int) ($deptRow['College_ID'] ?? 0) ?: $forcedCollegeId;
-                    }
-                }
-
-                if ($coordDeptName === '' && $coordDeptId <= 0) {
+                $scopeService = new \App\Services\AssignmentScopeService();
+                $coordScope = $scopeService->resolveCurrentUserScope();
+                if ($coordScope === null || ($coordScope['valid'] ?? false) !== true || (int) ($coordScope['college_id'] ?? 0) <= 0) {
                     return $this->response->setStatusCode(403)->setJSON([
                         'success' => false,
-                        'message' => 'Your coordinator account is not assigned to a department.',
+                        'message' => (string) ($coordScope['message'] ?? 'Your coordinator account is not assigned to a college.'),
                     ]);
                 }
 
+                $forcedCollegeId = (int) $coordScope['college_id'];
+                $campusId = (int) ($coordScope['campus_id'] ?? $campusId);
+
                 if (! empty($input['alumni_id'])) {
-                    $targetAlum = $db->table('alumni a')
-                        ->select('a.id, a."Department_ID", d."Department_Name"')
-                        ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
-                        ->where('a.id', (int) $input['alumni_id'])
+                    $db = \Config\Database::connect();
+                    $targetAlum = $db->table('alumni')
+                        ->select('id, "College_ID", "Department_ID"')
+                        ->where('id', (int) $input['alumni_id'])
                         ->get()
                         ->getRowArray();
-                    $targetDeptId = (int) ($targetAlum['Department_ID'] ?? 0);
-                    $targetDeptName = trim((string) ($targetAlum['Department_Name'] ?? ''));
-                    $sameDept = ($coordDeptId > 0 && $targetDeptId === $coordDeptId)
-                        || ($coordDeptName !== '' && strcasecmp($targetDeptName, $coordDeptName) === 0);
-                    if (! $targetAlum || ! $sameDept) {
+                    if (! is_array($targetAlum) || ! $scopeService->isAlumniInScope($targetAlum, $coordScope)) {
                         return $this->response->setStatusCode(403)->setJSON([
                             'success' => false,
-                            'message' => 'You can only record payments for alumni in your assigned department.',
+                            'message' => 'You can only record payments for alumni in your assigned college.',
                         ]);
                     }
                 }

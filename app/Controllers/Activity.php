@@ -143,11 +143,9 @@ class Activity extends BaseController
             }
         } elseif (($scope['role'] ?? '') === 'coordinator') {
             $collegeId = (int) ($scope['college_id'] ?? 0);
-            $deptId = (int) ($scope['department_id'] ?? 0);
             $alumniRows = $db->table('alumni')
                 ->select('"Email"')
                 ->where('"College_ID"', $collegeId)
-                ->where('"Department_ID"', $deptId)
                 ->get()
                 ->getResultArray();
             foreach ($alumniRows as $row) {

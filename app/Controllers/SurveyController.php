@@ -1828,7 +1828,7 @@ class SurveyController extends BaseController
 
     /**
      * Limit survey responses to the logged-in Head Admin's campus or
-     * Coordinator's Campus -> College -> Department assignment.
+     * Coordinator's Campus -> College assignment.
      * Developers and Alumni retain their existing visibility.
      *
      * @param array<int, array<string, mixed>> $responses
@@ -1861,8 +1861,7 @@ class SurveyController extends BaseController
 
             // Fallback name match only if IDs were not present on the formatted response
             if (($scope['role'] ?? '') === 'coordinator') {
-                return strcasecmp(trim((string) ($response['college'] ?? '')), (string) ($scope['college_name'] ?? '')) === 0
-                    && strcasecmp(trim((string) ($response['course'] ?? '')), (string) ($scope['department_name'] ?? '')) === 0;
+                return strcasecmp(trim((string) ($response['college'] ?? '')), (string) ($scope['college_name'] ?? '')) === 0;
             }
 
             return false;

@@ -116,7 +116,7 @@
     <main class="coordinator-main">
         <header class="topbar">
             <div>
-                <p class="eyebrow">Assigned Department</p>
+                <p class="eyebrow">Assigned College</p>
                 <h2 id="topbarTitle">Alumni Management</h2>
             </div>
         </header>
@@ -156,7 +156,7 @@
                             <td colspan="7">
                                 <div class="state-icon"><i class="fas fa-circle-notch fa-spin"></i></div>
                                 <strong>Loading alumni...</strong>
-                                <span>Fetching records for your department.</span>
+                                <span>Fetching records across your assigned college.</span>
                             </td>
                         </tr>
                     </tbody>
@@ -227,10 +227,10 @@
             var data=await res.json();
             if(data.success){
                 var name=data.name||'Coordinator';
-                var dept=data.department||'';
+                var college=data.college||'';
                 document.getElementById('sidebarUserName').textContent=name;
-                document.getElementById('sidebarUserDept').textContent=dept||'Unassigned Department';
-                if(dept) document.getElementById('topbarTitle').textContent=dept+' Alumni';
+                document.getElementById('sidebarUserDept').textContent=college||'Unassigned College';
+                if(college) document.getElementById('topbarTitle').textContent=college+' Alumni';
             }
         }catch(e){}
     }
@@ -249,7 +249,7 @@
             allAlumni=data.alumni||[];
             filtered=allAlumni;
             currentPage=1;
-            deptText.textContent=data.department||'All Departments';
+            deptText.textContent=data.college||'Assigned College';
             countNum.textContent=data.total;
             renderPage();
         }catch(e){
@@ -274,8 +274,9 @@
             var sc=(a.status||'').toLowerCase()==='active'?'active':(a.status||'').toLowerCase()==='inactive'?'inactive':'pending';
             var sl=a.status?cap(a.status):'Pending';
             var loc=[a.barangay,a.municipality,a.province].filter(Boolean).join(', ')||'';
+            var deptSub = a.course ? '<div style="font-size:11.5px;color:#64748b;font-weight:500;margin-top:2px;">'+esc(a.course)+'</div>' : '';
             return '<tr data-id="'+a.id+'" tabindex="0" role="button">'+
-                '<td class="alumni-name-cell">'+esc(a.full_name)+'</td>'+
+                '<td class="alumni-name-cell">'+esc(a.full_name)+deptSub+'</td>'+
                 '<td class="alumni-id-cell">'+(a.alumni_id?esc(a.alumni_id):'<span class="empty-val">Not assigned</span>')+'</td>'+
                 '<td>'+(a.graduation_year?esc(a.graduation_year):'-')+'</td>'+
                 '<td><span class="status-badge '+sc+'">'+sl+'</span></td>'+

@@ -67,8 +67,12 @@ class CoordinatorController extends BaseController
         }
 
         $ctx = $this->resolveCoordinatorContext();
-        $deptName = $scope['department_name'] ?? $ctx['department'];
-        $deptId = (int) ($scope['department_id'] ?? $ctx['department_id']);
+        $collegeName = trim((string) ($scope['college_name'] ?? $ctx['college']));
+        $collegeId = (int) ($scope['college_id'] ?? $ctx['college_id']);
+        $deptName = trim((string) ($scope['department_name'] ?? $ctx['department']));
+        $deptId = isset($scope['department_id']) && $scope['department_id'] !== null
+            ? (int) $scope['department_id']
+            : ($ctx['department_id'] > 0 ? (int) $ctx['department_id'] : null);
 
         $sort = (string) ($this->request->getGet('sort') ?? 'last_name_asc');
         $search = mb_substr(trim((string) ($this->request->getGet('search') ?? '')), 0, 100);
@@ -80,7 +84,7 @@ class CoordinatorController extends BaseController
             ->join('colleges c', 'c."College_ID" = alumni."College_ID"', 'left')
             ->join('departments d', 'd."Department_ID" = alumni."Department_ID"', 'left');
 
-        // Enforce strict verified Campus -> College -> Department scope (ignoring any client overrides)
+        // Enforce strict verified Campus -> College scope (ignoring any client overrides)
         if ($scope !== null) {
             $scopeService->applyAlumniScope($builder, $scope, 'alumni', 'c', 'd');
         }
@@ -99,9 +103,10 @@ class CoordinatorController extends BaseController
 
         return $this->response->setJSON([
             'success'       => true,
+            'college'       => $collegeName,
+            'college_id'    => $collegeId,
             'department'    => $deptName,
             'department_id' => $deptId,
-            'college'       => $ctx['college'],
             'total'         => count($records),
             'alumni'        => array_map([$this, 'formatAlumnus'], $records),
         ]);
@@ -127,8 +132,12 @@ class CoordinatorController extends BaseController
         }
 
         $ctx = $this->resolveCoordinatorContext();
-        $deptName = $scope['department_name'] ?? $ctx['department'];
-        $deptId = (int) ($scope['department_id'] ?? $ctx['department_id']);
+        $collegeName = trim((string) ($scope['college_name'] ?? $ctx['college']));
+        $collegeId = (int) ($scope['college_id'] ?? $ctx['college_id']);
+        $deptName = trim((string) ($scope['department_name'] ?? $ctx['department']));
+        $deptId = isset($scope['department_id']) && $scope['department_id'] !== null
+            ? (int) $scope['department_id']
+            : (int) $ctx['department_id'];
         $batchFilter = trim((string) ($this->request->getGet('batch') ?? 'all'));
 
         $db = \Config\Database::connect();
@@ -270,12 +279,12 @@ class CoordinatorController extends BaseController
         $pctUnemployed = $totalGraduates > 0 ? round(($unemployedCount / $totalGraduates) * 100, 1) : 0.0;
         $pctNotTracked = $totalGraduates > 0 ? round(($notTrackedCount / $totalGraduates) * 100, 1) : 0.0;
 
-        // Payments summary scoped to this department
+        // Payments summary scoped to the coordinator's assigned college
         $paymentModel = new \App\Models\PaymentModel();
         $deptPayments = $paymentModel->getFilteredPayments([
-            'department_id'   => $deptId > 0 ? $deptId : null,
-            'department_name' => $deptName !== '' ? $deptName : null,
-            'coordinator_user_id' => $ctx['user_id'] > 0 ? $ctx['user_id'] : null,
+            'coordinator_college_id'   => $collegeId > 0 ? $collegeId : null,
+            'coordinator_college_name' => $collegeName !== '' ? $collegeName : null,
+            'coordinator_user_id'      => $ctx['user_id'] > 0 ? $ctx['user_id'] : null,
         ]);
         $pendingPayCount = 0;
         $verifiedPayCount = 0;
@@ -289,8 +298,9 @@ class CoordinatorController extends BaseController
 
         return $this->response->setJSON([
             'success'         => true,
+            'college'         => $collegeName,
+            'college_id'      => $collegeId,
             'department'      => $deptName,
-            'college'         => $ctx['college'],
             'batches'         => $batches,
             'totalGraduates'  => $totalGraduates,
             'tracedCount'     => $tracedCount,
@@ -384,7 +394,7 @@ class CoordinatorController extends BaseController
 
         $name = trim((string) ($sessionUser['name'] ?? ''));
         $department = trim((string) ($sessionUser['department'] ?? ''));
-        $college = '';
+        $college = trim((string) ($sessionUser['college'] ?? ''));
 
         if (is_array($account)) {
             $accName = trim((string) ($account['First_Name'] ?? '') . ' ' . (string) ($account['Last_Name'] ?? ''));
@@ -398,35 +408,62 @@ class CoordinatorController extends BaseController
             if ($accDept !== '') {
                 $department = $accDept;
             }
-            $college = trim((string) ($account['College'] ?? ''));
-        }
-
-        $departmentId = 0;
-        $collegeId = 0;
-        $db = \Config\Database::connect();
-
-        if ($department !== '') {
-            $deptRow = $db->table('departments')
-                ->where('LOWER("Department_Name")', strtolower($department))
-                ->get()
-                ->getRowArray();
-            if (is_array($deptRow)) {
-                $departmentId = (int) ($deptRow['Department_ID'] ?? 0);
-                $collegeId = (int) ($deptRow['College_ID'] ?? 0);
-                $department = trim((string) ($deptRow['Department_Name'] ?? $department));
+            $accCollege = trim((string) ($account['College'] ?? ''));
+            if ($accCollege !== '') {
+                $college = $accCollege;
             }
         }
 
-        if ($collegeId <= 0 && $college !== '') {
-            $colRow = $db->table('colleges')
-                ->where('LOWER("College_Name")', strtolower($college))
-                ->get()
-                ->getRowArray();
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $verifiedScope = $scopeService->resolveCurrentUserScope();
+        if (is_array($verifiedScope) && ($verifiedScope['valid'] ?? false) === true && ($verifiedScope['role'] ?? '') === 'coordinator') {
+            return [
+                'user_id'       => $userId,
+                'name'          => $name !== '' ? $name : ($email !== '' ? $email : 'Coordinator'),
+                'email'         => $email,
+                'role'          => $role,
+                'department'    => trim((string) ($verifiedScope['department_name'] ?? '')),
+                'department_id' => ! empty($verifiedScope['department_id']) ? (int) $verifiedScope['department_id'] : null,
+                'college'       => trim((string) ($verifiedScope['college_name'] ?? $college)),
+                'college_id'    => (int) ($verifiedScope['college_id'] ?? 0),
+            ];
+        }
+
+        $departmentId = null;
+        $collegeId = 0;
+        $db = \Config\Database::connect();
+
+        if ($college !== '') {
+            $colQuery = $db->table('colleges');
+            if (ctype_digit($college)) {
+                $colQuery->where('"College_ID"', (int) $college);
+            } else {
+                $colQuery->where('LOWER("College_Name")', strtolower($college));
+            }
+            $colRow = $colQuery->get()->getRowArray();
             if (is_array($colRow)) {
                 $collegeId = (int) ($colRow['College_ID'] ?? 0);
                 $college = trim((string) ($colRow['College_Name'] ?? $college));
             }
-        } elseif ($collegeId > 0 && $college === '') {
+        }
+
+        if ($department !== '') {
+            $deptQuery = $db->table('departments')
+                ->where('LOWER("Department_Name")', strtolower($department));
+            if ($collegeId > 0) {
+                $deptQuery->where('"College_ID"', $collegeId);
+            }
+            $deptRow = $deptQuery->get()->getRowArray();
+            if (is_array($deptRow)) {
+                $departmentId = (int) ($deptRow['Department_ID'] ?? 0);
+                if ($collegeId <= 0) {
+                    $collegeId = (int) ($deptRow['College_ID'] ?? 0);
+                }
+                $department = trim((string) ($deptRow['Department_Name'] ?? $department));
+            }
+        }
+
+        if ($collegeId > 0 && $college === '') {
             $colRow = $db->table('colleges')
                 ->where('"College_ID"', $collegeId)
                 ->get()

@@ -132,32 +132,32 @@ async function loadCoordinatorSessionProfile() {
             el.textContent = name;
         });
         document.querySelectorAll('.sidebar-user-role').forEach((el) => {
-            el.textContent = dept || 'Unassigned Department';
-            if (dept) el.title = dept;
+            el.textContent = college || 'Unassigned College';
+            if (college) el.title = college;
         });
 
         const lockedDeptEl = document.getElementById('coordLockedDeptLabel');
         if (lockedDeptEl) {
-            lockedDeptEl.textContent = dept || 'Unassigned Department';
+            lockedDeptEl.textContent = college || 'Unassigned College';
         }
 
         const topbarTitleEl = document.getElementById('topbarTitle');
         const topbarCollegeEyebrow = document.getElementById('topbarCollegeEyebrow');
         if (topbarCollegeEyebrow) {
-            topbarCollegeEyebrow.textContent = college ? `${college} · Assigned Department` : 'Assigned Department';
+            topbarCollegeEyebrow.textContent = college ? `${college} · Assigned College` : 'Assigned College';
         }
-        if (topbarTitleEl && dept && document.getElementById('graduatesYearChart')) {
-            topbarTitleEl.textContent = dept;
+        if (topbarTitleEl && college && document.getElementById('graduatesYearChart')) {
+            topbarTitleEl.textContent = college;
         }
 
         const topbarDeptEl = document.getElementById('topbarDept');
-        if (topbarDeptEl && dept) {
-            topbarDeptEl.textContent = dept;
+        if (topbarDeptEl && college) {
+            topbarDeptEl.textContent = college;
         }
 
         const topbarEyebrow = document.querySelector('.coordinator-main > .topbar .eyebrow');
-        if (topbarEyebrow && dept && !topbarEyebrow.id) {
-            topbarEyebrow.textContent = dept;
+        if (topbarEyebrow && college && !topbarEyebrow.id) {
+            topbarEyebrow.textContent = college;
         }
 
         return data;
@@ -784,16 +784,16 @@ function renderCoordinatorBatchPills(batches) {
 }
 
 function applyDepartmentDashboardData(data) {
-    const deptLabel = data.department || 'Unassigned Department';
+    const collegeLabel = data.college || 'Unassigned College';
     const setText = (id, val) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
     };
 
-    setText('coordLockedDeptLabel', deptLabel);
-    setText('coordHeaderSubtitle', data.department
-        ? `Showing alumni, employment, survey, and payment records strictly for ${data.department}.`
-        : 'No department is assigned to this coordinator account.');
+    setText('coordLockedDeptLabel', collegeLabel);
+    setText('coordHeaderSubtitle', data.college
+        ? `Showing alumni, employment, survey, and payment records across all departments of ${data.college}.`
+        : 'No college is assigned to this coordinator account.');
 
     const totalGrad = Number(data.totalGraduates || 0);
     const tracedCount = Number(data.tracedCount || 0);
@@ -807,7 +807,7 @@ function applyDepartmentDashboardData(data) {
 
     setText('kpiTotalGraduates', totalGrad.toLocaleString());
     setText('kpiGradTrend', `${tracedRate.toFixed(1)}% traced`);
-    setText('kpiGradNote', `${tracedCount.toLocaleString()} traced of ${totalGrad.toLocaleString()} in department`);
+    setText('kpiGradNote', `${tracedCount.toLocaleString()} traced of ${totalGrad.toLocaleString()} in college`);
 
     setText('kpiEmploymentRate', `${employmentRate.toFixed(1)}%`);
     setText('kpiEmpTrend', `${employedCount.toLocaleString()} employed`);
@@ -821,7 +821,7 @@ function applyDepartmentDashboardData(data) {
     setText('kpiPayTrend', `${Number(payment.pendingCount || 0).toLocaleString()} pending`);
     setText('kpiPayNote', `${Number(payment.verifiedCount || 0).toLocaleString()} verified transactions`);
 
-    setText('chartTotalRecordsBadge', `${totalGrad.toLocaleString()} Department Alumni`);
+    setText('chartTotalRecordsBadge', `${totalGrad.toLocaleString()} College Alumni`);
 
     // Survey snapshot progress bars
     const respRate = Number(survey.responseRate || 0);

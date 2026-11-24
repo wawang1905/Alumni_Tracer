@@ -157,56 +157,32 @@ class AssignmentScopeService
             ];
         }
 
+        // Gather all departments belonging to the coordinator's assigned college on this campus.
+        $deptRows = $this->departmentModel->builder()
+            ->where('"Campus_ID"', $campusId)
+            ->where('"College_ID"', $collegeId)
+            ->get()
+            ->getResultArray();
+
+        $departmentIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): int => (int) ($row['Department_ID'] ?? 0),
+            $deptRows
+        ))));
+
+        // Department assignment is no longer required for coordinators; preserve legacy department metadata
+        // only when it matches a valid department inside the assigned college.
         $rawDepartment = trim((string) ($userRow['Department'] ?? ''));
-        if ($rawDepartment === '') {
-            return [
-                'valid'   => false,
-                'code'    => 'missing_department',
-                'message' => 'Your account has not been assigned to a department. Please contact your Head Admin.',
-            ];
-        }
-
-        $deptRow = $this->findDepartmentRecord($rawDepartment, $collegeId, $campusId);
-        if (! is_array($deptRow)) {
-            $deptInAnyCollege = $this->findDepartmentRecord($rawDepartment, null, null);
-            if (is_array($deptInAnyCollege)) {
-                if ((int) ($deptInAnyCollege['Campus_ID'] ?? 0) !== $campusId) {
-                    return [
-                        'valid'   => false,
-                        'code'    => 'department_campus_mismatch',
-                        'message' => 'Your assigned department does not belong to your assigned campus. Please contact your Head Admin.',
-                    ];
+        $deptId = null;
+        $deptName = '';
+        if ($rawDepartment !== '') {
+            $deptRow = $this->findDepartmentRecord($rawDepartment, $collegeId, $campusId);
+            if (is_array($deptRow)) {
+                $matchedDeptId = (int) ($deptRow['Department_ID'] ?? 0);
+                if ($matchedDeptId > 0) {
+                    $deptId = $matchedDeptId;
+                    $deptName = trim((string) ($deptRow['Department_Name'] ?? ''));
                 }
-
-                return [
-                    'valid'   => false,
-                    'code'    => 'department_college_mismatch',
-                    'message' => 'Your assigned department does not belong to your assigned college. Please contact your Head Admin.',
-                ];
             }
-
-            return [
-                'valid'   => false,
-                'code'    => 'invalid_department',
-                'message' => 'Your assigned department is invalid or no longer exists. Please contact your Head Admin.',
-            ];
-        }
-
-        $deptId = (int) ($deptRow['Department_ID'] ?? 0);
-        if ($deptId <= 0 || (int) ($deptRow['College_ID'] ?? 0) !== $collegeId) {
-            return [
-                'valid'   => false,
-                'code'    => 'department_college_mismatch',
-                'message' => 'Your assigned department does not belong to your assigned college. Please contact your Head Admin.',
-            ];
-        }
-
-        if ((int) ($deptRow['Campus_ID'] ?? 0) !== $campusId) {
-            return [
-                'valid'   => false,
-                'code'    => 'department_campus_mismatch',
-                'message' => 'Your assigned department does not belong to your assigned campus. Please contact your Head Admin.',
-            ];
         }
 
         return [
@@ -217,9 +193,9 @@ class AssignmentScopeService
             'college_id'      => $collegeId,
             'college_name'    => trim((string) ($collegeRow['College_Name'] ?? '')),
             'department_id'   => $deptId,
-            'department_name' => trim((string) ($deptRow['Department_Name'] ?? '')),
+            'department_name' => $deptName,
             'college_ids'     => [$collegeId],
-            'department_ids'  => [$deptId],
+            'department_ids'  => $departmentIds,
         ];
     }
 
@@ -304,20 +280,15 @@ class AssignmentScopeService
 
         if ($role === 'coordinator') {
             $collegeId = (int) ($scope['college_id'] ?? 0);
-            $deptId = (int) ($scope['department_id'] ?? 0);
 
-            if ($campusId <= 0 || $collegeId <= 0 || $deptId <= 0) {
+            if ($campusId <= 0 || $collegeId <= 0) {
                 $builder->where('1 = 0', null, false);
                 return;
             }
 
             $builder->where("{$alumniAlias}.\"College_ID\"", $collegeId);
-            $builder->where("{$alumniAlias}.\"Department_ID\"", $deptId);
             if ($collegeAlias !== null && $collegeAlias !== '') {
                 $builder->where("{$collegeAlias}.\"Campus_ID\"", $campusId);
-            }
-            if ($deptAlias !== null && $deptAlias !== '') {
-                $builder->where("{$deptAlias}.\"Campus_ID\"", $campusId);
             }
             return;
         }
@@ -356,9 +327,7 @@ class AssignmentScopeService
 
         if (($scope['role'] ?? '') === 'coordinator') {
             return $alumniCollegeId > 0
-                && $alumniDeptId > 0
-                && $alumniCollegeId === (int) ($scope['college_id'] ?? 0)
-                && $alumniDeptId === (int) ($scope['department_id'] ?? 0);
+                && $alumniCollegeId === (int) ($scope['college_id'] ?? 0);
         }
 
         if (($scope['role'] ?? '') === 'head_admin') {
@@ -493,7 +462,7 @@ class AssignmentScopeService
             $updated['college'] = (string) ($scope['college_name'] ?? '');
             $updated['college_id'] = (int) ($scope['college_id'] ?? 0);
             $updated['department'] = (string) ($scope['department_name'] ?? '');
-            $updated['department_id'] = (int) ($scope['department_id'] ?? 0);
+            $updated['department_id'] = ! empty($scope['department_id']) ? (int) $scope['department_id'] : null;
         } else {
             $updated['college_id'] = null;
             $updated['department_id'] = null;

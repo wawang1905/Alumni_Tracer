@@ -343,31 +343,31 @@
         <main class="coordinator-main">
             <header class="topbar">
                 <div>
-                    <p class="eyebrow">Assigned Department</p>
-                    <h2>Department Reports</h2>
+                    <p class="eyebrow">Assigned College</p>
+                    <h2>College Reports</h2>
                 </div>
             </header>
 
             <div class="coord-reports-wrap">
-                <!-- Role & Department Scope Banner -->
+                <!-- Role & College Scope Banner -->
                 <section class="coord-scope-banner">
                     <div>
-                        <h3 id="reportScopeHeading">Department Tracer &amp; Survey Reports</h3>
-                        <p id="reportScopeSubtext">Reports generated from this portal are automatically restricted to your assigned department.</p>
+                        <h3 id="reportScopeHeading">College Tracer &amp; Survey Reports</h3>
+                        <p id="reportScopeSubtext">Reports generated from this portal cover all departments within your assigned college.</p>
                     </div>
                     <div class="coord-scope-pills">
                         <span class="coord-scope-pill"><i class="fas fa-user-shield"></i> <span id="reportRoleBadge">Coordinator</span></span>
                         <span class="coord-scope-pill"><i class="fas fa-building-columns"></i> <span id="reportCollegeBadge">Loading college...</span></span>
-                        <span class="coord-scope-pill"><i class="fas fa-network-wired"></i> <span id="reportDeptBadge">Loading department...</span></span>
+                        <span class="coord-scope-pill"><i class="fas fa-network-wired"></i> <span id="reportDeptBadge">All Departments</span></span>
                     </div>
                 </section>
 
-                <!-- Live Department KPI Summary -->
+                <!-- Live College KPI Summary -->
                 <section class="coord-report-kpi-grid">
                     <div class="coord-report-kpi">
-                        <span class="coord-report-kpi-label">Department Alumni</span>
+                        <span class="coord-report-kpi-label">College Alumni</span>
                         <span class="coord-report-kpi-value" id="rptTotalAlumni">—</span>
-                        <span class="coord-report-kpi-sub">Total graduates in department</span>
+                        <span class="coord-report-kpi-sub">Total graduates in college</span>
                     </div>
                     <div class="coord-report-kpi">
                         <span class="coord-report-kpi-label">Employment Rate</span>
@@ -389,7 +389,7 @@
                 <!-- Department Report Generator -->
                 <section class="coord-report-builder-card">
                     <div class="coord-builder-header">
-                        <h3><i class="fas fa-file-export" style="color:#2563eb;"></i> Generate Department Report</h3>
+                        <h3><i class="fas fa-file-export" style="color:#2563eb;"></i> Generate College Report</h3>
                         <span class="coord-preview-badge">
                             <i class="fas fa-users"></i>
                             <span id="coordPreviewCount">0</span> matching alumni
@@ -410,8 +410,8 @@
                         </div>
 
                         <div class="coord-field">
-                            <label for="coordLockedDepartment">Assigned Department (Locked)</label>
-                            <input type="text" id="coordLockedDepartment" value="Loading..." readonly>
+                            <label for="coordLockedDepartment">Department Scope</label>
+                            <input type="text" id="coordLockedDepartment" value="All Departments in College" readonly>
                         </div>
 
                         <div class="coord-field">
@@ -448,17 +448,17 @@
                             <label class="coord-type-card is-selected" data-type="alumni_tracer">
                                 <input type="radio" name="coordReportType" value="alumni_tracer" checked>
                                 <span class="coord-type-title"><i class="fas fa-table-list" style="color:#2563eb;"></i> Alumni Tracer Report</span>
-                                <span class="coord-type-desc">Department graduate roster with Employed (E), Unemployed (UE), Not Tracked (NT) counts and Grand Total percentage.</span>
+                                <span class="coord-type-desc">College graduate roster across departments with Employed (E), Unemployed (UE), Not Tracked (NT) counts and Grand Total percentage.</span>
                             </label>
                             <label class="coord-type-card" data-type="graphs">
                                 <input type="radio" name="coordReportType" value="graphs">
                                 <span class="coord-type-title"><i class="fas fa-chart-pie" style="color:#059669;"></i> Visual Graphs Report</span>
-                                <span class="coord-type-desc">Overall distribution charts and single-column breakdown scoped strictly to your department.</span>
+                                <span class="coord-type-desc">Overall distribution charts and single-column breakdown scoped strictly to your college.</span>
                             </label>
                             <label class="coord-type-card" data-type="raw_numbers">
                                 <input type="radio" name="coordReportType" value="raw_numbers">
                                 <span class="coord-type-title"><i class="fas fa-hashtag" style="color:#d97706;"></i> Raw Numbers Report</span>
-                                <span class="coord-type-desc">Question-by-question choice counts, frequencies, and percentages for your department.</span>
+                                <span class="coord-type-desc">Question-by-question choice counts, frequencies, and percentages for your college.</span>
                             </label>
                         </div>
                     </div>
@@ -482,7 +482,7 @@
                     </div>
 
                     <div class="coord-builder-actions">
-                        <span id="coordReportStatus" class="coord-report-status">Ready to generate your department report.</span>
+                        <span id="coordReportStatus" class="coord-report-status">Ready to generate your college report.</span>
                         <button type="button" id="coordGenerateReportBtn" class="btn-primary">
                             <i class="fas fa-download"></i>
                             <span>Generate &amp; Download Report</span>
@@ -490,12 +490,12 @@
                     </div>
                 </section>
 
-                <!-- Quick One-Click Department Exports -->
+                <!-- Quick One-Click College Exports -->
                 <section class="coord-quick-grid">
                     <article class="coord-quick-card">
                         <div>
                             <h4><i class="fas fa-user-graduate" style="color:#2563eb; margin-right:6px;"></i>Quick Tracer Sheet (PDF)</h4>
-                            <p>Export your department's full Alumni Tracer table (E / UE / NT &amp; Grand Total) using the selected survey.</p>
+                            <p>Export your college's full Alumni Tracer table (E / UE / NT &amp; Grand Total) using the selected survey.</p>
                         </div>
                         <button type="button" class="coord-quick-btn" data-quick-type="alumni_tracer" data-quick-format="pdf">
                             <i class="fas fa-file-pdf"></i> Download PDF
@@ -504,8 +504,8 @@
 
                     <article class="coord-quick-card">
                         <div>
-                            <h4><i class="fas fa-chart-column" style="color:#059669; margin-right:6px;"></i>Department Graphs (PDF)</h4>
-                            <p>Export visual pie charts and breakdown graphs strictly for your assigned department.</p>
+                            <h4><i class="fas fa-chart-column" style="color:#059669; margin-right:6px;"></i>College Graphs (PDF)</h4>
+                            <p>Export visual pie charts and breakdown graphs strictly for your assigned college.</p>
                         </div>
                         <button type="button" class="coord-quick-btn" data-quick-type="graphs" data-quick-format="pdf">
                             <i class="fas fa-chart-pie"></i> Download PDF
@@ -515,7 +515,7 @@
                     <article class="coord-quick-card">
                         <div>
                             <h4><i class="fas fa-file-spreadsheet" style="color:#d97706; margin-right:6px;"></i>Tracer Spreadsheet (Excel)</h4>
-                            <p>Download your department's Alumni Tracer sheet as an editable Excel (.xlsx) workbook.</p>
+                            <p>Download your college's Alumni Tracer sheet as an editable Excel (.xlsx) workbook.</p>
                         </div>
                         <button type="button" class="coord-quick-btn" data-quick-type="alumni_tracer" data-quick-format="xlsx">
                             <i class="fas fa-file-excel"></i> Download Excel
@@ -573,10 +573,6 @@
             function buildFiltersPayload() {
                 const filters = {};
                 if (state.college) filters.college = state.college;
-                if (state.department) {
-                    filters.course = state.department;
-                    filters.department = state.department;
-                }
                 if (els.yearSelect && els.yearSelect.value) {
                     filters.graduation_year = els.yearSelect.value;
                 }
@@ -634,7 +630,7 @@
                     els.generateBtn.disabled = true;
                     els.generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Generating...</span>';
                 }
-                setStatus('Generating department-scoped report. Please wait...');
+                setStatus('Generating college-scoped report. Please wait...');
 
                 try {
                     const response = await fetch('../reports/generate', {
@@ -662,8 +658,8 @@
                     const disposition = response.headers.get('Content-Disposition') || '';
                     const match = disposition.match(/filename="?([^"]+)"?/i);
                     const ext = format === 'xlsx' ? 'xlsx' : (format === 'docx' ? 'docx' : 'pdf');
-                    const deptSlug = (state.department || 'Department').replace(/[^a-zA-Z0-9]+/g, '_');
-                    const filename = match ? match[1] : `${deptSlug}_${reportType}_report.${ext}`;
+                    const collegeSlug = (state.college || 'College').replace(/[^a-zA-Z0-9]+/g, '_');
+                    const filename = match ? match[1] : `${collegeSlug}_${reportType}_report.${ext}`;
 
                     const downloadUrl = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -698,15 +694,15 @@
                         const sData = await sessionRes.json();
                         state.department = sData.department || '';
                         state.college = sData.college || '';
-                        state.role = sData.role === 'head_admin' ? 'Head Admin' : 'Program Coordinator';
+                        state.role = sData.role === 'head_admin' ? 'Head Admin' : 'College Coordinator';
 
                         if (els.roleBadge) els.roleBadge.textContent = state.role;
                         if (els.collegeBadge) els.collegeBadge.textContent = state.college || 'Assigned College';
-                        if (els.deptBadge) els.deptBadge.textContent = state.department || 'Unassigned Department';
+                        if (els.deptBadge) els.deptBadge.textContent = 'All Departments';
                         if (els.lockedCollege) els.lockedCollege.value = state.college || 'Assigned College';
-                        if (els.lockedDept) els.lockedDept.value = state.department || 'Unassigned Department';
-                        if (els.heading && state.department) {
-                            els.heading.textContent = `${state.department} — Reports Center`;
+                        if (els.lockedDept) els.lockedDept.value = 'All Departments in College';
+                        if (els.heading && state.college) {
+                            els.heading.textContent = `${state.college} — Reports Center`;
                         }
                     }
 
