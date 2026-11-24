@@ -42,6 +42,7 @@
 
     let activeBackdrop = null;
     let isSubmitting = false;
+    let isModalOpen = false;
 
     function normalizeLevel(level, options) {
         const raw = String(level || '').toLowerCase().trim();
@@ -108,11 +109,17 @@
     }
 
     function confirmAction(options = {}) {
+        // Prevent duplicate / overlapping confirmation dialogs
+        if (isModalOpen) {
+            return Promise.resolve(false);
+        }
+
         return new Promise((resolve) => {
+            isModalOpen = true;
             const level = normalizeLevel(options.level, options);
             const defaults = LEVEL_DEFAULTS[level];
             const requiredPhrase = level === 'high'
-                ? String(options.requiredPhrase !== undefined ? options.requiredPhrase : defaults.requiredPhrase).trim()
+                ? String(options.requiredPhrase !== undefined ? options.requiredPhrase : defaults.requiredPhrase)
                 : '';
 
             const backdrop = ensureBackdrop();
@@ -134,6 +141,12 @@
             const cancelBtn = backdrop.querySelector('#gvAcCancelBtn');
             const confirmBtn = backdrop.querySelector('#gvAcConfirmBtn');
 
+            const setVisible = (el, visible, displayValue = '') => {
+                if (!el) return;
+                el.hidden = !visible;
+                el.style.display = visible ? displayValue : 'none';
+            };
+
             dialog.className = `ac-modal-dialog ac-level-${level}`;
             iconEl.className = `fas ${options.icon || defaults.icon}`;
             badgeEl.textContent = options.badge || defaults.badge;
@@ -143,19 +156,19 @@
             if (options.record) {
                 recordLabel.textContent = escapeText(options.recordLabel || 'Affected Record');
                 recordValue.textContent = escapeText(options.record);
-                recordBox.hidden = false;
+                setVisible(recordBox, true);
             } else {
-                recordBox.hidden = true;
+                setVisible(recordBox, false);
             }
 
             if (options.consequence) {
                 consequenceText.textContent = escapeText(options.consequence);
-                consequenceBox.hidden = false;
+                setVisible(consequenceBox, true);
             } else {
-                consequenceBox.hidden = true;
+                setVisible(consequenceBox, false);
             }
 
-            errorBox.hidden = true;
+            setVisible(errorBox, false);
             errorBox.textContent = '';
 
             const confirmLabel = escapeText(options.confirmText || defaults.confirmText);
@@ -167,36 +180,61 @@
             cancelBtn.disabled = false;
             closeBtn.disabled = false;
 
+            const isPhraseStrictlyValid = () => {
+                if (requiredPhrase === '') return true;
+                // Strict, case-sensitive exact match — rejects empty, extra spaces, or wrong characters
+                return phraseInput.value.length > 0 && phraseInput.value === requiredPhrase;
+            };
+
             if (requiredPhrase !== '') {
                 phraseCode.textContent = requiredPhrase;
                 phraseInput.value = '';
                 phraseInput.placeholder = `Type ${requiredPhrase}`;
                 phraseInput.classList.remove('is-matched');
-                phraseBox.hidden = false;
+                setVisible(phraseBox, true);
                 confirmBtn.disabled = true;
             } else {
-                phraseBox.hidden = true;
+                setVisible(phraseBox, false);
                 phraseInput.value = '';
+                phraseInput.classList.remove('is-matched');
                 confirmBtn.disabled = false;
             }
 
             const onPhraseInput = () => {
                 if (isSubmitting || requiredPhrase === '') return;
-                const matched = phraseInput.value.trim() === requiredPhrase;
+                const matched = isPhraseStrictlyValid();
                 phraseInput.classList.toggle('is-matched', matched);
                 confirmBtn.disabled = !matched;
+                if (matched) {
+                    setVisible(errorBox, false);
+                    errorBox.textContent = '';
+                }
+            };
+
+            const onPhraseKeydown = (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (isPhraseStrictlyValid()) {
+                        onConfirmClick();
+                    } else {
+                        errorBox.textContent = `Please type "${requiredPhrase}" exactly (case-sensitive, no extra spaces) to continue.`;
+                        setVisible(errorBox, true);
+                    }
+                }
             };
 
             const cleanup = (result) => {
                 backdrop.classList.remove('is-open');
                 backdrop.setAttribute('aria-hidden', 'true');
                 phraseInput.removeEventListener('input', onPhraseInput);
+                phraseInput.removeEventListener('keydown', onPhraseKeydown);
                 closeBtn.removeEventListener('click', onCancel);
                 cancelBtn.removeEventListener('click', onCancel);
                 confirmBtn.removeEventListener('click', onConfirmClick);
                 backdrop.removeEventListener('click', onBackdropClick);
                 document.removeEventListener('keydown', onKeyDown);
                 isSubmitting = false;
+                isModalOpen = false;
                 resolve(result);
             };
 
@@ -220,12 +258,17 @@
 
             const onConfirmClick = async () => {
                 if (isSubmitting) return;
-                if (requiredPhrase !== '' && phraseInput.value.trim() !== requiredPhrase) {
+                if (!isPhraseStrictlyValid()) {
+                    confirmBtn.disabled = true;
+                    errorBox.textContent = `Please type "${requiredPhrase}" exactly (case-sensitive, no extra spaces) to continue.`;
+                    setVisible(errorBox, true);
+                    phraseInput.focus();
                     return;
                 }
 
                 if (typeof options.onConfirm !== 'function') {
                     isSubmitting = true;
+                    confirmBtn.disabled = true;
                     cleanup(true);
                     return;
                 }
@@ -234,7 +277,7 @@
                 confirmBtn.disabled = true;
                 cancelBtn.disabled = true;
                 closeBtn.disabled = true;
-                errorBox.hidden = true;
+                setVisible(errorBox, false);
                 confirmBtn.innerHTML = `<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ${escapeText(options.loadingText || 'Processing...')}`;
 
                 try {
@@ -245,13 +288,14 @@
                     cancelBtn.disabled = false;
                     closeBtn.disabled = false;
                     confirmBtn.textContent = confirmLabel;
-                    confirmBtn.disabled = requiredPhrase !== '' && phraseInput.value.trim() !== requiredPhrase;
+                    confirmBtn.disabled = !isPhraseStrictlyValid();
                     errorBox.textContent = (error && error.message) ? error.message : 'The action failed. Please try again.';
-                    errorBox.hidden = false;
+                    setVisible(errorBox, true);
                 }
             };
 
             phraseInput.addEventListener('input', onPhraseInput);
+            phraseInput.addEventListener('keydown', onPhraseKeydown);
             closeBtn.addEventListener('click', onCancel);
             cancelBtn.addEventListener('click', onCancel);
             confirmBtn.addEventListener('click', onConfirmClick);

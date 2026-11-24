@@ -3,6 +3,14 @@
    Levels: basic (low risk), medium (warning), high (danger + typed phrase)
    ========================================================================== */
 
+.ac-modal-backdrop [hidden],
+.ac-modal-record[hidden],
+.ac-modal-consequence[hidden],
+.ac-phrase-box[hidden],
+.ac-modal-error[hidden] {
+    display: none !important;
+}
+
 .ac-modal-backdrop {
     position: fixed;
     inset: 0;

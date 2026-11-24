@@ -1170,8 +1170,10 @@ html.staff-sidebar-collapsed .main-content {
 
 /* Hero Line Chart Card (Alumni by Graduation Year) */
 .chart-card.dashboard-hero-chart-card {
-    height: 350px;
-    padding: 18px 22px 16px;
+    height: auto;
+    min-height: 410px;
+    overflow: visible;
+    padding: 18px 22px 20px;
     border-color: #dbe3ee;
     background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
 }
@@ -1257,7 +1259,9 @@ html.staff-sidebar-collapsed .main-content {
 }
 
 .chart-shell.hero-line-chart-shell {
-    height: 245px;
+    height: auto;
+    min-height: 290px;
+    overflow: visible;
 }
 
 .hero-line-chart {
