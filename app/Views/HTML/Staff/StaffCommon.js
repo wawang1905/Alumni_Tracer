@@ -2505,7 +2505,7 @@ async function addBatch() {
     }
 
     // Check for duplicate batch within current campus scope before confirming
-    if (Array.isArray(alumniBatchesData) && alumniBatchesData.some((b) => String(b.graduationYear) === graduationYear)) {
+    if (typeof alumniBatches !== 'undefined' && Array.isArray(alumniBatches) && alumniBatches.some((b) => String(b.graduationYear) === graduationYear)) {
         alert(`Batch ${graduationYear} already exists in your campus.`);
         input.focus();
         return;
