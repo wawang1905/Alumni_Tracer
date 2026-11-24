@@ -388,6 +388,7 @@ function initStaffSidebarCollapse() {
 
     const applyState = () => {
         const shouldCollapse = desktopQuery.matches && localStorage.getItem('staffSidebarCollapsed') === 'true';
+        document.documentElement.classList.toggle('staff-sidebar-collapsed', shouldCollapse);
         document.body.classList.toggle('staff-sidebar-collapsed', shouldCollapse);
         toggleButton.setAttribute('aria-label', shouldCollapse ? 'Expand sidebar' : 'Collapse sidebar');
         toggleButton.setAttribute('aria-expanded', String(!shouldCollapse));
@@ -395,9 +396,16 @@ function initStaffSidebarCollapse() {
 
     toggleButton.addEventListener('click', () => {
         if (!desktopQuery.matches) return;
-        const nextValue = !document.body.classList.contains('staff-sidebar-collapsed');
+        const nextValue = !document.documentElement.classList.contains('staff-sidebar-collapsed');
         localStorage.setItem('staffSidebarCollapsed', String(nextValue));
         applyState();
+    });
+
+    // Remove preload class after initial paint so sidebar transitions animate smoothly
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            document.documentElement.classList.remove('sidebar-preload');
+        });
     });
 
     if (typeof desktopQuery.addEventListener === 'function') {
@@ -1627,6 +1635,41 @@ function renderYearDistribution() {
                 <strong class="hero-chart-stat-value">${avgPerBatch}</strong>
             </div>
         `;
+    }
+
+    const activeDistribution = {};
+    entries.forEach(([year]) => { activeDistribution[year] = 0; });
+    alumniData.forEach((alumni) => {
+        const year = String(alumni.graduationYear || 'Unassigned').trim() || 'Unassigned';
+        if (year in activeDistribution && String(alumni.status || '').toLowerCase() === 'active') {
+            activeDistribution[year] += 1;
+        }
+    });
+
+    if (window.GradVisionLineChart && typeof Chart !== 'undefined') {
+        container.innerHTML = '<div style="position: relative; width: 100%; height: 280px;"><canvas id="staffHeroYearLineCanvas"></canvas></div>';
+        const canvas = document.getElementById('staffHeroYearLineCanvas');
+        const labels = entries.map(([year]) => String(year));
+        const totalCounts = entries.map(([, count]) => Number(count || 0));
+        const activeCounts = entries.map(([year]) => Number(activeDistribution[year] || 0));
+
+        window.GradVisionLineChart.createLineChart(canvas, {
+            labels,
+            unit: 'alumni',
+            xTitle: 'Graduation Batch',
+            yTitle: 'Alumni Count',
+            showLegend: true,
+            series: [
+                { label: 'Total Graduates', data: totalCounts, color: 'blue', fill: true },
+                { label: 'Active Accounts', data: activeCounts, color: 'emerald', fill: false }
+            ],
+            onPointClick: (_idx, yearLabel) => {
+                if (typeof toggleDashboardBatchFromBar === 'function' && yearLabel) {
+                    toggleDashboardBatchFromBar(String(yearLabel));
+                }
+            }
+        });
+        return;
     }
 
     const maxCount = Math.max(...entries.map(([, count]) => count), 1);

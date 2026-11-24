@@ -11,8 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="CoordinatorCommon.css">
-    <!-- Chart.js CDN for interactive visual analytics -->
+    <!-- Chart.js CDN & Shared Line Graph Theme -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../JS/LineChartTheme.js"></script>
     <!-- Coordinator sidebar state pre-applied before paint to prevent transition flash -->
     <script>
         (function() {
@@ -156,12 +157,14 @@
                     <article class="coord-chart-card">
                         <div class="coord-chart-header">
                             <div class="coord-chart-title-wrap">
-                                <h3><i class="fas fa-chart-column"></i> Graduates per Year &amp; Tracer Status</h3>
-                                <p>Graduation cohorts in your assigned department</p>
+                                <h3><i class="fas fa-chart-line"></i> Graduates per Year &amp; Employment Trends</h3>
+                                <p>Chronological tracer trends for your assigned department</p>
                             </div>
                             <div class="coord-chart-controls">
                                 <div class="coord-toggle-group">
-                                    <button class="coord-toggle-btn active" data-bar-mode="grouped" type="button">Grouped</button>
+                                    <button class="coord-toggle-btn active" data-bar-mode="line" type="button">Line Trend</button>
+                                    <button class="coord-toggle-btn" data-bar-mode="rate" type="button">Rate (%)</button>
+                                    <button class="coord-toggle-btn" data-bar-mode="grouped" type="button">Grouped</button>
                                     <button class="coord-toggle-btn" data-bar-mode="stacked" type="button">Stacked</button>
                                 </div>
                             </div>

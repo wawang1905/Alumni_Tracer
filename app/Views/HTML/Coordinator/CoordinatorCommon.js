@@ -729,7 +729,7 @@ let coordGradChart = null;
 let coordStatusChart = null;
 let coordDashboardPayload = null;
 let currentBatchFilter = 'all';
-let currentBarMode = 'grouped'; // 'grouped' | 'stacked'
+let currentBarMode = 'line'; // 'grouped' | 'stacked'
 
 function initCoordinatorDashboardCharts() {
     const canvasGrads = document.getElementById('graduatesYearChart');
@@ -856,24 +856,76 @@ function applyDepartmentDashboardData(data) {
 }
 
 function renderGraduatesYearChart(data = coordDashboardPayload) {
-    const ctx = document.getElementById('graduatesYearChart')?.getContext('2d');
-    if (!ctx || !data) return;
+    const canvas = document.getElementById('graduatesYearChart');
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas || !data) return;
 
     if (coordGradChart) {
         coordGradChart.destroy();
+        coordGradChart = null;
     }
 
     const cohorts = data.yearCohorts || { labels: [], employed: [], unemployed: [], notTracked: [] };
+    const labels = cohorts.labels.length ? cohorts.labels : ['No Cohorts'];
+    const employed = cohorts.labels.length ? cohorts.employed : [0];
+    const unemployed = cohorts.labels.length ? cohorts.unemployed : [0];
+    const notTracked = cohorts.labels.length ? cohorts.notTracked : [0];
+
+    // Professional Line Graph Modes (Count Trend & Employment Rate %)
+    if ((currentBarMode === 'line' || currentBarMode === 'rate') && window.GradVisionLineChart) {
+        if (currentBarMode === 'rate') {
+            const empRates = labels.map((_, i) => {
+                const emp = Number(employed[i] || 0);
+                const unemp = Number(unemployed[i] || 0);
+                const tracked = emp + unemp;
+                return tracked > 0 ? Number(((emp / tracked) * 100).toFixed(1)) : 0;
+            });
+            const tracedRates = labels.map((_, i) => {
+                const emp = Number(employed[i] || 0);
+                const unemp = Number(unemployed[i] || 0);
+                const nt = Number(notTracked[i] || 0);
+                const total = emp + unemp + nt;
+                return total > 0 ? Number((((emp + unemp) / total) * 100).toFixed(1)) : 0;
+            });
+            coordGradChart = window.GradVisionLineChart.createLineChart(canvas, {
+                labels,
+                unit: '%',
+                xTitle: 'Graduation Batch',
+                yTitle: 'Rate (%)',
+                showLegend: true,
+                series: [
+                    { label: 'Employment Rate', data: empRates, color: 'emerald' },
+                    { label: 'Tracer Response Rate', data: tracedRates, color: 'blue' }
+                ]
+            });
+            return;
+        }
+
+        coordGradChart = window.GradVisionLineChart.createLineChart(canvas, {
+            labels,
+            unit: 'alumni',
+            xTitle: 'Graduation Batch',
+            yTitle: 'Alumni Count',
+            showLegend: true,
+            series: [
+                { label: 'Employed', data: employed, color: 'emerald' },
+                { label: 'Unemployed', data: unemployed, color: 'rose' },
+                { label: 'Not Tracked', data: notTracked, color: 'slate' }
+            ]
+        });
+        return;
+    }
+
     const isStacked = currentBarMode === 'stacked';
 
     coordGradChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: cohorts.labels.length ? cohorts.labels : ['No Cohorts'],
+            labels,
             datasets: [
                 {
                     label: 'Employed',
-                    data: cohorts.labels.length ? cohorts.employed : [0],
+                    data: employed,
                     backgroundColor: '#10b981',
                     hoverBackgroundColor: '#059669',
                     borderRadius: 6,
@@ -883,7 +935,7 @@ function renderGraduatesYearChart(data = coordDashboardPayload) {
                 },
                 {
                     label: 'Unemployed',
-                    data: cohorts.labels.length ? cohorts.unemployed : [0],
+                    data: unemployed,
                     backgroundColor: '#f43f5e',
                     hoverBackgroundColor: '#e11d48',
                     borderRadius: 6,
@@ -893,7 +945,7 @@ function renderGraduatesYearChart(data = coordDashboardPayload) {
                 },
                 {
                     label: 'Not Tracked',
-                    data: cohorts.labels.length ? cohorts.notTracked : [0],
+                    data: notTracked,
                     backgroundColor: '#94a3b8',
                     hoverBackgroundColor: '#64748b',
                     borderRadius: 6,

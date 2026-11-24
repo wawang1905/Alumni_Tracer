@@ -789,6 +789,7 @@ async function loadOverviewTelemetry(showFeedback = false) {
                 lastSyncedEl.textContent = `Last synced: ${data.telemetry.system?.serverTime || new Date().toLocaleTimeString()} · DB ping ${data.telemetry.system?.dbPingMs ?? 0} ms`;
             }
             renderMetrics();
+            renderDeveloperAlumniTrendChart(data.telemetry.alumniTrends);
             renderLogs();
             if (showFeedback) {
                 showToast('Live platform telemetry refreshed.');
@@ -2338,4 +2339,25 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         buildCampusAddress,
     };
+}
+
+function renderDeveloperAlumniTrendChart(trends) {
+    const canvas = document.getElementById('developerAlumniTrendChart');
+    if (!canvas || !window.GradVisionLineChart || typeof Chart === 'undefined') return;
+
+    const labels = Array.isArray(trends?.labels) && trends.labels.length > 0 ? trends.labels : ['No Batches'];
+    const total = Array.isArray(trends?.total) && trends.total.length > 0 ? trends.total : [0];
+    const active = Array.isArray(trends?.active) && trends.active.length > 0 ? trends.active : [0];
+
+    window.GradVisionLineChart.createLineChart(canvas, {
+        labels,
+        unit: 'alumni',
+        xTitle: 'Graduation Batch',
+        yTitle: 'Alumni Count',
+        showLegend: true,
+        series: [
+            { label: 'Total Alumni', data: total, color: 'blue', fill: true },
+            { label: 'Active Accounts', data: active, color: 'emerald', fill: false }
+        ]
+    });
 }

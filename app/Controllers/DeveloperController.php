@@ -237,9 +237,38 @@ class DeveloperController extends BaseController
             }
         }
 
+        // Chronological alumni trend by graduation batch (real DB counts)
+        $trendLabels = [];
+        $trendTotals = [];
+        $trendActive = [];
+        if ($db->tableExists('alumni')) {
+            $trendRows = $db->table('alumni')
+                ->select('"GraduationYear" AS grad_year, COUNT(*) AS total_count, SUM(CASE WHEN LOWER("Status"::text) = \'active\' THEN 1 ELSE 0 END) AS active_count', false)
+                ->where('"GraduationYear" IS NOT NULL', null, false)
+                ->groupBy('"GraduationYear"')
+                ->orderBy('"GraduationYear"', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            foreach ($trendRows as $tr) {
+                $yr = trim((string) ($tr['grad_year'] ?? ''));
+                if ($yr === '') {
+                    continue;
+                }
+                $trendLabels[] = $yr;
+                $trendTotals[] = (int) ($tr['total_count'] ?? 0);
+                $trendActive[] = (int) ($tr['active_count'] ?? 0);
+            }
+        }
+
         return $this->response->setJSON([
             'success' => true,
             'telemetry' => [
+                'alumniTrends' => [
+                    'labels' => $trendLabels,
+                    'total'  => $trendTotals,
+                    'active' => $trendActive,
+                ],
                 'accounts' => [
                     'total'                => count($allAccounts),
                     'headAdmins'           => $roleCounts['head_admin'],

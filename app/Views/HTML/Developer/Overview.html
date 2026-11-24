@@ -7,6 +7,8 @@
     <link rel="icon" type="image/x-icon" href="../images/gradvision-logo.ico">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="DeveloperCommon.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../JS/LineChartTheme.js"></script>
 </head>
 <body>
     <div class="developer-shell">
@@ -120,6 +122,18 @@
                         <i class="fas fa-database"></i>
                     </article>
                 </div>
+
+                <article class="section-card" style="margin-bottom: 18px; padding: 18px 20px;">
+                    <div class="section-heading" style="margin-bottom: 12px;">
+                        <div>
+                            <p class="eyebrow">Platform Analytics</p>
+                            <h3>Alumni &amp; Active Account Trends by Graduation Batch</h3>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 280px; width: 100%;">
+                        <canvas id="developerAlumniTrendChart"></canvas>
+                    </div>
+                </article>
 
                 <div class="dashboard-grid">
                     <article class="section-card wide">
