@@ -10025,6 +10025,10 @@ table td {
     box-sizing: border-box;
 }
 
+#alumniDigitalIdModal [hidden] {
+    display: none !important;
+}
+
 .alumni-digital-id-modal-content {
     width: min(880px, calc(100vw - 32px)) !important;
     max-width: calc(100vw - 32px) !important;
