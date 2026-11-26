@@ -680,18 +680,10 @@ function renderAlumniTable() {
         return;
     }
 
-    filtered.forEach(alumni => {
+    window.currentRenderedCourseAlumni = filtered;
+
+    filtered.forEach((alumni, index) => {
         const row = tbody.insertRow();
-        const st = String(alumni.status ?? '').toLowerCase();
-        const badgeClass =
-            st === 'active'
-                ? 'active'
-                : st === 'inactive'
-                    ? 'inactive'
-                    : st === 'incomplete'
-                        ? 'incomplete'
-                        : 'pending';
-        const statusLabel = st ? st.charAt(0).toUpperCase() + st.slice(1) : 'Pending';
         row.innerHTML = `
             <td><span class="alumni-id-code">${escapeHtml(alumni.alumniId || '—')}</span></td>
             <td style="font-weight: 600; color: #0f172a;">${escapeHtml(alumni.lastName || '—')}</td>
@@ -699,10 +691,77 @@ function renderAlumniTable() {
             <td style="color: #64748b;">${escapeHtml(alumni.email || '—')}</td>
             <td>${escapeHtml(alumni.college || '—')}</td>
             <td>${escapeHtml(alumni.course || '—')}</td>
-            <td><span class="alumni-status-badge ${badgeClass}">${escapeHtml(statusLabel)}</span></td>
+            <td>
+                <button type="button" class="alumni-view-id-btn" onclick="openAlumniDigitalIdModal(${index})">
+                    <i class="fas fa-id-card" aria-hidden="true"></i>
+                    <span>View</span>
+                </button>
+            </td>
         `;
     });
 }
+
+function openAlumniDigitalIdModal(index) {
+    const modal = document.getElementById('alumniDigitalIdModal');
+    const list = Array.isArray(window.currentRenderedCourseAlumni) ? window.currentRenderedCourseAlumni : [];
+    const alumni = list[index];
+    if (!modal || !alumni) return;
+
+    const firstName = String(alumni.firstName || '').trim();
+    const lastName = String(alumni.lastName || '').trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Sample Alumni Member';
+    const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || 'GV';
+    const batchYear = String(alumni.graduationYear || selectedAlumniBatchYear || new Date().getFullYear()).trim();
+    const sampleId = String(alumni.alumniId || '').trim() || `GV-${batchYear}-${String(index + 1).padStart(4, '0')}`;
+    const college = String(alumni.college || selectedAlumniCollege || '—').trim();
+    const course = String(alumni.course || selectedAlumniCourse || '—').trim();
+    const email = String(alumni.email || '').trim() || 'Not provided';
+    const rawStatus = String(alumni.status || 'active').trim().toLowerCase();
+    const statusLabel = rawStatus ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1) : 'Active';
+
+    const setElText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+
+    setElText('digitalIdAvatar', initials);
+    setElText('digitalIdFullName', fullName);
+    setElText('digitalIdNumber', sampleId);
+    setElText('digitalIdCollege', college);
+    setElText('digitalIdCourse', course);
+    setElText('digitalIdBatch', `Batch ${batchYear}`);
+    setElText('digitalIdEmail', email);
+
+    const statusEl = document.getElementById('digitalIdStatus');
+    if (statusEl) {
+        statusEl.textContent = statusLabel;
+        statusEl.className = 'alumni-id-status-chip ' + (
+            rawStatus === 'active'
+                ? 'is-active'
+                : rawStatus === 'inactive'
+                    ? 'is-inactive'
+                    : rawStatus === 'incomplete'
+                        ? 'is-incomplete'
+                        : 'is-pending'
+        );
+    }
+
+    const issuedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    setElText('digitalIdIssued', `Issued: ${issuedDate}`);
+
+    modal.style.display = 'flex';
+}
+
+function closeAlumniDigitalIdModal() {
+    const modal = document.getElementById('alumniDigitalIdModal');
+    if (modal) modal.style.display = 'none';
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        closeAlumniDigitalIdModal();
+    }
+});
 
 function getBatchYearLabel(year) {
     const value = String(year ?? '').trim();
