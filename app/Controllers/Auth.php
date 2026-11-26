@@ -665,10 +665,7 @@ class Auth extends BaseController
 
             $fromEmail = ! empty($emailConfig->fromEmail) ? $emailConfig->fromEmail : 'noreply@alumni-tracer.edu.ph';
             $fromName = ! empty($emailConfig->fromName) ? $emailConfig->fromName : 'Alumni Tracer Portal';
-
-            $emailService->setFrom($fromEmail, $fromName);
-            $emailService->setTo($email);
-            $emailService->setSubject('Alumni Tracer Portal - Email Verification Code');
+            $subject = 'Alumni Tracer Portal - Email Verification Code';
 
             $htmlMessage = '
             <div style="max-width: 560px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
@@ -689,10 +686,29 @@ class Auth extends BaseController
                 </div>
             </div>';
 
-            $emailService->setMessage($htmlMessage);
-            $mailSent = (bool) $emailService->send(false);
-            if (! $mailSent) {
-                log_message('error', 'OTP Email Delivery Failed: ' . $emailService->printDebugger(['headers']));
+            // 1. Prefer HTTPS Email API (Brevo or Resend) when configured — works on Render Free Tier where SMTP ports 25/465/587 are blocked
+            $httpApiAttempted = false;
+            $brevoKey = trim((string) (env('BREVO_API_KEY') ?? env('email.brevoApiKey') ?? ''));
+            $resendKey = trim((string) (env('RESEND_API_KEY') ?? env('email.resendApiKey') ?? ''));
+
+            if ($brevoKey !== '') {
+                $httpApiAttempted = true;
+                $mailSent = $this->sendEmailViaBrevoApi($brevoKey, $fromEmail, $fromName, $email, $subject, $htmlMessage);
+            } elseif ($resendKey !== '') {
+                $httpApiAttempted = true;
+                $mailSent = $this->sendEmailViaResendApi($resendKey, $fromEmail, $fromName, $email, $subject, $htmlMessage);
+            }
+
+            // 2. Fallback to CodeIgniter SMTP (e.g., local XAMPP with smtp.gmail.com:587)
+            if (! $mailSent && ! $httpApiAttempted) {
+                $emailService->setFrom($fromEmail, $fromName);
+                $emailService->setTo($email);
+                $emailService->setSubject($subject);
+                $emailService->setMessage($htmlMessage);
+                $mailSent = (bool) $emailService->send(false);
+                if (! $mailSent) {
+                    log_message('error', 'OTP Email Delivery Failed: ' . $emailService->printDebugger(['headers']));
+                }
             }
         } catch (\Throwable $e) {
             log_message('error', 'OTP Email Send Error: ' . $e->getMessage());
@@ -718,6 +734,102 @@ class Auth extends BaseController
             'cooldown'   => 60,
             'mail_sent'  => true,
         ]);
+    }
+
+    /**
+     * Send transactional email over HTTPS via Brevo API v3 (works on Render Free Tier).
+     */
+    private function sendEmailViaBrevoApi(
+        string $apiKey,
+        string $fromEmail,
+        string $fromName,
+        string $toEmail,
+        string $subject,
+        string $htmlContent
+    ): bool {
+        try {
+            $payload = json_encode([
+                'sender'      => ['name' => $fromName, 'email' => $fromEmail],
+                'to'          => [['email' => $toEmail]],
+                'subject'     => $subject,
+                'htmlContent' => $htmlContent,
+            ]);
+
+            $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+            curl_setopt_array($ch, [
+                CURLOPT_POST           => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 20,
+                CURLOPT_HTTPHEADER     => [
+                    'accept: application/json',
+                    'content-type: application/json',
+                    'api-key: ' . $apiKey,
+                ],
+                CURLOPT_POSTFIELDS     => $payload,
+            ]);
+            $responseBody = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlErr !== '' || $httpCode < 200 || $httpCode >= 300) {
+                log_message('error', "Brevo API OTP Delivery Failed (HTTP {$httpCode}): {$curlErr} {$responseBody}");
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            log_message('error', 'Brevo API OTP Error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Send transactional email over HTTPS via Resend API (works on Render Free Tier).
+     */
+    private function sendEmailViaResendApi(
+        string $apiKey,
+        string $fromEmail,
+        string $fromName,
+        string $toEmail,
+        string $subject,
+        string $htmlContent
+    ): bool {
+        try {
+            $payload = json_encode([
+                'from'    => "{$fromName} <{$fromEmail}>",
+                'to'      => [$toEmail],
+                'subject' => $subject,
+                'html'    => $htmlContent,
+            ]);
+
+            $ch = curl_init('https://api.resend.com/emails');
+            curl_setopt_array($ch, [
+                CURLOPT_POST           => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 20,
+                CURLOPT_HTTPHEADER     => [
+                    'Accept: application/json',
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $apiKey,
+                ],
+                CURLOPT_POSTFIELDS     => $payload,
+            ]);
+            $responseBody = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlErr !== '' || $httpCode < 200 || $httpCode >= 300) {
+                log_message('error', "Resend API OTP Delivery Failed (HTTP {$httpCode}): {$curlErr} {$responseBody}");
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            log_message('error', 'Resend API OTP Error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     public function verifyEmailOtp(): ResponseInterface
