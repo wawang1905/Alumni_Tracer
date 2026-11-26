@@ -626,11 +626,8 @@ function renderStep(errors = {}) {
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                 </div>
                 <div class="otp-box-text">
-                  <h4>${signupState.mailSent ? 'Verification Code Sent to Email' : 'Email Verification Code (Local Mode)'}</h4>
-                  <p>${signupState.mailSent
-                    ? `A 6-digit code has been delivered to <strong>${escapeHtml(signupState.email)}</strong>. Please check your inbox (and spam folder).`
-                    : `SMTP is not yet configured in <code>.env</code> on your local server. For testing right now, use the code below (or click <strong>Quick Fill</strong>):`
-                  }</p>
+                  <h4>Verification Code Sent to Email</h4>
+                  <p>A 6-digit code has been delivered to <strong>${escapeHtml(signupState.email)}</strong>. Please check your inbox (and spam folder).</p>
                 </div>
               </div>
 
@@ -647,13 +644,6 @@ function renderStep(errors = {}) {
                   <button type="button" class="btn-resend-link" id="resendOtpLink">Resend Code</button>
                 `}
               </div>
-
-              ${signupState.devOtp ? `
-                <div class="otp-dev-hint">
-                  <span>Dev OTP: <strong>${escapeHtml(signupState.devOtp)}</strong></span>
-                  <button type="button" class="btn-fill-dev-otp" id="fillDevOtpBtn">Quick Fill</button>
-                </div>
-              ` : ''}
             </div>
           ` : ''}
         </div>
@@ -1060,8 +1050,8 @@ async function handleSendOtp() {
 
     signupState.otpSent = true;
     signupState.isEmailVerified = false;
-    signupState.devOtp = result.dev_otp || null;
-    signupState.mailSent = Boolean(result.mail_sent);
+    signupState.devOtp = null;
+    signupState.mailSent = true;
     startOtpCooldown(result.cooldown || 60);
 
     showAlert(signupAlert, result.message || `Verification code sent to ${email}`, 'success', 4000);

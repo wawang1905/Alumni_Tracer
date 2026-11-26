@@ -661,7 +661,7 @@ class Auth extends BaseController
         $mailSent = false;
         try {
             $emailConfig = config('Email');
-            $emailService = \Config\Services::email();
+            $emailService = \Config\Services::email($emailConfig, false);
 
             $fromEmail = ! empty($emailConfig->fromEmail) ? $emailConfig->fromEmail : 'noreply@alumni-tracer.edu.ph';
             $fromName = ! empty($emailConfig->fromName) ? $emailConfig->fromName : 'Alumni Tracer Portal';
@@ -690,7 +690,7 @@ class Auth extends BaseController
             </div>';
 
             $emailService->setMessage($htmlMessage);
-            $mailSent = (bool) $emailService->send();
+            $mailSent = (bool) $emailService->send(false);
             if (! $mailSent) {
                 log_message('error', 'OTP Email Delivery Failed: ' . $emailService->printDebugger(['headers']));
             }
@@ -698,21 +698,25 @@ class Auth extends BaseController
             log_message('error', 'OTP Email Send Error: ' . $e->getMessage());
         }
 
-        log_message('info', "Sign-up OTP for {$email}: {$otp} (mail sent: " . ($mailSent ? 'yes' : 'no') . ")");
+        if (! $mailSent) {
+            session()->remove('email_otp_data');
+            log_message('error', "Sign-up OTP email delivery failed for {$email}.");
 
-        $isDev = (defined('ENVIRONMENT') && ENVIRONMENT === 'development');
+            return $this->response->setStatusCode(503)->setJSON([
+                'success'   => false,
+                'mail_sent' => false,
+                'message'   => 'Unable to send the verification code email right now. Please verify your email address and try again in a moment.',
+            ]);
+        }
+
+        log_message('info', "Sign-up OTP email delivered successfully to {$email}.");
 
         return $this->response->setJSON([
-            'success'            => true,
-            'message'            => $mailSent
-                ? "A 6-digit verification code has been sent to {$email}."
-                : ($isDev
-                    ? "Verification code generated for {$email}."
-                    : "Verification code sent to {$email}."),
-            'expires_in'         => 600,
-            'cooldown'           => 60,
-            'mail_sent'          => $mailSent,
-            'dev_otp'            => ($isDev || ! $mailSent) ? $otp : null,
+            'success'    => true,
+            'message'    => "A 6-digit verification code has been sent to {$email}.",
+            'expires_in' => 600,
+            'cooldown'   => 60,
+            'mail_sent'  => true,
         ]);
     }
 
