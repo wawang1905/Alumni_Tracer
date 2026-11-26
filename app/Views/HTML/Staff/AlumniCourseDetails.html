@@ -291,108 +291,116 @@
         </div>
     </div>
 
-    <!-- Sample Alumni Digital ID Card Modal -->
+    <!-- Back-to-Back Alumni Digital ID Card Modal (Head Admin Only) -->
     <div id="alumniDigitalIdModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="alumniDigitalIdModalTitle" onclick="if (event.target === this) closeAlumniDigitalIdModal();">
         <div class="modal-content alumni-digital-id-modal-content">
             <div class="cm-header">
                 <div class="cm-header-text">
-                    <h3 id="alumniDigitalIdModalTitle">Alumni Digital ID Card</h3>
-                    <p class="cm-subtitle">Sample digital identification preview for this alumnus.</p>
+                    <h3 id="alumniDigitalIdModalTitle">Alumni Digital ID (Front &amp; Back)</h3>
+                    <p class="cm-subtitle" id="alumniDigitalIdSubtitle">Preview both sides before printing or downloading.</p>
                 </div>
                 <button type="button" class="cm-close" onclick="closeAlumniDigitalIdModal()" aria-label="Close modal">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="cm-body alumni-digital-id-body">
-                <div class="alumni-id-card" id="alumniDigitalIdCard">
-                    <div class="alumni-id-card-header">
-                        <div class="alumni-id-card-brand">
-                            <div class="alumni-id-card-logo">
-                                <img src="../images/gradvision-logo.ico" alt="GradVision Logo">
-                            </div>
-                            <div>
-                                <div class="alumni-id-card-org">GradVision Alumni Association</div>
-                                <div class="alumni-id-card-tag">Official Alumni Digital ID</div>
-                            </div>
+                <div id="alumniDigitalIdLoading" class="ustp-id-loading" hidden>
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                    <span>Loading verified alumni ID details...</span>
+                </div>
+                <div id="alumniDigitalIdError" class="ustp-id-error" hidden></div>
+
+                <div id="alumniDigitalIdPreviewGrid" class="ustp-id-preview-grid" data-print-mode="sheet">
+                    <!-- FRONT SIDE -->
+                    <div class="ustp-id-side-block">
+                        <div class="ustp-id-side-label">
+                            <span class="ustp-id-side-badge">FRONT SIDE</span>
+                            <span class="ustp-id-dim-note">CR80 &middot; 85.6 &times; 53.98 mm</span>
                         </div>
-                        <span class="alumni-id-sample-pill">SAMPLE ID</span>
-                    </div>
-                    <div class="alumni-id-card-accent"></div>
-                    <div class="alumni-id-card-main">
-                        <div class="alumni-id-photo-col">
-                            <div class="alumni-id-avatar" id="digitalIdAvatar">GV</div>
-                            <span class="alumni-id-status-chip" id="digitalIdStatus">Active</span>
-                        </div>
-                        <div class="alumni-id-info-col">
-                            <div class="alumni-id-name" id="digitalIdFullName">Juan Dela Cruz</div>
-                            <div class="alumni-id-number-wrap">
-                                <span class="alumni-id-label">Alumni ID No.</span>
-                                <span class="alumni-id-number" id="digitalIdNumber">GV-2024-0001</span>
+                        <div class="ustp-id-card ustp-id-front" id="ustpIdFrontCard">
+                            <div class="ustp-front-blob-bl" aria-hidden="true"></div>
+                            <div class="ustp-front-dot-yellow" aria-hidden="true"></div>
+                            <div class="ustp-front-dot-slate" aria-hidden="true"></div>
+                            <div class="ustp-front-slate-shape" aria-hidden="true"></div>
+                            <div class="ustp-front-corner-br" aria-hidden="true"></div>
+
+                            <div class="ustp-front-photo-frame">
+                                <img id="digitalIdPhotoImg" class="ustp-front-photo-img" src="" alt="Alumni Photograph" hidden>
+                                <div id="digitalIdAvatar" class="ustp-front-photo-fallback">GV</div>
                             </div>
-                            <div class="alumni-id-meta-grid">
-                                <div class="alumni-id-meta-item">
-                                    <span class="alumni-id-label">College</span>
-                                    <span class="alumni-id-val" id="digitalIdCollege">—</span>
-                                </div>
-                                <div class="alumni-id-meta-item">
-                                    <span class="alumni-id-label">Department / Program</span>
-                                    <span class="alumni-id-val" id="digitalIdCourse">—</span>
-                                </div>
-                                <div class="alumni-id-meta-item">
-                                    <span class="alumni-id-label">Batch Year</span>
-                                    <span class="alumni-id-val" id="digitalIdBatch">—</span>
-                                </div>
-                                <div class="alumni-id-meta-item">
-                                    <span class="alumni-id-label">Email</span>
-                                    <span class="alumni-id-val alumni-id-email" id="digitalIdEmail">—</span>
-                                </div>
+
+                            <div class="ustp-front-logo-wrap">
+                                <img id="digitalIdOfficialLogo" src="../images/ustp-alumni-logo.jpg" alt="USTP Alumni Association Claveria Campus Logo">
+                            </div>
+
+                            <div class="ustp-front-text-block">
+                                <div class="ustp-front-name" id="digitalIdFullName">—</div>
+                                <div class="ustp-front-id-num" id="digitalIdNumber">—</div>
+                                <div class="ustp-front-member">LIFETIME MEMBER</div>
+                                <div class="ustp-front-batch" id="digitalIdBatch">BATCH —</div>
                             </div>
                         </div>
                     </div>
-                    <div class="alumni-id-card-footer">
-                        <div class="alumni-id-footer-left">
-                            <div class="alumni-id-verified-line">
-                                <i class="fas fa-circle-check"></i>
-                                <span>Verified GradVision Alumni Member</span>
-                            </div>
-                            <div class="alumni-id-validity" id="digitalIdIssued">Issued: —</div>
+
+                    <!-- BACK SIDE -->
+                    <div class="ustp-id-side-block">
+                        <div class="ustp-id-side-label">
+                            <span class="ustp-id-side-badge is-back">BACK SIDE</span>
+                            <span class="ustp-id-dim-note">CR80 &middot; 85.6 &times; 53.98 mm</span>
                         </div>
-                        <div class="alumni-id-qr-box" aria-label="Sample Verification QR Code" title="Sample QR Verification">
-                            <svg viewBox="0 0 64 64" width="54" height="54" role="img" aria-hidden="true">
-                                <rect width="64" height="64" rx="6" fill="#ffffff"/>
-                                <rect x="5" y="5" width="16" height="16" rx="2" fill="#0f2b4c"/>
-                                <rect x="8" y="8" width="10" height="10" fill="#ffffff"/>
-                                <rect x="10.5" y="10.5" width="5" height="5" fill="#0f2b4c"/>
-                                <rect x="43" y="5" width="16" height="16" rx="2" fill="#0f2b4c"/>
-                                <rect x="46" y="8" width="10" height="10" fill="#ffffff"/>
-                                <rect x="48.5" y="10.5" width="5" height="5" fill="#0f2b4c"/>
-                                <rect x="5" y="43" width="16" height="16" rx="2" fill="#0f2b4c"/>
-                                <rect x="8" y="46" width="10" height="10" fill="#ffffff"/>
-                                <rect x="10.5" y="48.5" width="5" height="5" fill="#0f2b4c"/>
-                                <rect x="26" y="6" width="4" height="4" fill="#0f2b4c"/>
-                                <rect x="33" y="6" width="4" height="8" fill="#0f2b4c"/>
-                                <rect x="26" y="14" width="6" height="4" fill="#0f2b4c"/>
-                                <rect x="6" y="26" width="8" height="4" fill="#0f2b4c"/>
-                                <rect x="18" y="26" width="4" height="10" fill="#0f2b4c"/>
-                                <rect x="26" y="24" width="12" height="12" rx="2" fill="#1e4a76"/>
-                                <rect x="29" y="27" width="6" height="6" fill="#ffffff"/>
-                                <rect x="42" y="26" width="6" height="4" fill="#0f2b4c"/>
-                                <rect x="52" y="26" width="6" height="8" fill="#0f2b4c"/>
-                                <rect x="6" y="34" width="8" height="4" fill="#0f2b4c"/>
-                                <rect x="42" y="34" width="8" height="4" fill="#0f2b4c"/>
-                                <rect x="26" y="42" width="4" height="8" fill="#0f2b4c"/>
-                                <rect x="34" y="42" width="8" height="4" fill="#0f2b4c"/>
-                                <rect x="46" y="42" width="4" height="16" fill="#0f2b4c"/>
-                                <rect x="54" y="42" width="5" height="6" fill="#0f2b4c"/>
-                                <rect x="26" y="54" width="14" height="4" fill="#0f2b4c"/>
-                                <rect x="54" y="52" width="5" height="6" fill="#0f2b4c"/>
-                            </svg>
+                        <div class="ustp-id-card ustp-id-back" id="ustpIdBackCard">
+                            <div class="ustp-back-accent-tl" aria-hidden="true"></div>
+                            <div class="ustp-back-accent-br" aria-hidden="true"></div>
+
+                            <div class="ustp-back-header-left">PERSONAL DETAILS</div>
+                            <div class="ustp-back-header-right">
+                                THE BEARER WHOSE PICTURE APPEARS HEREIN<br>
+                                IS A BONA FIDE MEMBER OF USTPAA-CLAVERIA
+                            </div>
+
+                            <div class="ustp-back-details">
+                                <div class="ustp-back-row"><span class="ustp-back-lbl">SEX:</span> <span id="digitalIdSex">—</span></div>
+                                <div class="ustp-back-row"><span class="ustp-back-lbl">BIRTHDATE:</span> <span id="digitalIdBirthdate">—</span></div>
+                                <div class="ustp-back-row"><span class="ustp-back-lbl">DEGREE/PROGRAM:</span> <span id="digitalIdCourse">—</span></div>
+                                <div class="ustp-back-row"><span class="ustp-back-lbl">CONTACT NUMBER:</span> <span id="digitalIdContact">—</span></div>
+                                <div class="ustp-back-row"><span class="ustp-back-lbl">HOME ADDRESS:</span></div>
+                                <div class="ustp-back-row ustp-back-indent" id="digitalIdAddress">—</div>
+                                <div class="ustp-back-row ustp-back-em-lbl">IN CASE OF EMERGENCY, PLEASE CONTACT:</div>
+                                <div class="ustp-back-row ustp-back-em-val" id="digitalIdEmergencyName">—</div>
+                                <div class="ustp-back-row ustp-back-em-val" id="digitalIdEmergencyNumber">—</div>
+                            </div>
+
+                            <div class="ustp-back-sig-block">
+                                <svg class="ustp-back-sig-svg" viewBox="0 0 140 52" aria-hidden="true">
+                                    <path d="M22,38 C28,12 42,6 44,18 C46,28 32,36 30,26 C28,18 46,16 56,14 C54,28 50,42 54,44 C58,46 66,22 72,20 C76,18 70,36 78,34 C84,32 90,22 96,24 C100,25 94,35 104,33 C112,31 118,27 128,26" fill="none" stroke="#3f4650" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M40,42 C62,38 88,36 118,39" fill="none" stroke="#3f4650" stroke-width="1.3" stroke-linecap="round"/>
+                                </svg>
+                                <div class="ustp-back-sig-name">GERUM O. SALATAN</div>
+                                <div class="ustp-back-sig-title">USTPAA-CLAVERIA PRESIDENT</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="cm-footer modal-buttons">
-                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAlumniDigitalIdModal()">Close</button>
+            <div class="cm-footer ustp-id-modal-footer">
+                <div class="ustp-id-layout-picker">
+                    <label for="digitalIdPrintMode">Print / PDF Layout:</label>
+                    <select id="digitalIdPrintMode" onchange="updateDigitalIdPrintMode()">
+                        <option value="sheet" selected>Same Sheet (Front &amp; Back)</option>
+                        <option value="duplex">Duplex (2-Page Front / Back)</option>
+                    </select>
+                </div>
+                <div class="ustp-id-footer-actions">
+                    <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeAlumniDigitalIdModal()">Close</button>
+                    <button class="alumni-btn alumni-btn-secondary" id="printDigitalIdBtn" type="button" onclick="printAlumniDigitalId()">
+                        <i class="fas fa-print"></i>
+                        <span>Print ID</span>
+                    </button>
+                    <button class="alumni-btn alumni-btn-primary" id="downloadDigitalIdBtn" type="button" onclick="downloadAlumniDigitalId()">
+                        <i class="fas fa-download"></i>
+                        <span>Download PDF</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

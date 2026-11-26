@@ -140,6 +140,8 @@ $routes->group('', ['filter' => 'role:staff'], static function (RouteCollection 
     $routes->get('alumni/export', 'AlumniController::export');
     $routes->post('alumni/create', 'AlumniController::create');
     $routes->post('alumni/import', 'AlumniController::import');
+    $routes->get('alumni/digital-id/(:num)', 'AlumniController::digitalId/$1');
+    $routes->get('alumni/digital-id/(:num)/download', 'AlumniController::downloadDigitalId/$1');
 
     // News Management APIs (Staff)
     $routes->post('news/create', 'NewsController::create');

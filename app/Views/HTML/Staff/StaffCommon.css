@@ -9992,7 +9992,7 @@ table td {
 }
 
 /* ==========================================================================
-   Alumni Course Details - View Button & Sample Digital ID Card Modal
+   Head Admin Alumni Management - Back-to-Back USTP Alumni Digital ID Modal
    ========================================================================== */
 .alumni-view-id-btn {
     display: inline-flex;
@@ -10021,272 +10021,475 @@ table td {
 }
 
 .alumni-digital-id-modal-content {
-    max-width: 560px !important;
-    width: 94%;
+    max-width: 960px !important;
+    width: 95%;
 }
 
 .alumni-digital-id-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 22px 22px !important;
-    background: #f8fafc;
+    padding: 22px 24px !important;
+    background: #f1f5f9;
 }
 
-.alumni-id-card {
-    width: 100%;
-    max-width: 490px;
-    border-radius: 16px;
-    overflow: hidden;
-    background: #ffffff;
-    border: 1px solid #dbe4f0;
-    box-shadow: 0 14px 32px rgba(15, 43, 76, 0.16);
-}
-
-.alumni-id-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 20px;
-    background: linear-gradient(135deg, #0f2b4c 0%, #1e4a76 62%, #2563eb 100%);
-    color: #ffffff;
-}
-
-.alumni-id-card-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.alumni-id-card-logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.25);
+.ustp-id-loading,
+.ustp-id-error {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-}
-
-.alumni-id-card-logo img {
-    width: 26px;
-    height: 26px;
-    object-fit: contain;
-}
-
-.alumni-id-card-org {
+    gap: 10px;
+    padding: 36px 20px;
     font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.2px;
-    line-height: 1.2;
+    font-weight: 600;
+    color: #475569;
 }
 
-.alumni-id-card-tag {
-    font-size: 11px;
-    font-weight: 500;
-    opacity: 0.85;
-    margin-top: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
+.ustp-id-error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
 }
 
-.alumni-id-sample-pill {
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    white-space: nowrap;
+.ustp-id-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+    justify-items: center;
 }
 
-.alumni-id-card-accent {
-    height: 4px;
-    background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 55%, #38bdf8 100%);
-}
-
-.alumni-id-card-main {
-    display: flex;
-    gap: 18px;
-    padding: 20px;
-    align-items: flex-start;
-}
-
-.alumni-id-photo-col {
+.ustp-id-side-block {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    flex-shrink: 0;
+    width: 100%;
+    max-width: 428px;
 }
 
-.alumni-id-avatar {
-    width: 84px;
-    height: 92px;
-    border-radius: 12px;
-    background: linear-gradient(145deg, #e0ecff 0%, #c7ddff 100%);
-    border: 2px solid #93c5fd;
-    color: #1e3a8a;
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: inset 0 2px 6px rgba(30, 58, 138, 0.08);
-}
-
-.alumni-id-status-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    background: #dcfce7;
-    color: #166534;
-}
-
-.alumni-id-status-chip.is-pending {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.alumni-id-status-chip.is-inactive {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.alumni-id-status-chip.is-incomplete {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-.alumni-id-info-col {
-    flex: 1;
-    min-width: 0;
-}
-
-.alumni-id-name {
-    font-size: 18px;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1.25;
-    margin-bottom: 6px;
-    word-break: break-word;
-}
-
-.alumni-id-number-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 10px;
-    border-radius: 8px;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    margin-bottom: 12px;
-}
-
-.alumni-id-number {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #1e40af;
-    letter-spacing: 0.4px;
-}
-
-.alumni-id-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px 14px;
-}
-
-.alumni-id-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-
-.alumni-id-label {
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #64748b;
-}
-
-.alumni-id-val {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #1e293b;
-    line-height: 1.3;
-    word-break: break-word;
-}
-
-.alumni-id-email {
-    font-weight: 500;
-    color: #334155;
-    font-size: 12px;
-}
-
-.alumni-id-card-footer {
+.ustp-id-side-label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
-    padding: 12px 20px;
-    background: #f8fafc;
-    border-top: 1px dashed #cbd5e1;
+    width: 100%;
+    padding: 0 2px;
 }
 
-.alumni-id-footer-left {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.alumni-id-verified-line {
+.ustp-id-side-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #0f2b4c;
-}
-
-.alumni-id-verified-line i {
-    color: #16a34a;
-}
-
-.alumni-id-validity {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #1e4a76;
+    color: #ffffff;
     font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+}
+
+.ustp-id-side-badge.is-back {
+    background: #475569;
+}
+
+.ustp-id-dim-note {
+    font-size: 11.5px;
+    font-weight: 500;
     color: #64748b;
 }
 
-.alumni-id-qr-box {
-    padding: 4px;
+/* CR80 Standard Landscape Card (85.6mm x 53.98mm -> 1.5858:1) */
+.ustp-id-card {
+    position: relative;
+    width: 100%;
+    max-width: 428px;
+    aspect-ratio: 85.6 / 53.98;
     background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    line-height: 0;
-    flex-shrink: 0;
+    border: 1px solid #d5dde7;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    user-select: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
-@media (max-width: 560px) {
-    .alumni-id-card-main {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
+/* ---- FRONT SIDE DESIGN (Matches Reference Front Sample) ---- */
+.ustp-front-blob-bl {
+    position: absolute;
+    left: -11%;
+    bottom: -15%;
+    width: 40%;
+    height: 67%;
+    background: #f9ebaa;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.ustp-front-dot-yellow {
+    position: absolute;
+    left: 30%;
+    top: 3.5%;
+    width: 6.4%;
+    height: 10.2%;
+    background: #f7e69b;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.ustp-front-dot-slate {
+    position: absolute;
+    left: 33.4%;
+    top: 9.8%;
+    width: 4.9%;
+    height: 7.8%;
+    background: #92a1b6;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.ustp-front-slate-shape {
+    position: absolute;
+    left: 39.5%;
+    top: -17%;
+    width: 37.5%;
+    height: 54%;
+    background: #8f9fb4;
+    border-radius: 26px;
+    transform: rotate(-16deg);
+    pointer-events: none;
+}
+
+.ustp-front-corner-br {
+    position: absolute;
+    right: -9%;
+    bottom: -15%;
+    width: 26%;
+    height: 37%;
+    background: #f1d86e;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.ustp-front-photo-frame {
+    position: absolute;
+    left: 6%;
+    top: 13.8%;
+    width: 28.6%;
+    height: 47.4%;
+    border: 1.5px solid #8f9db1;
+    border-radius: 10px;
+    background: #ffffff;
+    overflow: hidden;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ustp-front-photo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+}
+
+.ustp-front-photo-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.ustp-front-logo-wrap {
+    position: absolute;
+    right: 5.2%;
+    top: 8.8%;
+    width: 20.5%;
+    aspect-ratio: 1 / 1;
+    background: #ffffff;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ustp-front-logo-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.ustp-front-text-block {
+    position: absolute;
+    left: 30%;
+    right: 6%;
+    bottom: 11%;
+    z-index: 2;
+    text-align: center;
+    color: #4f5763;
+}
+
+.ustp-front-name {
+    font-size: 13.5px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.ustp-front-id-num {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    margin-bottom: 5px;
+}
+
+.ustp-front-member {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+.ustp-front-batch {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.45px;
+}
+
+/* ---- BACK SIDE DESIGN (Matches Reference Back Sample) ---- */
+.ustp-back-accent-tl {
+    position: absolute;
+    left: -8%;
+    top: -13%;
+    width: 21%;
+    height: 33%;
+    background: #b5c1d0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.ustp-back-accent-br {
+    position: absolute;
+    right: -8%;
+    bottom: 13%;
+    width: 16%;
+    height: 33%;
+    background: #8a95a0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.ustp-back-header-left {
+    position: absolute;
+    left: 8%;
+    top: 9.2%;
+    z-index: 2;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2.4px;
+    color: #5a6470;
+}
+
+.ustp-back-header-right {
+    position: absolute;
+    right: 5%;
+    top: 7.5%;
+    z-index: 2;
+    text-align: right;
+    font-size: 7.4px;
+    font-weight: 700;
+    line-height: 1.38;
+    color: #5f6975;
+    letter-spacing: 0.15px;
+}
+
+.ustp-back-details {
+    position: absolute;
+    left: 8%;
+    right: 34%;
+    top: 20.5%;
+    z-index: 2;
+    color: #55606d;
+    font-size: 9.5px;
+    line-height: 1.44;
+    font-weight: 700;
+}
+
+.ustp-back-row {
+    margin-bottom: 3px;
+    word-break: break-word;
+}
+
+.ustp-back-lbl {
+    color: #4b5563;
+}
+
+.ustp-back-indent {
+    padding-left: 10px;
+}
+
+.ustp-back-em-lbl {
+    margin-top: 5px;
+    font-size: 8.2px;
+    letter-spacing: 0.25px;
+}
+
+.ustp-back-em-val {
+    padding-left: 10px;
+    font-size: 9.5px;
+}
+
+.ustp-back-sig-block {
+    position: absolute;
+    right: 5.5%;
+    bottom: 8.5%;
+    width: 33%;
+    z-index: 2;
+    text-align: center;
+    color: #4f5966;
+}
+
+.ustp-back-sig-svg {
+    width: 96px;
+    height: 36px;
+    display: block;
+    margin: 0 auto 2px auto;
+}
+
+.ustp-back-sig-name {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.25px;
+}
+
+.ustp-back-sig-title {
+    font-size: 7.2px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    margin-top: 1px;
+}
+
+.ustp-id-modal-footer {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.ustp-id-layout-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.ustp-id-layout-picker select {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 12.5px;
+    color: #0f172a;
+}
+
+.ustp-id-footer-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (max-width: 920px) {
+    .ustp-id-preview-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---- Print Styles for Back-to-Back CR80 Sheet & Duplex Printing ---- */
+@media print {
+    body.printing-alumni-digital-id * {
+        visibility: hidden !important;
     }
 
-    .alumni-id-meta-grid {
-        grid-template-columns: 1fr;
-        text-align: left;
+    body.printing-alumni-digital-id #alumniDigitalIdModal,
+    body.printing-alumni-digital-id #alumniDigitalIdModal .alumni-digital-id-modal-content,
+    body.printing-alumni-digital-id #alumniDigitalIdModal .alumni-digital-id-body,
+    body.printing-alumni-digital-id #alumniDigitalIdPreviewGrid,
+    body.printing-alumni-digital-id #alumniDigitalIdPreviewGrid .ustp-id-side-block,
+    body.printing-alumni-digital-id #alumniDigitalIdPreviewGrid .ustp-id-card,
+    body.printing-alumni-digital-id #alumniDigitalIdPreviewGrid .ustp-id-card * {
+        visibility: visible !important;
+    }
+
+    body.printing-alumni-digital-id #alumniDigitalIdModal {
+        position: static !important;
+        display: block !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+    }
+
+    body.printing-alumni-digital-id #alumniDigitalIdModal .alumni-digital-id-modal-content {
+        max-width: none !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    body.printing-alumni-digital-id #alumniDigitalIdModal .cm-header,
+    body.printing-alumni-digital-id #alumniDigitalIdModal .cm-footer,
+    body.printing-alumni-digital-id #alumniDigitalIdModal .ustp-id-side-label {
+        display: none !important;
+    }
+
+    body.printing-alumni-digital-id #alumniDigitalIdModal .alumni-digital-id-body {
+        padding: 0 !important;
+        background: transparent !important;
+    }
+
+    body.printing-alumni-digital-id #alumniDigitalIdPreviewGrid {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12mm !important;
+        padding-top: 8mm !important;
+    }
+
+    body.printing-alumni-digital-id .ustp-id-side-block {
+        max-width: none !important;
+        width: auto !important;
+    }
+
+    body.printing-alumni-digital-id .ustp-id-card {
+        width: 85.6mm !important;
+        height: 53.98mm !important;
+        max-width: none !important;
+        border: 0.25mm solid #cbd5e1 !important;
+        border-radius: 3.18mm !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    body.printing-alumni-digital-id.ustp-id-print-duplex #alumniDigitalIdPreviewGrid .ustp-id-side-block:nth-child(2) {
+        page-break-before: always !important;
+        break-before: page !important;
+        padding-top: 8mm !important;
     }
 }

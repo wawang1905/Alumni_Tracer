@@ -701,60 +701,198 @@ function renderAlumniTable() {
     });
 }
 
-function openAlumniDigitalIdModal(index) {
+let currentDigitalIdAlumniDbId = null;
+
+async function openAlumniDigitalIdModal(index) {
     const modal = document.getElementById('alumniDigitalIdModal');
     const list = Array.isArray(window.currentRenderedCourseAlumni) ? window.currentRenderedCourseAlumni : [];
     const alumni = list[index];
     if (!modal || !alumni) return;
 
-    const firstName = String(alumni.firstName || '').trim();
-    const lastName = String(alumni.lastName || '').trim();
-    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Sample Alumni Member';
-    const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || 'GV';
-    const batchYear = String(alumni.graduationYear || selectedAlumniBatchYear || new Date().getFullYear()).trim();
-    const sampleId = String(alumni.alumniId || '').trim() || `GV-${batchYear}-${String(index + 1).padStart(4, '0')}`;
-    const college = String(alumni.college || selectedAlumniCollege || '—').trim();
-    const course = String(alumni.course || selectedAlumniCourse || '—').trim();
-    const email = String(alumni.email || '').trim() || 'Not provided';
-    const rawStatus = String(alumni.status || 'active').trim().toLowerCase();
-    const statusLabel = rawStatus ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1) : 'Active';
+    const alumniDbId = Number(alumni.id || 0);
+    currentDigitalIdAlumniDbId = alumniDbId > 0 ? alumniDbId : null;
 
+    const loadingEl = document.getElementById('alumniDigitalIdLoading');
+    const errorEl = document.getElementById('alumniDigitalIdError');
+    const previewGrid = document.getElementById('alumniDigitalIdPreviewGrid');
+    const printBtn = document.getElementById('printDigitalIdBtn');
+    const downloadBtn = document.getElementById('downloadDigitalIdBtn');
+
+    if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+    }
+    if (previewGrid) previewGrid.hidden = true;
+    if (loadingEl) loadingEl.hidden = false;
+    if (printBtn) printBtn.disabled = true;
+    if (downloadBtn) downloadBtn.disabled = true;
+
+    modal.style.display = 'flex';
+    updateDigitalIdPrintMode();
+
+    if (alumniDbId <= 0) {
+        if (loadingEl) loadingEl.hidden = true;
+        if (errorEl) {
+            errorEl.textContent = 'Invalid alumni record ID.';
+            errorEl.hidden = false;
+        }
+        return;
+    }
+
+    try {
+        const endpointUrl = new URL(`../alumni/digital-id/${encodeURIComponent(alumniDbId)}`, window.location.href).toString();
+        const res = await fetch(endpointUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.success || !payload.alumni) {
+            throw new Error(payload.message || `Unable to load Digital ID (HTTP ${res.status}).`);
+        }
+
+        populateAlumniDigitalIdModal(payload.alumni);
+
+        if (loadingEl) loadingEl.hidden = true;
+        if (previewGrid) previewGrid.hidden = false;
+        if (printBtn) printBtn.disabled = false;
+        if (downloadBtn) downloadBtn.disabled = false;
+    } catch (err) {
+        if (loadingEl) loadingEl.hidden = true;
+        if (errorEl) {
+            errorEl.textContent = err?.message || 'Unable to load alumni Digital ID.';
+            errorEl.hidden = false;
+        }
+    }
+}
+
+function populateAlumniDigitalIdModal(data) {
     const setElText = (id, text) => {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
     };
 
-    setElText('digitalIdAvatar', initials);
-    setElText('digitalIdFullName', fullName);
-    setElText('digitalIdNumber', sampleId);
-    setElText('digitalIdCollege', college);
-    setElText('digitalIdCourse', course);
-    setElText('digitalIdBatch', `Batch ${batchYear}`);
-    setElText('digitalIdEmail', email);
+    const fullName = String(data.full_name || '').trim() || 'ALUMNI MEMBER';
+    const alumniId = String(data.alumni_id || '').trim() || '—';
+    const batchYear = String(data.graduation_year || '').trim() || '—';
+    const initials = String(data.initials || 'GV').trim() || 'GV';
 
-    const statusEl = document.getElementById('digitalIdStatus');
-    if (statusEl) {
-        statusEl.textContent = statusLabel;
-        statusEl.className = 'alumni-id-status-chip ' + (
-            rawStatus === 'active'
-                ? 'is-active'
-                : rawStatus === 'inactive'
-                    ? 'is-inactive'
-                    : rawStatus === 'incomplete'
-                        ? 'is-incomplete'
-                        : 'is-pending'
-        );
+    setElText('alumniDigitalIdSubtitle', `${fullName} · ID: ${alumniId} — Preview both sides before printing or downloading.`);
+    setElText('digitalIdFullName', fullName.toUpperCase());
+    setElText('digitalIdNumber', alumniId);
+    setElText('digitalIdBatch', `BATCH ${batchYear}`);
+    setElText('digitalIdAvatar', initials);
+
+    // Alumni Photograph (Supabase Storage / existing profile picture endpoint)
+    const photoImg = document.getElementById('digitalIdPhotoImg');
+    const avatarFallback = document.getElementById('digitalIdAvatar');
+    if (photoImg && avatarFallback) {
+        const photoUrl = String(data.profile_picture_url || '').trim();
+        if (photoUrl) {
+            photoImg.onload = () => {
+                photoImg.hidden = false;
+                avatarFallback.hidden = true;
+            };
+            photoImg.onerror = () => {
+                photoImg.hidden = true;
+                avatarFallback.hidden = false;
+            };
+            photoImg.src = photoUrl;
+        } else {
+            photoImg.removeAttribute('src');
+            photoImg.hidden = true;
+            avatarFallback.hidden = false;
+        }
     }
 
-    const issuedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    setElText('digitalIdIssued', `Issued: ${issuedDate}`);
+    // Back Side Personal Details
+    setElText('digitalIdSex', String(data.sex || '').trim() || '—');
+    setElText('digitalIdBirthdate', String(data.birthdate || '').trim() || '—');
+    setElText('digitalIdCourse', String(data.course || '').trim().toUpperCase() || '—');
+    setElText('digitalIdContact', String(data.contact_number || '').trim() || '—');
+    setElText('digitalIdAddress', String(data.home_address || '').trim() || '—');
+    setElText('digitalIdEmergencyName', String(data.emergency_contact_name || '').trim() || '—');
+    setElText('digitalIdEmergencyNumber', String(data.emergency_contact_number || '').trim() || '—');
+}
 
-    modal.style.display = 'flex';
+function updateDigitalIdPrintMode() {
+    const select = document.getElementById('digitalIdPrintMode');
+    const grid = document.getElementById('alumniDigitalIdPreviewGrid');
+    const mode = select && select.value === 'duplex' ? 'duplex' : 'sheet';
+    if (grid) {
+        grid.setAttribute('data-print-mode', mode);
+    }
+    document.body.classList.toggle('ustp-id-print-duplex', mode === 'duplex');
+}
+
+function printAlumniDigitalId() {
+    if (!currentDigitalIdAlumniDbId) return;
+    updateDigitalIdPrintMode();
+    document.body.classList.add('printing-alumni-digital-id');
+    const cleanup = () => {
+        document.body.classList.remove('printing-alumni-digital-id');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 1500);
+}
+
+async function downloadAlumniDigitalId() {
+    if (!currentDigitalIdAlumniDbId) return;
+    const btn = document.getElementById('downloadDigitalIdBtn');
+    const mode = document.getElementById('digitalIdPrintMode')?.value === 'duplex' ? 'duplex' : 'sheet';
+    const originalHtml = btn ? btn.innerHTML : '';
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Preparing PDF...</span>';
+    }
+
+    try {
+        const downloadUrl = new URL(
+            `../alumni/digital-id/${encodeURIComponent(currentDigitalIdAlumniDbId)}/download?mode=${encodeURIComponent(mode)}`,
+            window.location.href
+        ).toString();
+        const response = await fetch(downloadUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            throw new Error(errJson.message || `Download failed (HTTP ${response.status}).`);
+        }
+
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/i);
+        const filename = match ? match[1] : `Alumni_Digital_ID_${currentDigitalIdAlumniDbId}_Front_Back.pdf`;
+
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+        alert(err?.message || 'Unable to download Digital ID PDF.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
 }
 
 function closeAlumniDigitalIdModal() {
     const modal = document.getElementById('alumniDigitalIdModal');
     if (modal) modal.style.display = 'none';
+    currentDigitalIdAlumniDbId = null;
 }
 
 document.addEventListener('keydown', (event) => {

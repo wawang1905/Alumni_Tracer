@@ -2382,4 +2382,627 @@ XML;
             ->setHeader('Cache-Control', 'private, max-age=3600')
             ->setBody((string) file_get_contents($filePath));
     }
+
+    /**
+     * Head Admin ONLY: Return campus-scoped alumni Digital ID data (Front & Back).
+     */
+    public function digitalId(int $alumniDbId): ResponseInterface
+    {
+        $resolved = $this->resolveHeadAdminDigitalIdData($alumniDbId);
+        if (($resolved['success'] ?? false) !== true) {
+            return $this->response
+                ->setStatusCode((int) ($resolved['status'] ?? 403))
+                ->setJSON([
+                    'success' => false,
+                    'message' => (string) ($resolved['message'] ?? 'Forbidden.'),
+                ]);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'alumni'  => $resolved['data'],
+        ]);
+    }
+
+    /**
+     * Head Admin ONLY: Download print-ready Back-to-Back Digital ID PDF (Front & Back at CR80 85.6mm x 53.98mm).
+     * Supports ?mode=sheet (both sides on one sheet) and ?mode=duplex (2-page centered duplex layout).
+     */
+    public function downloadDigitalId(int $alumniDbId): ResponseInterface
+    {
+        $resolved = $this->resolveHeadAdminDigitalIdData($alumniDbId, true);
+        if (($resolved['success'] ?? false) !== true) {
+            return $this->response
+                ->setStatusCode((int) ($resolved['status'] ?? 403))
+                ->setJSON([
+                    'success' => false,
+                    'message' => (string) ($resolved['message'] ?? 'Forbidden.'),
+                ]);
+        }
+
+        $data = $resolved['data'];
+        $mode = strtolower(trim((string) ($this->request->getGet('mode') ?? 'sheet')));
+        if (! in_array($mode, ['sheet', 'duplex'], true)) {
+            $mode = 'sheet';
+        }
+
+        $html = $this->buildDigitalIdPdfHtml($data, $mode);
+
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('dpi', 300);
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $safeId = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($data['alumni_id'] ?: $alumniDbId));
+        $filename = 'Alumni_Digital_ID_' . $safeId . '_' . ($mode === 'duplex' ? 'Duplex' : 'Front_Back') . '.pdf';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->setBody((string) $dompdf->output());
+    }
+
+    /**
+     * Strictly resolves an alumni record for Head Admin Digital ID generation,
+     * enforcing server-side campus scope via AssignmentScopeService.
+     *
+     * @return array{success: bool, status?: int, message?: string, data?: array<string, mixed>}
+     */
+    private function resolveHeadAdminDigitalIdData(int $alumniDbId, bool $embedImagesForPdf = false): array
+    {
+        if (! $this->isStaffAuthorized()) {
+            return [
+                'success' => false,
+                'status'  => 401,
+                'message' => 'Unauthorized. Head Admin access required.',
+            ];
+        }
+
+        if ($alumniDbId <= 0) {
+            return [
+                'success' => false,
+                'status'  => 400,
+                'message' => 'Invalid alumni record ID.',
+            ];
+        }
+
+        $scopeService = new \App\Services\AssignmentScopeService();
+        $scope = $scopeService->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return [
+                'success' => false,
+                'status'  => 403,
+                'message' => (string) ($scope['message'] ?? 'Forbidden. Valid Head Admin campus assignment required.'),
+            ];
+        }
+
+        $db = \Config\Database::connect();
+        $row = $db->table('alumni a')
+            ->select('a.id, a.alumni_id, a."FirstName", a."LastName", a."Email", a."GraduationYear", a."Status", a."College_ID", a."Department_ID", a."Province", a."Municipality", a."Barangay", a."Contact_Number", c."College_Name", c."Campus_ID", d."Department_Name", cmp."Campus" AS "Campus_Name"')
+            ->join('colleges c', 'c."College_ID" = a."College_ID"', 'left')
+            ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
+            ->join('campuses cmp', 'cmp."Campus_ID" = c."Campus_ID"', 'left')
+            ->where('a.id', $alumniDbId)
+            ->get()
+            ->getRowArray();
+
+        if (! is_array($row)) {
+            return [
+                'success' => false,
+                'status'  => 404,
+                'message' => 'Alumni record not found.',
+            ];
+        }
+
+        // Strict server-side campus isolation check
+        if (! $scopeService->isAlumniInScope($row, $scope)) {
+            return [
+                'success' => false,
+                'status'  => 403,
+                'message' => 'Forbidden. You can only view or generate Digital IDs for alumni within your assigned campus.',
+            ];
+        }
+
+        $firstName = trim((string) ($row['FirstName'] ?? ''));
+        $lastName = trim((string) ($row['LastName'] ?? ''));
+        $fullName = trim($firstName . ' ' . $lastName);
+        $initials = strtoupper(
+            ($firstName !== '' ? mb_substr($firstName, 0, 1) : '') .
+            ($lastName !== '' ? mb_substr($lastName, 0, 1) : '')
+        ) ?: 'GV';
+
+        $addressParts = array_values(array_filter([
+            trim((string) ($row['Barangay'] ?? '')),
+            trim((string) ($row['Municipality'] ?? '')),
+            trim((string) ($row['Province'] ?? '')),
+        ], static fn (string $part): bool => $part !== ''));
+        $homeAddress = $addressParts !== [] ? implode(', ', $addressParts) : '';
+
+        // Optional personal details from the alumnus's latest tracer survey answers if present
+        $extra = $this->extractOptionalSurveyPersonalDetails(trim((string) ($row['Email'] ?? '')));
+
+        // Resolve alumni photograph via existing AlumniFilesModel + SupabaseStorageService
+        $activePhoto = $this->alumniFilesModel->getActiveProfilePicture($alumniDbId);
+        $hasProfilePicture = is_array($activePhoto);
+        $profilePictureUrl = null;
+        $profilePictureDataUri = null;
+
+        if ($hasProfilePicture) {
+            $storedPath = (string) ($activePhoto['File_Path'] ?? '');
+            $mimeType = (string) ($activePhoto['Mime_Type'] ?? 'image/jpeg');
+
+            if ($this->storage->isSupabaseReference($storedPath)) {
+                $profilePictureUrl = $this->storage->resolvePublicUrl($storedPath);
+                if ($embedImagesForPdf && $profilePictureUrl !== null) {
+                    $profilePictureDataUri = $this->fetchImageAsDataUri($profilePictureUrl, $mimeType);
+                }
+            } else {
+                $profilePictureUrl = base_url('alumni/profile-picture?alumni_id=' . $alumniDbId);
+                if ($embedImagesForPdf) {
+                    $localPath = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $storedPath);
+                    if (is_file($localPath)) {
+                        $bytes = @file_get_contents($localPath);
+                        if (is_string($bytes) && $bytes !== '') {
+                            $profilePictureDataUri = 'data:' . $mimeType . ';base64,' . base64_encode($bytes);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resolve permanent official university logo asset
+        $logoFile = FCPATH . 'images' . DIRECTORY_SEPARATOR . 'ustp-alumni-logo.jpg';
+        $logoDataUri = null;
+        if ($embedImagesForPdf && is_file($logoFile)) {
+            $logoBytes = @file_get_contents($logoFile);
+            if (is_string($logoBytes) && $logoBytes !== '') {
+                $logoDataUri = 'data:image/jpeg;base64,' . base64_encode($logoBytes);
+            }
+        }
+
+        return [
+            'success' => true,
+            'data'    => [
+                'id'                       => (int) ($row['id'] ?? 0),
+                'alumni_id'                => trim((string) ($row['alumni_id'] ?? '')),
+                'first_name'               => $firstName,
+                'last_name'                => $lastName,
+                'full_name'                => $fullName,
+                'initials'                 => $initials,
+                'email'                    => trim((string) ($row['Email'] ?? '')),
+                'graduation_year'          => trim((string) ($row['GraduationYear'] ?? '')),
+                'status'                   => trim((string) ($row['Status'] ?? 'pending')),
+                'college'                  => trim((string) ($row['College_Name'] ?? '')),
+                'course'                   => trim((string) ($row['Department_Name'] ?? '')),
+                'campus'                   => trim((string) ($row['Campus_Name'] ?? '')),
+                'contact_number'           => trim((string) ($row['Contact_Number'] ?? '')),
+                'barangay'                 => trim((string) ($row['Barangay'] ?? '')),
+                'municipality'             => trim((string) ($row['Municipality'] ?? '')),
+                'province'                 => trim((string) ($row['Province'] ?? '')),
+                'home_address'             => $homeAddress,
+                'sex'                      => $extra['sex'],
+                'birthdate'                => $extra['birthdate'],
+                'emergency_contact_name'   => $extra['emergency_contact_name'],
+                'emergency_contact_number' => $extra['emergency_contact_number'],
+                'membership_label'         => 'LIFETIME MEMBER',
+                'has_profile_picture'      => $hasProfilePicture,
+                'profile_picture_url'      => $profilePictureUrl,
+                'profile_picture_data_uri' => $profilePictureDataUri,
+                'logo_url'                 => base_url('images/ustp-alumni-logo.jpg'),
+                'logo_data_uri'            => $logoDataUri,
+            ],
+        ];
+    }
+
+    /**
+     * Best-effort lookup of optional personal fields (sex, birthdate, emergency contact)
+     * from the alumnus's most recent survey response, without modifying any table.
+     *
+     * @return array{sex: string, birthdate: string, emergency_contact_name: string, emergency_contact_number: string}
+     */
+    private function extractOptionalSurveyPersonalDetails(string $email): array
+    {
+        $result = [
+            'sex'                      => '',
+            'birthdate'                => '',
+            'emergency_contact_name'   => '',
+            'emergency_contact_number' => '',
+        ];
+
+        if ($email === '') {
+            return $result;
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $latestResp = $db->table('responses')
+                ->select('id')
+                ->where('LOWER(user_email)', strtolower($email))
+                ->orderBy('submitted_at', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+
+            if (! is_array($latestResp) || empty($latestResp['id'])) {
+                return $result;
+            }
+
+            $answers = $db->table('answers a')
+                ->select('a.answer_text, c.choice_text, q.question_text')
+                ->join('choices c', 'c.id = a.choice_id', 'left')
+                ->join('questions q', 'q.id = a.question_id', 'left')
+                ->where('a.response_id', (int) $latestResp['id'])
+                ->get()
+                ->getResultArray();
+
+            foreach ($answers as $ans) {
+                $qText = strtolower(trim((string) ($ans['question_text'] ?? '')));
+                $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
+                if ($qText === '' || $val === '') {
+                    continue;
+                }
+
+                if ($result['sex'] === '' && (str_contains($qText, 'sex') || str_contains($qText, 'gender'))) {
+                    $result['sex'] = $val;
+                } elseif ($result['birthdate'] === '' && (str_contains($qText, 'birth') || str_contains($qText, 'dob'))) {
+                    $result['birthdate'] = $val;
+                } elseif ($result['emergency_contact_number'] === '' && str_contains($qText, 'emergency') && (str_contains($qText, 'number') || str_contains($qText, 'phone') || str_contains($qText, 'mobile') || str_contains($qText, 'contact no'))) {
+                    $result['emergency_contact_number'] = $val;
+                } elseif ($result['emergency_contact_name'] === '' && str_contains($qText, 'emergency')) {
+                    $result['emergency_contact_name'] = $val;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-blocking optional metadata lookup
+        }
+
+        return $result;
+    }
+
+    private function fetchImageAsDataUri(string $url, string $fallbackMime = 'image/jpeg'): ?string
+    {
+        try {
+            $ctx = stream_context_create([
+                'http' => ['timeout' => 5],
+                'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+            $bytes = @file_get_contents($url, false, $ctx);
+            if (! is_string($bytes) || $bytes === '') {
+                return null;
+            }
+            $mime = $fallbackMime;
+            if (function_exists('finfo_open')) {
+                $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+                if ($finfo) {
+                    $detected = @finfo_buffer($finfo, $bytes);
+                    @finfo_close($finfo);
+                    if (is_string($detected) && str_starts_with($detected, 'image/')) {
+                        $mime = $detected;
+                    }
+                }
+            }
+            return 'data:' . $mime . ';base64,' . base64_encode($bytes);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Build print-ready HTML for Dompdf containing exact CR80 (85.6mm x 53.98mm)
+     * Front & Back USTP Alumni Association Digital ID cards.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function buildDigitalIdPdfHtml(array $data, string $mode = 'sheet'): string
+    {
+        $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        $fullName = $esc(strtoupper((string) ($data['full_name'] ?: 'ALUMNI MEMBER')));
+        $alumniId = $esc((string) ($data['alumni_id'] ?: '—'));
+        $batchText = $esc('BATCH ' . ($data['graduation_year'] ?: '—'));
+        $initials = $esc((string) ($data['initials'] ?: 'GV'));
+        $sex = $esc((string) ($data['sex'] ?: '—'));
+        $birthdate = $esc((string) ($data['birthdate'] ?: '—'));
+        $course = $esc(strtoupper((string) ($data['course'] ?: '—')));
+        $contact = $esc((string) ($data['contact_number'] ?: '—'));
+        $address = $esc((string) ($data['home_address'] ?: '—'));
+        $emName = $esc((string) ($data['emergency_contact_name'] ?: '—'));
+        $emNum = $esc((string) ($data['emergency_contact_number'] ?: '—'));
+
+        $photoSrc = (string) ($data['profile_picture_data_uri'] ?? '');
+        $logoSrc = (string) ($data['logo_data_uri'] ?? '');
+
+        $photoHtml = $photoSrc !== ''
+            ? '<img src="' . $photoSrc . '" alt="Alumni Photo" style="width:24mm;height:25mm;object-fit:cover;display:block;border-radius:2.2mm;">'
+            : '<div style="width:24mm;height:25mm;line-height:25mm;text-align:center;font-size:16pt;font-weight:bold;color:#475569;background:#e2e8f0;border-radius:2.2mm;">' . $initials . '</div>';
+
+        $logoHtml = $logoSrc !== ''
+            ? '<img src="' . $logoSrc . '" alt="USTP Alumni Association Logo" style="width:17.5mm;height:17.5mm;object-fit:contain;display:block;">'
+            : '';
+
+        $signatureSvg = 'data:image/svg+xml;base64,' . base64_encode(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 52" width="140" height="52">'
+            . '<path d="M22,38 C28,12 42,6 44,18 C46,28 32,36 30,26 C28,18 46,16 56,14 C54,28 50,42 54,44 C58,46 66,22 72,20 C76,18 70,36 78,34 C84,32 90,22 96,24 C100,25 94,35 104,33 C112,31 118,27 128,26" fill="none" stroke="#3f4650" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>'
+            . '<path d="M40,42 C62,38 88,36 118,39" fill="none" stroke="#3f4650" stroke-width="1.3" stroke-linecap="round"/>'
+            . '</svg>'
+        );
+
+        $frontCard = '
+        <div class="id-card front-card">
+            <div class="front-blob-bl"></div>
+            <div class="front-dot-yellow"></div>
+            <div class="front-dot-slate"></div>
+            <div class="front-slate-shape"></div>
+            <div class="front-corner-br"></div>
+
+            <div class="front-photo-frame">' . $photoHtml . '</div>
+            <div class="front-logo-wrap">' . $logoHtml . '</div>
+
+            <div class="front-text-block">
+                <div class="front-name">' . $fullName . '</div>
+                <div class="front-id-num">' . $alumniId . '</div>
+                <div class="front-member">LIFETIME MEMBER</div>
+                <div class="front-batch">' . $batchText . '</div>
+            </div>
+        </div>';
+
+        $backCard = '
+        <div class="id-card back-card">
+            <div class="back-accent-tl"></div>
+            <div class="back-accent-br"></div>
+
+            <div class="back-header-left">PERSONAL DETAILS</div>
+            <div class="back-header-right">
+                THE BEARER WHOSE PICTURE APPEARS HEREIN<br>
+                IS A BONA FIDE MEMBER OF USTPAA-CLAVERIA
+            </div>
+
+            <div class="back-details">
+                <div class="back-row"><span class="back-lbl">SEX:</span> ' . $sex . '</div>
+                <div class="back-row"><span class="back-lbl">BIRTHDATE:</span> ' . $birthdate . '</div>
+                <div class="back-row"><span class="back-lbl">DEGREE/PROGRAM:</span> ' . $course . '</div>
+                <div class="back-row"><span class="back-lbl">CONTACT NUMBER:</span> ' . $contact . '</div>
+                <div class="back-row"><span class="back-lbl">HOME ADDRESS:</span></div>
+                <div class="back-row back-indent">' . $address . '</div>
+                <div class="back-row back-em-lbl">IN CASE OF EMERGENCY, PLEASE CONTACT:</div>
+                <div class="back-row back-em-val">' . $emName . '</div>
+                <div class="back-row back-em-val">' . $emNum . '</div>
+            </div>
+
+            <div class="back-sig-block">
+                <img src="' . $signatureSvg . '" alt="Signature" style="width:22mm;height:8.5mm;display:block;margin:0 auto 0.5mm auto;">
+                <div class="back-sig-name">GERUM O. SALATAN</div>
+                <div class="back-sig-title">USTPAA-CLAVERIA PRESIDENT</div>
+            </div>
+        </div>';
+
+        $bodyContent = $mode === 'duplex'
+            ? '<div class="duplex-page">' . $frontCard . '</div><div class="duplex-page page-break">' . $backCard . '</div>'
+            : '<div class="sheet-wrap"><div class="sheet-slot">' . $frontCard . '</div><div class="sheet-gap"></div><div class="sheet-slot">' . $backCard . '</div></div>';
+
+        return '<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: "DejaVu Sans", Arial, sans-serif; background: #ffffff; }
+    .sheet-wrap { width: 100%; text-align: center; padding-top: 8mm; }
+    .sheet-slot { display: inline-block; padding: 0; border: 0.2mm dashed #cbd5e1; border-radius: 3.4mm; }
+    .sheet-gap { height: 12mm; }
+    .duplex-page { width: 100%; text-align: center; padding-top: 20mm; }
+    .page-break { page-break-before: always; }
+
+    .id-card {
+        position: relative;
+        width: 85.6mm;
+        height: 53.98mm;
+        background: #ffffff;
+        border: 0.25mm solid #d8dee6;
+        border-radius: 3.18mm;
+        overflow: hidden;
+        text-align: left;
+        margin: 0 auto;
+    }
+
+    /* Front Card Elements */
+    .front-blob-bl {
+        position: absolute;
+        left: -10mm;
+        bottom: -8mm;
+        width: 34mm;
+        height: 36mm;
+        background: #f9ebaa;
+        border-radius: 50%;
+    }
+    .front-dot-yellow {
+        position: absolute;
+        left: 25.5mm;
+        top: 1.8mm;
+        width: 5.5mm;
+        height: 5.5mm;
+        background: #f7e69b;
+        border-radius: 50%;
+    }
+    .front-dot-slate {
+        position: absolute;
+        left: 28.5mm;
+        top: 5.2mm;
+        width: 4.2mm;
+        height: 4.2mm;
+        background: #92a1b6;
+        border-radius: 50%;
+    }
+    .front-slate-shape {
+        position: absolute;
+        left: 34mm;
+        top: -9mm;
+        width: 32mm;
+        height: 29mm;
+        background: #8f9fb4;
+        border-radius: 6.5mm;
+        transform: rotate(-16deg);
+    }
+    .front-corner-br {
+        position: absolute;
+        right: -8mm;
+        bottom: -8mm;
+        width: 22mm;
+        height: 20mm;
+        background: #f1d86e;
+        border-radius: 50%;
+    }
+    .front-photo-frame {
+        position: absolute;
+        left: 5.2mm;
+        top: 7.5mm;
+        width: 24.6mm;
+        height: 25.6mm;
+        border: 0.35mm solid #8f9db1;
+        border-radius: 2.5mm;
+        background: #ffffff;
+        padding: 0.25mm;
+        overflow: hidden;
+    }
+    .front-logo-wrap {
+        position: absolute;
+        right: 4.5mm;
+        top: 4.8mm;
+        width: 17.5mm;
+        height: 17.5mm;
+        background: #ffffff;
+    }
+    .front-text-block {
+        position: absolute;
+        left: 26mm;
+        right: 5mm;
+        bottom: 6.2mm;
+        text-align: center;
+        color: #4f5763;
+    }
+    .front-name {
+        font-size: 7.8pt;
+        font-weight: bold;
+        letter-spacing: 0.25pt;
+        line-height: 1.2;
+        margin-bottom: 1.2mm;
+    }
+    .front-id-num {
+        font-size: 6.8pt;
+        font-weight: bold;
+        letter-spacing: 0.4pt;
+        margin-bottom: 1.4mm;
+    }
+    .front-member {
+        font-size: 7.6pt;
+        font-weight: bold;
+        letter-spacing: 0.35pt;
+        margin-bottom: 1mm;
+    }
+    .front-batch {
+        font-size: 6.4pt;
+        font-weight: bold;
+        letter-spacing: 0.3pt;
+    }
+
+    /* Back Card Elements */
+    .back-accent-tl {
+        position: absolute;
+        left: -7mm;
+        top: -7mm;
+        width: 18mm;
+        height: 18mm;
+        background: #b5c1d0;
+        border-radius: 50%;
+    }
+    .back-accent-br {
+        position: absolute;
+        right: -7mm;
+        bottom: 7mm;
+        width: 14mm;
+        height: 18mm;
+        background: #8a95a0;
+        border-radius: 50%;
+    }
+    .back-header-left {
+        position: absolute;
+        left: 7mm;
+        top: 5.2mm;
+        font-size: 7.6pt;
+        font-weight: bold;
+        letter-spacing: 1.4pt;
+        color: #5a6470;
+    }
+    .back-header-right {
+        position: absolute;
+        right: 4.5mm;
+        top: 4.2mm;
+        text-align: right;
+        font-size: 4.3pt;
+        font-weight: bold;
+        line-height: 1.35;
+        color: #5f6975;
+    }
+    .back-details {
+        position: absolute;
+        left: 7mm;
+        right: 30mm;
+        top: 11.2mm;
+        color: #55606d;
+        font-size: 5.5pt;
+        line-height: 1.42;
+    }
+    .back-row {
+        margin-bottom: 0.85mm;
+        font-weight: bold;
+        word-wrap: break-word;
+    }
+    .back-lbl {
+        color: #4f5966;
+    }
+    .back-indent {
+        padding-left: 2.2mm;
+        font-weight: bold;
+    }
+    .back-em-lbl {
+        margin-top: 1.2mm;
+        font-size: 4.8pt;
+        letter-spacing: 0.2pt;
+    }
+    .back-em-val {
+        padding-left: 2.2mm;
+        font-size: 5.5pt;
+    }
+    .back-sig-block {
+        position: absolute;
+        right: 5mm;
+        bottom: 4.8mm;
+        width: 28mm;
+        text-align: center;
+        color: #4f5966;
+    }
+    .back-sig-name {
+        font-size: 5.5pt;
+        font-weight: bold;
+        letter-spacing: 0.2pt;
+    }
+    .back-sig-title {
+        font-size: 4.2pt;
+        font-weight: bold;
+        letter-spacing: 0.15pt;
+        margin-top: 0.3mm;
+    }
+</style>
+</head>
+<body>' . $bodyContent . '</body>
+</html>';
+    }
 }
