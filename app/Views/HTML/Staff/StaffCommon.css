@@ -10077,6 +10077,33 @@ table td {
     border-radius: 10px;
 }
 
+.ustp-id-incomplete-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.ustp-id-incomplete-notice i {
+    margin-top: 2px;
+    color: #d97706;
+    flex-shrink: 0;
+}
+
+#downloadDigitalIdBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .ustp-id-preview-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -10494,6 +10521,7 @@ table td {
 
     body.printing-alumni-digital-id #alumniDigitalIdModal .cm-header,
     body.printing-alumni-digital-id #alumniDigitalIdModal .cm-footer,
+    body.printing-alumni-digital-id #alumniDigitalIdModal .ustp-id-incomplete-notice,
     body.printing-alumni-digital-id #alumniDigitalIdModal .ustp-id-side-label {
         display: none !important;
     }

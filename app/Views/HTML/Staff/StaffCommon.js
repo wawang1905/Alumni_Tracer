@@ -702,6 +702,8 @@ function renderAlumniTable() {
 }
 
 let currentDigitalIdAlumniDbId = null;
+let currentDigitalIdIsComplete = false;
+let currentDigitalIdMissingFields = [];
 
 async function openAlumniDigitalIdModal(index) {
     const modal = document.getElementById('alumniDigitalIdModal');
@@ -711,9 +713,13 @@ async function openAlumniDigitalIdModal(index) {
 
     const alumniDbId = Number(alumni.id || 0);
     currentDigitalIdAlumniDbId = alumniDbId > 0 ? alumniDbId : null;
+    currentDigitalIdIsComplete = false;
+    currentDigitalIdMissingFields = [];
 
     const loadingEl = document.getElementById('alumniDigitalIdLoading');
     const errorEl = document.getElementById('alumniDigitalIdError');
+    const incompleteEl = document.getElementById('alumniDigitalIdIncompleteNotice');
+    const incompleteTextEl = document.getElementById('alumniDigitalIdIncompleteText');
     const previewGrid = document.getElementById('alumniDigitalIdPreviewGrid');
     const printBtn = document.getElementById('printDigitalIdBtn');
     const downloadBtn = document.getElementById('downloadDigitalIdBtn');
@@ -722,10 +728,14 @@ async function openAlumniDigitalIdModal(index) {
         errorEl.hidden = true;
         errorEl.textContent = '';
     }
+    if (incompleteEl) incompleteEl.hidden = true;
     if (previewGrid) previewGrid.hidden = true;
     if (loadingEl) loadingEl.hidden = false;
     if (printBtn) printBtn.disabled = true;
-    if (downloadBtn) downloadBtn.disabled = true;
+    if (downloadBtn) {
+        downloadBtn.disabled = true;
+        downloadBtn.title = '';
+    }
 
     modal.style.display = 'flex';
     updateDigitalIdPrintMode();
@@ -754,10 +764,29 @@ async function openAlumniDigitalIdModal(index) {
 
         populateAlumniDigitalIdModal(payload.alumni);
 
+        currentDigitalIdIsComplete = payload.alumni.is_complete === true;
+        currentDigitalIdMissingFields = Array.isArray(payload.alumni.missing_fields) ? payload.alumni.missing_fields : [];
+
         if (loadingEl) loadingEl.hidden = true;
         if (previewGrid) previewGrid.hidden = false;
         if (printBtn) printBtn.disabled = false;
-        if (downloadBtn) downloadBtn.disabled = false;
+
+        if (downloadBtn) {
+            downloadBtn.disabled = !currentDigitalIdIsComplete;
+            downloadBtn.title = currentDigitalIdIsComplete
+                ? 'Download Front & Back Digital ID as PDF'
+                : 'Cannot export PDF while required alumni ID information is incomplete';
+        }
+
+        if (incompleteEl && !currentDigitalIdIsComplete) {
+            const missingList = currentDigitalIdMissingFields.join(', ');
+            if (incompleteTextEl) {
+                incompleteTextEl.textContent = missingList
+                    ? `PDF export is disabled because the alumni information is incomplete. Missing: ${missingList}.`
+                    : 'PDF export is disabled because the alumni information is incomplete.';
+            }
+            incompleteEl.hidden = false;
+        }
     } catch (err) {
         if (loadingEl) loadingEl.hidden = true;
         if (errorEl) {
@@ -841,6 +870,15 @@ function printAlumniDigitalId() {
 
 async function downloadAlumniDigitalId() {
     if (!currentDigitalIdAlumniDbId) return;
+    if (!currentDigitalIdIsComplete) {
+        const missingList = currentDigitalIdMissingFields.join(', ');
+        alert(
+            missingList
+                ? `Cannot export Digital ID as PDF because the alumni information is incomplete.\n\nMissing: ${missingList}`
+                : 'Cannot export Digital ID as PDF because the alumni information is incomplete.'
+        );
+        return;
+    }
     const btn = document.getElementById('downloadDigitalIdBtn');
     const mode = document.getElementById('digitalIdPrintMode')?.value === 'duplex' ? 'duplex' : 'sheet';
     const originalHtml = btn ? btn.innerHTML : '';

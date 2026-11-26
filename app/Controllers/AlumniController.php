@@ -2421,6 +2421,16 @@ XML;
         }
 
         $data = $resolved['data'];
+        if (($data['is_complete'] ?? false) !== true) {
+            $missing = is_array($data['missing_fields'] ?? null) ? $data['missing_fields'] : [];
+            $missingText = $missing !== [] ? (' Missing: ' . implode(', ', $missing) . '.') : '';
+            return $this->response->setStatusCode(422)->setJSON([
+                'success'        => false,
+                'message'        => 'Cannot export Digital ID as PDF because the alumni information is incomplete.' . $missingText,
+                'missing_fields' => $missing,
+            ]);
+        }
+
         $mode = strtolower(trim((string) ($this->request->getGet('mode') ?? 'sheet')));
         if (! in_array($mode, ['sheet', 'duplex'], true)) {
             $mode = 'sheet';
@@ -2567,38 +2577,91 @@ XML;
             }
         }
 
+        $payloadData = [
+            'id'                       => (int) ($row['id'] ?? 0),
+            'alumni_id'                => trim((string) ($row['alumni_id'] ?? '')),
+            'first_name'               => $firstName,
+            'last_name'                => $lastName,
+            'full_name'                => $fullName,
+            'initials'                 => $initials,
+            'email'                    => trim((string) ($row['Email'] ?? '')),
+            'graduation_year'          => trim((string) ($row['GraduationYear'] ?? '')),
+            'status'                   => trim((string) ($row['Status'] ?? 'pending')),
+            'college'                  => trim((string) ($row['College_Name'] ?? '')),
+            'course'                   => trim((string) ($row['Department_Name'] ?? '')),
+            'campus'                   => trim((string) ($row['Campus_Name'] ?? '')),
+            'contact_number'           => trim((string) ($row['Contact_Number'] ?? '')),
+            'barangay'                 => trim((string) ($row['Barangay'] ?? '')),
+            'municipality'             => trim((string) ($row['Municipality'] ?? '')),
+            'province'                 => trim((string) ($row['Province'] ?? '')),
+            'home_address'             => $homeAddress,
+            'sex'                      => $extra['sex'],
+            'birthdate'                => $extra['birthdate'],
+            'emergency_contact_name'   => $extra['emergency_contact_name'],
+            'emergency_contact_number' => $extra['emergency_contact_number'],
+            'membership_label'         => 'LIFETIME MEMBER',
+            'has_profile_picture'      => $hasProfilePicture,
+            'profile_picture_url'      => $profilePictureUrl,
+            'profile_picture_data_uri' => $profilePictureDataUri,
+            'logo_url'                 => base_url('images/ustp-alumni-logo.jpg'),
+            'logo_data_uri'            => $logoDataUri,
+        ];
+
+        $missingFields = $this->getMissingDigitalIdFields($payloadData);
+        $payloadData['is_complete'] = ($missingFields === []);
+        $payloadData['missing_fields'] = $missingFields;
+
         return [
             'success' => true,
-            'data'    => [
-                'id'                       => (int) ($row['id'] ?? 0),
-                'alumni_id'                => trim((string) ($row['alumni_id'] ?? '')),
-                'first_name'               => $firstName,
-                'last_name'                => $lastName,
-                'full_name'                => $fullName,
-                'initials'                 => $initials,
-                'email'                    => trim((string) ($row['Email'] ?? '')),
-                'graduation_year'          => trim((string) ($row['GraduationYear'] ?? '')),
-                'status'                   => trim((string) ($row['Status'] ?? 'pending')),
-                'college'                  => trim((string) ($row['College_Name'] ?? '')),
-                'course'                   => trim((string) ($row['Department_Name'] ?? '')),
-                'campus'                   => trim((string) ($row['Campus_Name'] ?? '')),
-                'contact_number'           => trim((string) ($row['Contact_Number'] ?? '')),
-                'barangay'                 => trim((string) ($row['Barangay'] ?? '')),
-                'municipality'             => trim((string) ($row['Municipality'] ?? '')),
-                'province'                 => trim((string) ($row['Province'] ?? '')),
-                'home_address'             => $homeAddress,
-                'sex'                      => $extra['sex'],
-                'birthdate'                => $extra['birthdate'],
-                'emergency_contact_name'   => $extra['emergency_contact_name'],
-                'emergency_contact_number' => $extra['emergency_contact_number'],
-                'membership_label'         => 'LIFETIME MEMBER',
-                'has_profile_picture'      => $hasProfilePicture,
-                'profile_picture_url'      => $profilePictureUrl,
-                'profile_picture_data_uri' => $profilePictureDataUri,
-                'logo_url'                 => base_url('images/ustp-alumni-logo.jpg'),
-                'logo_data_uri'            => $logoDataUri,
-            ],
+            'data'    => $payloadData,
         ];
+    }
+
+    /**
+     * Checks whether all required Front & Back Digital ID fields are populated.
+     *
+     * @param array<string, mixed> $data
+     * @return list<string>
+     */
+    private function getMissingDigitalIdFields(array $data): array
+    {
+        $missing = [];
+
+        if (trim((string) ($data['full_name'] ?? '')) === '') {
+            $missing[] = 'Full Name';
+        }
+        if (trim((string) ($data['alumni_id'] ?? '')) === '') {
+            $missing[] = 'Alumni ID Number';
+        }
+        if (trim((string) ($data['graduation_year'] ?? '')) === '') {
+            $missing[] = 'Batch Year';
+        }
+        if (($data['has_profile_picture'] ?? false) !== true) {
+            $missing[] = 'Alumni Photograph';
+        }
+        if (trim((string) ($data['sex'] ?? '')) === '') {
+            $missing[] = 'Sex';
+        }
+        if (trim((string) ($data['birthdate'] ?? '')) === '') {
+            $missing[] = 'Birthdate';
+        }
+        if (trim((string) ($data['course'] ?? '')) === '') {
+            $missing[] = 'Degree / Program';
+        }
+        if (trim((string) ($data['contact_number'] ?? '')) === '') {
+            $missing[] = 'Contact Number';
+        }
+        if (trim((string) ($data['home_address'] ?? '')) === '') {
+            $missing[] = 'Home Address';
+        }
+        if (trim((string) ($data['emergency_contact_name'] ?? '')) === '') {
+            $missing[] = 'Emergency Contact Name';
+        }
+        if (trim((string) ($data['emergency_contact_number'] ?? '')) === '') {
+            $missing[] = 'Emergency Contact Number';
+        }
+
+        return $missing;
     }
 
     /**
