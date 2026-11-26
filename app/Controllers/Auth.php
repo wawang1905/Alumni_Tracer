@@ -688,8 +688,8 @@ class Auth extends BaseController
 
             // 1. Prefer HTTPS Email API (Brevo or Resend) when configured — works on Render Free Tier where SMTP ports 25/465/587 are blocked
             $httpApiAttempted = false;
-            $brevoKey = trim((string) (env('BREVO_API_KEY') ?? env('email.brevoApiKey') ?? ''));
-            $resendKey = trim((string) (env('RESEND_API_KEY') ?? env('email.resendApiKey') ?? ''));
+            $brevoKey = trim((string) (env('BREVO_API_KEY') ?? env('email_brevoApiKey') ?? env('email.brevoApiKey') ?? ''));
+            $resendKey = trim((string) (env('RESEND_API_KEY') ?? env('email_resendApiKey') ?? env('email.resendApiKey') ?? ''));
 
             if ($brevoKey !== '') {
                 $httpApiAttempted = true;

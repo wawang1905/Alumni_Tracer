@@ -1233,3 +1233,204 @@ body {
 .btn-fill-dev-otp:hover {
   background: #b45309;
 }
+
+/* ==========================================================================
+   Alumni One-Time Profile Completion Modal (High-Contrast Overlay)
+   ========================================================================== */
+.profile-complete-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(9, 13, 22, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: profileModalFadeIn 0.2s ease;
+}
+
+.profile-complete-modal[hidden] {
+  display: none !important;
+}
+
+@keyframes profileModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.profile-complete-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #dbe4f0;
+  box-shadow: 0 28px 64px rgba(2, 6, 23, 0.42);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #0f172a;
+}
+
+.profile-complete-header {
+  flex-shrink: 0;
+  padding: 22px 24px 18px;
+  background: linear-gradient(135deg, #0f2b4c 0%, #1e4a76 58%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.profile-complete-header-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.profile-complete-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.profile-complete-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.profile-complete-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.profile-complete-header h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.profile-complete-header p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.45;
+}
+
+.profile-complete-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 24px;
+  background: #f8fafc;
+}
+
+.profile-complete-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px 6px;
+  margin-bottom: 14px;
+}
+
+.profile-complete-section-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1e4a76;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.profile-complete-modal .form-group {
+  margin-bottom: 12px;
+}
+
+.profile-complete-modal .form-group label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 5px;
+}
+
+.profile-complete-modal .form-group input,
+.profile-complete-modal .form-group select {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.profile-complete-modal .form-group input:focus,
+.profile-complete-modal .form-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.profile-complete-dob-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.85fr 1fr;
+  gap: 10px;
+}
+
+.profile-complete-row-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-complete-actions {
+  margin-top: 6px;
+}
+
+.profile-complete-submit-btn {
+  width: 100%;
+  height: 46px;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.req-star {
+  color: #dc2626;
+}
+
+@media (max-width: 560px) {
+  .profile-complete-header,
+  .profile-complete-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .profile-complete-dob-grid,
+  .profile-complete-row-2 {
+    grid-template-columns: 1fr;
+  }
+}

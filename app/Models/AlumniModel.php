@@ -105,7 +105,7 @@ class AlumniModel extends Model
             ->select('alumni.id, alumni.alumni_id, alumni.FirstName, alumni.LastName, alumni.Email, alumni.GraduationYear, alumni.Status, alumni.College_ID, alumni.Department_ID, alumni.Province, alumni.Municipality, alumni.Barangay, alumni.Contact_Number, alumni.sex, alumni.birth_month, alumni.birth_date, alumni.birth_year, alumni.emergency_contact, alumni.emergency_contact_name, c.College_Name AS College, d.Department_Name AS Course')
             ->join('colleges c', 'c.College_ID = alumni.College_ID', 'left')
             ->join('departments d', 'd.Department_ID = alumni.Department_ID', 'left')
-            ->where('Email', $email)
+            ->where('LOWER(alumni."Email")', strtolower(trim($email)))
             ->get()
             ->getRowArray();
 
