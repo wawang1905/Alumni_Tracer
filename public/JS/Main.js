@@ -1297,6 +1297,15 @@ async function handleLogin() {
     }
 
     writeStorageVal(STORAGE_KEYS.loginLockUntil, 0);
+
+    // For alumni accounts missing required personal/emergency details, prompt one-time completion before redirect
+    if (result.profile_incomplete === true) {
+      setLoginButtonLoading(false);
+      isLoggingIn = false;
+      openAlumniProfileCompletionModal(result.alumni_personal_info || {}, result.redirect || 'alumni/Main.html');
+      return;
+    }
+
     setLoginButtonLoading(true, 'Redirecting...');
     showAlert(loginAlert, 'Welcome back! Redirecting to dashboard...', 'success');
 
@@ -1310,7 +1319,181 @@ async function handleLogin() {
   }
 }
 
+let pendingProfileCompletionRedirect = 'alumni/Main.html';
+
+function getDaysInCalendarMonth(month, year) {
+  const m = Number(month);
+  const y = Number(year) || 2024; // default leap year when year not chosen yet so Feb 29 remains selectable
+  if (!m || m < 1 || m > 12) return 31;
+  return new Date(y, m, 0).getDate();
+}
+
+function populateBirthYearSelect(selectEl, selectedVal = '') {
+  if (!selectEl) return;
+  const currentYear = new Date().getFullYear();
+  let html = '<option value="">Year</option>';
+  for (let y = currentYear; y >= 1920; y--) {
+    html += `<option value="${y}">${y}</option>`;
+  }
+  selectEl.innerHTML = html;
+  if (selectedVal) selectEl.value = String(selectedVal);
+}
+
+function syncBirthDateSelect(monthEl, dayEl, yearEl, preferredDay = '') {
+  if (!dayEl) return;
+  const prevVal = preferredDay !== '' ? String(preferredDay) : dayEl.value;
+  const maxDays = getDaysInCalendarMonth(monthEl?.value, yearEl?.value);
+  let html = '<option value="">Day</option>';
+  for (let d = 1; d <= maxDays; d++) {
+    html += `<option value="${d}">${d}</option>`;
+  }
+  dayEl.innerHTML = html;
+  if (prevVal && Number(prevVal) >= 1 && Number(prevVal) <= maxDays) {
+    dayEl.value = prevVal;
+  }
+}
+
+function validateEmergencyPhoneNumber(raw) {
+  const cleaned = String(raw || '').replace(/[\s\-().]+/g, '');
+  return /^09\d{9}$/.test(cleaned) || /^\+?639\d{9}$/.test(cleaned) || /^\+[1-9]\d{7,14}$/.test(cleaned);
+}
+
+function openAlumniProfileCompletionModal(prefill = {}, redirectUrl = 'alumni/Main.html') {
+  pendingProfileCompletionRedirect = redirectUrl || 'alumni/Main.html';
+  const modal = document.getElementById('alumniProfileCompletionModal');
+  const sexEl = document.getElementById('completeSex');
+  const monthEl = document.getElementById('completeBirthMonth');
+  const dayEl = document.getElementById('completeBirthDate');
+  const yearEl = document.getElementById('completeBirthYear');
+  const emNameEl = document.getElementById('completeEmergencyName');
+  const emContactEl = document.getElementById('completeEmergencyContact');
+  const alertEl = document.getElementById('profileCompleteAlert');
+
+  if (!modal) {
+    window.location.replace(pendingProfileCompletionRedirect);
+    return;
+  }
+
+  if (alertEl) {
+    alertEl.style.display = 'none';
+    alertEl.textContent = '';
+  }
+
+  populateBirthYearSelect(yearEl, prefill.birth_year || '');
+  if (sexEl) sexEl.value = prefill.sex || '';
+  if (monthEl) monthEl.value = prefill.birth_month ? String(prefill.birth_month) : '';
+  syncBirthDateSelect(monthEl, dayEl, yearEl, prefill.birth_date ? String(prefill.birth_date) : '');
+  if (emNameEl) emNameEl.value = prefill.emergency_contact_name || '';
+  if (emContactEl) emContactEl.value = prefill.emergency_contact || '';
+
+  modal.hidden = false;
+  if (sexEl && !sexEl.value) sexEl.focus();
+}
+
+async function handleProfileCompletionSubmit(event) {
+  event.preventDefault();
+  const alertEl = document.getElementById('profileCompleteAlert');
+  const saveBtn = document.getElementById('saveProfileCompletionBtn');
+
+  const sex = (document.getElementById('completeSex')?.value || '').trim();
+  const birthMonth = (document.getElementById('completeBirthMonth')?.value || '').trim();
+  const birthDate = (document.getElementById('completeBirthDate')?.value || '').trim();
+  const birthYear = (document.getElementById('completeBirthYear')?.value || '').trim();
+  const emergencyName = (document.getElementById('completeEmergencyName')?.value || '').trim();
+  const emergencyContact = (document.getElementById('completeEmergencyContact')?.value || '').trim();
+
+  if (!['Male', 'Female'].includes(sex)) {
+    showAlert(alertEl, 'Please select your Sex (Male or Female).', 'error');
+    return;
+  }
+
+  const m = Number(birthMonth);
+  const d = Number(birthDate);
+  const y = Number(birthYear);
+  const currentYear = new Date().getFullYear();
+  if (!m || !d || !y || m < 1 || m > 12 || y < 1920 || y > currentYear) {
+    showAlert(alertEl, 'Please select a valid Birth Month, Birth Date, and Birth Year.', 'error');
+    return;
+  }
+
+  const checkDate = new Date(y, m - 1, d);
+  if (checkDate.getFullYear() !== y || checkDate.getMonth() !== m - 1 || checkDate.getDate() !== d) {
+    showAlert(alertEl, 'The selected birthdate is not a valid calendar date.', 'error');
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (checkDate > today) {
+    showAlert(alertEl, 'Birthdate cannot be in the future.', 'error');
+    return;
+  }
+
+  if (!emergencyName) {
+    showAlert(alertEl, 'Please enter an Emergency Contact Name.', 'error');
+    return;
+  }
+
+  if (!validateEmergencyPhoneNumber(emergencyContact)) {
+    showAlert(alertEl, 'Please enter a valid Emergency Contact Number (e.g., 09171234567, +639171234567, or international format).', 'error');
+    return;
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+
+  try {
+    const endpoint = new URL('alumni/complete-personal-info', window.appBaseUrl || window.location.href).toString();
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        sex,
+        birth_month: m,
+        birth_date: d,
+        birth_year: y,
+        emergency_contact_name: emergencyName,
+        emergency_contact: emergencyContact,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Unable to save personal information.');
+    }
+
+    showAlert(alertEl, data.message || 'Personal information saved! Redirecting...', 'success');
+    setTimeout(() => {
+      window.location.replace(data.redirect || pendingProfileCompletionRedirect || 'alumni/Main.html');
+    }, 900);
+  } catch (err) {
+    showAlert(alertEl, err?.message || 'Unable to save personal information right now.', 'error');
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save & Continue to Portal';
+    }
+  }
+}
+
+function initProfileCompletionModalListeners() {
+  const form = document.getElementById('alumniProfileCompletionForm');
+  const monthEl = document.getElementById('completeBirthMonth');
+  const dayEl = document.getElementById('completeBirthDate');
+  const yearEl = document.getElementById('completeBirthYear');
+
+  populateBirthYearSelect(yearEl);
+  syncBirthDateSelect(monthEl, dayEl, yearEl);
+
+  monthEl?.addEventListener('change', () => syncBirthDateSelect(monthEl, dayEl, yearEl));
+  yearEl?.addEventListener('change', () => syncBirthDateSelect(monthEl, dayEl, yearEl));
+  form?.addEventListener('submit', handleProfileCompletionSubmit);
+}
+
 function setupEvents() {
+  initProfileCompletionModalListeners();
   if (loginBtn) {
     loginBtn.addEventListener('click', handleLogin);
   }

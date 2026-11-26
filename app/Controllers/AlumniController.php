@@ -2058,20 +2058,40 @@ XML;
                     : base_url('alumni/profile-picture');
             }
 
+            $birthMonth = ! empty($alumniData['birth_month']) ? (int) $alumniData['birth_month'] : null;
+            $birthDate = ! empty($alumniData['birth_date']) ? (int) $alumniData['birth_date'] : null;
+            $birthYear = ! empty($alumniData['birth_year']) ? (int) $alumniData['birth_year'] : null;
+            $sexVal = trim((string) ($alumniData['sex'] ?? ''));
+            $emContact = trim((string) ($alumniData['emergency_contact'] ?? ''));
+            $emName = trim((string) ($alumniData['emergency_contact_name'] ?? ''));
+
+            $validDob = $birthMonth !== null && $birthDate !== null && $birthYear !== null
+                && $birthMonth >= 1 && $birthMonth <= 12
+                && $birthDate >= 1 && $birthDate <= 31
+                && $birthYear >= 1920
+                && checkdate($birthMonth, $birthDate, $birthYear);
+
             $profileData = [
-                'alumni_id'           => $alumniData['alumni_id'] ?? '',
-                'firstName'           => $currentUser['first_name'] ?? '',
-                'lastName'            => $currentUser['last_name'] ?? '',
-                'email'               => $currentUser['email'] ?? '',
-                'graduationYear'      => $alumniData['GraduationYear'] ?? '',
-                'college'             => $alumniData['College'] ?? '',
-                'course'              => $alumniData['Course'] ?? '',
-                'province'            => $alumniData['Province'] ?? '',
-                'municipality'        => $alumniData['Municipality'] ?? '',
-                'barangay'            => $alumniData['Barangay'] ?? '',
-                'contactNumber'       => $alumniData['Contact_Number'] ?? '',
-                'has_profile_picture' => $hasProfilePicture,
-                'profile_picture_url' => $profilePictureUrl,
+                'alumni_id'              => $alumniData['alumni_id'] ?? '',
+                'firstName'              => $currentUser['first_name'] ?? '',
+                'lastName'               => $currentUser['last_name'] ?? '',
+                'email'                  => $currentUser['email'] ?? '',
+                'graduationYear'         => $alumniData['GraduationYear'] ?? '',
+                'college'                => $alumniData['College'] ?? '',
+                'course'                 => $alumniData['Course'] ?? '',
+                'province'               => $alumniData['Province'] ?? '',
+                'municipality'           => $alumniData['Municipality'] ?? '',
+                'barangay'               => $alumniData['Barangay'] ?? '',
+                'contactNumber'          => $alumniData['Contact_Number'] ?? '',
+                'sex'                    => $sexVal,
+                'birth_month'            => $birthMonth,
+                'birth_date'             => $birthDate,
+                'birth_year'             => $birthYear,
+                'emergency_contact'      => $emContact,
+                'emergency_contact_name' => $emName,
+                'profile_incomplete'     => ($sexVal === '' || ! $validDob || $emContact === '' || $emName === ''),
+                'has_profile_picture'    => $hasProfilePicture,
+                'profile_picture_url'    => $profilePictureUrl,
             ];
 
             log_message('info', 'Profile data prepared: ' . print_r($profileData, true));
@@ -2092,78 +2112,335 @@ XML;
     public function update(): ResponseInterface
     {
         try {
-            $jsonData = $this->request->getJSON();
-            
-            if ($jsonData === null) {
-                $rawInput = $this->request->getRawInput();
-                $jsonData = json_decode($rawInput, false);
+            if (! $this->isAlumniAuthorized()) {
+                return $this->response->setStatusCode(401)->setJSON([
+                    'success' => false,
+                    'message' => 'Unauthorized. Only authenticated alumni can update their own profile.',
+                ]);
             }
-            
+
+            $jsonData = $this->request->getJSON(true);
+            if (! is_array($jsonData)) {
+                $rawInput = $this->request->getRawInput();
+                $decoded = json_decode((string) $rawInput, true);
+                $jsonData = is_array($decoded) ? $decoded : null;
+            }
+
             if ($jsonData === null) {
                 return $this->response->setStatusCode(400)->setJSON([
                     'success' => false,
                     'message' => 'Invalid JSON data provided.',
                 ]);
             }
-            
-            $email = trim((string) ($jsonData->email ?? ''));
-
-            if (!$email) {
-                return $this->response->setStatusCode(422)->setJSON([
-                    'success' => false,
-                    'message' => 'Please provide an email address.',
-                ]);
-            }
-
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return $this->response->setStatusCode(422)->setJSON([
-                    'success' => false,
-                    'message' => 'Please provide a valid email address.',
-                ]);
-            }
 
             $currentUser = session('auth_user');
-            if (!$currentUser) {
+            if (! is_array($currentUser) || empty($currentUser['email'])) {
                 return $this->response->setStatusCode(401)->setJSON([
                     'success' => false,
                     'message' => 'No active session found.',
                 ]);
             }
 
+            $sessionEmail = (string) $currentUser['email'];
+            $existingAlumni = $this->alumniModel->findByEmail($sessionEmail);
+            if (! is_array($existingAlumni) && ! empty($currentUser['account_id'])) {
+                $existingAlumni = $this->alumniModel->where('alumni_id', (string) $currentUser['account_id'])->first();
+            }
+
+            if (! is_array($existingAlumni) || empty($existingAlumni['id'])) {
+                return $this->response->setStatusCode(404)->setJSON([
+                    'success' => false,
+                    'message' => 'Alumni profile record not found.',
+                ]);
+            }
+
+            $email = trim((string) ($jsonData['email'] ?? $sessionEmail));
+            if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => 'Please provide a valid email address.',
+                ]);
+            }
+
+            $alumniUpdate = ['Email' => $email];
+
+            // Validate and merge personal & emergency contact fields if any were submitted
+            $personalKeys = ['sex', 'birth_month', 'birth_date', 'birth_year', 'emergency_contact', 'emergency_contact_name'];
+            $hasPersonalSubmission = false;
+            foreach ($personalKeys as $key) {
+                if (array_key_exists($key, $jsonData)) {
+                    $hasPersonalSubmission = true;
+                    break;
+                }
+            }
+
+            if ($hasPersonalSubmission) {
+                $validation = $this->validatePersonalEmergencyFields($jsonData, $existingAlumni, false);
+                if (($validation['valid'] ?? false) !== true) {
+                    return $this->response->setStatusCode(422)->setJSON([
+                        'success' => false,
+                        'message' => (string) ($validation['message'] ?? 'Invalid personal or emergency contact details.'),
+                    ]);
+                }
+                $alumniUpdate = array_merge($alumniUpdate, $validation['fields']);
+            }
+
             $currentFirstName = (string) ($currentUser['first_name'] ?? '');
             $currentLastName = (string) ($currentUser['last_name'] ?? '');
 
-            $this->userAccountModel->builder()->where('Email', $currentUser['email'])->update([
-                'Email' => $email,
-            ]);
+            if (strcasecmp($email, $sessionEmail) !== 0) {
+                $this->userAccountModel->builder()->where('Email', $sessionEmail)->update([
+                    'Email' => $email,
+                ]);
+            }
 
-            $this->alumniModel->builder()->where('Email', $currentUser['email'])->update([
-                'Email' => $email,
-            ]);
+            // Always update strictly by the session-verified alumni DB primary key (never trust client-sent IDs)
+            $this->alumniModel->builder()
+                ->where('id', (int) $existingAlumni['id'])
+                ->update($alumniUpdate);
 
             session()->set('auth_user', array_merge($currentUser, [
                 'first_name' => $currentFirstName,
-                'last_name' => $currentLastName,
-                'email' => $email,
-                'name' => trim($currentFirstName . ' ' . $currentLastName),
+                'last_name'  => $currentLastName,
+                'email'      => $email,
+                'name'       => trim($currentFirstName . ' ' . $currentLastName),
             ]));
 
             return $this->response->setJSON([
                 'success' => true,
                 'message' => 'Profile updated successfully.',
-                'user' => [
+                'user'    => [
                     'first_name' => $currentFirstName,
-                    'last_name' => $currentLastName,
-                    'email' => $email,
-                    'name' => trim($currentFirstName . ' ' . $currentLastName),
+                    'last_name'  => $currentLastName,
+                    'email'      => $email,
+                    'name'       => trim($currentFirstName . ' ' . $currentLastName),
+                ],
+                'personal' => [
+                    'sex'                    => $alumniUpdate['sex'] ?? ($existingAlumni['sex'] ?? ''),
+                    'birth_month'            => $alumniUpdate['birth_month'] ?? ($existingAlumni['birth_month'] ?? null),
+                    'birth_date'             => $alumniUpdate['birth_date'] ?? ($existingAlumni['birth_date'] ?? null),
+                    'birth_year'             => $alumniUpdate['birth_year'] ?? ($existingAlumni['birth_year'] ?? null),
+                    'emergency_contact'      => $alumniUpdate['emergency_contact'] ?? ($existingAlumni['emergency_contact'] ?? ''),
+                    'emergency_contact_name' => $alumniUpdate['emergency_contact_name'] ?? ($existingAlumni['emergency_contact_name'] ?? ''),
                 ],
             ]);
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
+            log_message('error', 'AlumniController::update failed: {msg}', ['msg' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
-                'message' => 'Internal server error: ' . $e->getMessage(),
+                'message' => 'Unable to update profile right now. Please try again.',
             ]);
         }
+    }
+
+    /**
+     * Save required personal and emergency contact details for the authenticated alumni
+     * right after login (profile-completion step).
+     */
+    public function completePersonalInfo(): ResponseInterface
+    {
+        try {
+            if (! $this->isAlumniAuthorized()) {
+                return $this->response->setStatusCode(401)->setJSON([
+                    'success' => false,
+                    'message' => 'Unauthorized. Please log in as an alumni account.',
+                ]);
+            }
+
+            $input = $this->request->getJSON(true);
+            if (! is_array($input)) {
+                $input = $this->request->getPost();
+            }
+            if (! is_array($input)) {
+                return $this->response->setStatusCode(400)->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid request payload.',
+                ]);
+            }
+
+            $currentUser = session('auth_user');
+            $sessionEmail = trim((string) ($currentUser['email'] ?? ''));
+            $existingAlumni = $sessionEmail !== '' ? $this->alumniModel->findByEmail($sessionEmail) : null;
+            if (! is_array($existingAlumni) && ! empty($currentUser['account_id'])) {
+                $existingAlumni = $this->alumniModel->where('alumni_id', (string) $currentUser['account_id'])->first();
+            }
+
+            if (! is_array($existingAlumni) || empty($existingAlumni['id'])) {
+                return $this->response->setStatusCode(404)->setJSON([
+                    'success' => false,
+                    'message' => 'Your alumni record could not be found. Please contact the administrator.',
+                ]);
+            }
+
+            $validation = $this->validatePersonalEmergencyFields($input, $existingAlumni, true);
+            if (($validation['valid'] ?? false) !== true) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'success' => false,
+                    'message' => (string) ($validation['message'] ?? 'Please complete all required personal information fields.'),
+                ]);
+            }
+
+            // Update existing authenticated alumni row only (never create a new record or trust client IDs)
+            $this->alumniModel->builder()
+                ->where('id', (int) $existingAlumni['id'])
+                ->update($validation['fields']);
+
+            return $this->response->setJSON([
+                'success'  => true,
+                'message'  => 'Personal information saved successfully.',
+                'redirect' => base_url('alumni/Main.html'),
+                'personal' => $validation['fields'],
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'AlumniController::completePersonalInfo failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Unable to save personal information right now. Please try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Validates Sex, Birth Month/Date/Year (including leap years & no future dates),
+     * Emergency Contact Name, and Emergency Contact Number (PH 09/+639 & international).
+     *
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $existing
+     * @return array{valid: bool, message?: string, fields?: array<string, mixed>}
+     */
+    private function validatePersonalEmergencyFields(array $input, array $existing = [], bool $requireAll = true): array
+    {
+        $fields = [];
+
+        // 1. Sex
+        $hasSex = array_key_exists('sex', $input);
+        $rawSex = $hasSex ? trim((string) ($input['sex'] ?? '')) : trim((string) ($existing['sex'] ?? ''));
+        if ($requireAll || $hasSex) {
+            $sexMap = [
+                'male'   => 'Male',
+                'female' => 'Female',
+            ];
+            $normalizedSex = $sexMap[strtolower($rawSex)] ?? null;
+            if ($normalizedSex === null) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Please select a valid Sex option (Male or Female).',
+                ];
+            }
+            $fields['sex'] = $normalizedSex;
+        }
+
+        // 2. Birth Month, Birth Date, Birth Year
+        $hasBirthPart = array_key_exists('birth_month', $input)
+            || array_key_exists('birth_date', $input)
+            || array_key_exists('birth_year', $input);
+
+        if ($requireAll || $hasBirthPart) {
+            $rawMonth = array_key_exists('birth_month', $input) ? $input['birth_month'] : ($existing['birth_month'] ?? null);
+            $rawDate = array_key_exists('birth_date', $input) ? $input['birth_date'] : ($existing['birth_date'] ?? null);
+            $rawYear = array_key_exists('birth_year', $input) ? $input['birth_year'] : ($existing['birth_year'] ?? null);
+
+            if (
+                $rawMonth === null || $rawMonth === ''
+                || $rawDate === null || $rawDate === ''
+                || $rawYear === null || $rawYear === ''
+                || ! ctype_digit((string) $rawMonth)
+                || ! ctype_digit((string) $rawDate)
+                || ! ctype_digit((string) $rawYear)
+            ) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Please select a complete Birth Month, Birth Date, and Birth Year.',
+                ];
+            }
+
+            $month = (int) $rawMonth;
+            $day = (int) $rawDate;
+            $year = (int) $rawYear;
+            $currentYear = (int) date('Y');
+
+            if ($month < 1 || $month > 12) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Birth Month must be between January (1) and December (12).',
+                ];
+            }
+
+            if ($year < 1920 || $year > $currentYear) {
+                return [
+                    'valid'   => false,
+                    'message' => "Birth Year must be between 1920 and {$currentYear}.",
+                ];
+            }
+
+            if (! checkdate($month, $day, $year)) {
+                return [
+                    'valid'   => false,
+                    'message' => 'The selected birthdate is not a valid calendar date.',
+                ];
+            }
+
+            $dobIso = sprintf('%04d-%02d-%02d', $year, $month, $day);
+            if ($dobIso > date('Y-m-d')) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Birthdate cannot be in the future.',
+                ];
+            }
+
+            $fields['birth_month'] = $month;
+            $fields['birth_date'] = $day;
+            $fields['birth_year'] = $year;
+        }
+
+        // 3. Emergency Contact Name
+        $hasEmName = array_key_exists('emergency_contact_name', $input);
+        $rawEmName = $hasEmName
+            ? trim((string) ($input['emergency_contact_name'] ?? ''))
+            : trim((string) ($existing['emergency_contact_name'] ?? ''));
+
+        if ($requireAll || $hasEmName) {
+            if ($rawEmName === '') {
+                return [
+                    'valid'   => false,
+                    'message' => 'Please enter a valid Emergency Contact Name.',
+                ];
+            }
+            if (mb_strlen($rawEmName) > 150) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Emergency Contact Name must be 150 characters or fewer.',
+                ];
+            }
+            $fields['emergency_contact_name'] = preg_replace('/\s+/', ' ', $rawEmName) ?? $rawEmName;
+        }
+
+        // 4. Emergency Contact Number (PH 09XXXXXXXXX, +639XXXXXXXXX, or valid international +E.164)
+        $hasEmContact = array_key_exists('emergency_contact', $input);
+        $rawEmContact = $hasEmContact
+            ? trim((string) ($input['emergency_contact'] ?? ''))
+            : trim((string) ($existing['emergency_contact'] ?? ''));
+
+        if ($requireAll || $hasEmContact) {
+            $cleanedPhone = preg_replace('/[\s\-().]+/', '', $rawEmContact) ?? '';
+            $isValidPhLocal = (bool) preg_match('/^09\d{9}$/', $cleanedPhone);
+            $isValidPhIntl = (bool) preg_match('/^\+?639\d{9}$/', $cleanedPhone);
+            $isValidIntl = (bool) preg_match('/^\+[1-9]\d{7,14}$/', $cleanedPhone);
+
+            if (! $isValidPhLocal && ! $isValidPhIntl && ! $isValidIntl) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Please enter a valid Emergency Contact Number (e.g., 09171234567, +639171234567, or a valid international number).',
+                ];
+            }
+
+            $fields['emergency_contact'] = $cleanedPhone;
+        }
+
+        return [
+            'valid'  => true,
+            'fields' => $fields,
+        ];
     }
 
     private function isAlumniAuthorized(): bool
@@ -2495,7 +2772,7 @@ XML;
 
         $db = \Config\Database::connect();
         $row = $db->table('alumni a')
-            ->select('a.id, a.alumni_id, a."FirstName", a."LastName", a."Email", a."GraduationYear", a."Status", a."College_ID", a."Department_ID", a."Province", a."Municipality", a."Barangay", a."Contact_Number", c."College_Name", c."Campus_ID", d."Department_Name", cmp."Campus" AS "Campus_Name"')
+            ->select('a.id, a.alumni_id, a."FirstName", a."LastName", a."Email", a."GraduationYear", a."Status", a."College_ID", a."Department_ID", a."Province", a."Municipality", a."Barangay", a."Contact_Number", a.sex, a.birth_month, a.birth_date, a.birth_year, a.emergency_contact, a.emergency_contact_name, c."College_Name", c."Campus_ID", d."Department_Name", cmp."Campus" AS "Campus_Name"')
             ->join('colleges c', 'c."College_ID" = a."College_ID"', 'left')
             ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
             ->join('campuses cmp', 'cmp."Campus_ID" = c."Campus_ID"', 'left')
@@ -2535,8 +2812,22 @@ XML;
         ], static fn (string $part): bool => $part !== ''));
         $homeAddress = $addressParts !== [] ? implode(', ', $addressParts) : '';
 
-        // Optional personal details from the alumnus's latest tracer survey answers if present
+        // Optional personal details: prefer direct public.alumni columns, fallback to latest survey response
         $extra = $this->extractOptionalSurveyPersonalDetails(trim((string) ($row['Email'] ?? '')));
+        $dbSex = trim((string) ($row['sex'] ?? ''));
+        $dbBirthMonth = (int) ($row['birth_month'] ?? 0);
+        $dbBirthDate = (int) ($row['birth_date'] ?? 0);
+        $dbBirthYear = (int) ($row['birth_year'] ?? 0);
+        $dbBirthdateFormatted = ($dbBirthMonth >= 1 && $dbBirthMonth <= 12 && $dbBirthDate >= 1 && $dbBirthDate <= 31 && $dbBirthYear >= 1920 && checkdate($dbBirthMonth, $dbBirthDate, $dbBirthYear))
+            ? ($dbBirthMonth . '/' . $dbBirthDate . '/' . $dbBirthYear)
+            : '';
+        $dbEmName = trim((string) ($row['emergency_contact_name'] ?? ''));
+        $dbEmContact = trim((string) ($row['emergency_contact'] ?? ''));
+
+        $resolvedSex = $dbSex !== '' ? $dbSex : $extra['sex'];
+        $resolvedBirthdate = $dbBirthdateFormatted !== '' ? $dbBirthdateFormatted : $extra['birthdate'];
+        $resolvedEmName = $dbEmName !== '' ? $dbEmName : $extra['emergency_contact_name'];
+        $resolvedEmNumber = $dbEmContact !== '' ? $dbEmContact : $extra['emergency_contact_number'];
 
         // Resolve alumni photograph via existing AlumniFilesModel + SupabaseStorageService
         $activePhoto = $this->alumniFilesModel->getActiveProfilePicture($alumniDbId);
@@ -2595,10 +2886,10 @@ XML;
             'municipality'             => trim((string) ($row['Municipality'] ?? '')),
             'province'                 => trim((string) ($row['Province'] ?? '')),
             'home_address'             => $homeAddress,
-            'sex'                      => $extra['sex'],
-            'birthdate'                => $extra['birthdate'],
-            'emergency_contact_name'   => $extra['emergency_contact_name'],
-            'emergency_contact_number' => $extra['emergency_contact_number'],
+            'sex'                      => $resolvedSex,
+            'birthdate'                => $resolvedBirthdate,
+            'emergency_contact_name'   => $resolvedEmName,
+            'emergency_contact_number' => $resolvedEmNumber,
             'membership_label'         => 'LIFETIME MEMBER',
             'has_profile_picture'      => $hasProfilePicture,
             'profile_picture_url'      => $profilePictureUrl,

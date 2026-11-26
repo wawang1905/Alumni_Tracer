@@ -112,6 +112,84 @@
     </div>
   </div>
 
+  <!-- Alumni Profile Completion Modal (shown after login only if required personal/emergency info is missing) -->
+  <div id="alumniProfileCompletionModal" class="profile-complete-modal" role="dialog" aria-modal="true" aria-labelledby="profileCompleteTitle" hidden>
+    <div class="profile-complete-dialog">
+      <div class="profile-complete-header">
+        <div class="profile-complete-badge"><i class="fas fa-user-check"></i> One-Time Profile Setup</div>
+        <h3 id="profileCompleteTitle">Complete Your Personal Information</h3>
+        <p>Please provide your personal and emergency contact details to continue to your Alumni Portal.</p>
+      </div>
+      <div class="profile-complete-body">
+        <div class="alert" id="profileCompleteAlert" style="display:none;"></div>
+        <form id="alumniProfileCompletionForm" novalidate>
+          <div class="profile-complete-row">
+            <div class="form-group">
+              <label for="completeSex">Sex <span class="req-star">*</span></label>
+              <select id="completeSex" name="sex" required>
+                <option value="">Select Sex</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="profile-complete-section-label">Date of Birth <span class="req-star">*</span></div>
+          <div class="profile-complete-dob-grid">
+            <div class="form-group">
+              <label for="completeBirthMonth">Birth Month</label>
+              <select id="completeBirthMonth" name="birth_month" required>
+                <option value="">Month</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="completeBirthDate">Birth Date</label>
+              <select id="completeBirthDate" name="birth_date" required>
+                <option value="">Day</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="completeBirthYear">Birth Year</label>
+              <select id="completeBirthYear" name="birth_year" required>
+                <option value="">Year</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="profile-complete-section-label">Emergency Contact <span class="req-star">*</span></div>
+          <div class="profile-complete-row-2">
+            <div class="form-group">
+              <label for="completeEmergencyName">Emergency Contact Name</label>
+              <input type="text" id="completeEmergencyName" name="emergency_contact_name" placeholder="e.g. Maria Dela Cruz" maxlength="150" required>
+            </div>
+            <div class="form-group">
+              <label for="completeEmergencyContact">Emergency Contact Number</label>
+              <input type="tel" id="completeEmergencyContact" name="emergency_contact" placeholder="e.g. 09171234567 or +639171234567" maxlength="25" required>
+            </div>
+          </div>
+
+          <div class="profile-complete-actions">
+            <button type="submit" class="btn-login" id="saveProfileCompletionBtn">
+              Save &amp; Continue to Portal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script>
     window.appBaseUrl = <?= json_encode(base_url('/'), JSON_UNESCAPED_SLASHES) ?>;
     window.signupOptions = <?= json_encode($signupOptions ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;

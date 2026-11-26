@@ -211,5 +211,6 @@ $routes->group('', ['filter' => 'role:alumni'], static function (RouteCollection
     $routes->get('alumni/Profile.html', 'AlumniController::profilePage');
     $routes->get('alumni/profile', 'AlumniController::profile');
     $routes->post('alumni/update', 'AlumniController::update');
+    $routes->post('alumni/complete-personal-info', 'AlumniController::completePersonalInfo');
     $routes->post('alumni/profile-picture', 'AlumniController::uploadProfilePicture');
 });

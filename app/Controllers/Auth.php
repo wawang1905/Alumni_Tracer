@@ -199,12 +199,53 @@ class Auth extends BaseController
             (string) $this->request->getUserAgent()
         );
 
+        $profileIncomplete = false;
+        $alumniPersonalInfo = null;
+        if ($normalizedResolvedRole === 'alumni') {
+            $alumniRow = $this->alumniModel->findByEmail((string) ($user['Email'] ?? ''));
+            if (! is_array($alumniRow) && ! empty($user['account_id'])) {
+                $alumniRow = $this->alumniModel->where('alumni_id', (string) $user['account_id'])->first();
+            }
+
+            if (is_array($alumniRow)) {
+                $sex = trim((string) ($alumniRow['sex'] ?? ''));
+                $birthMonth = (int) ($alumniRow['birth_month'] ?? 0);
+                $birthDate = (int) ($alumniRow['birth_date'] ?? 0);
+                $birthYear = (int) ($alumniRow['birth_year'] ?? 0);
+                $emContact = trim((string) ($alumniRow['emergency_contact'] ?? ''));
+                $emName = trim((string) ($alumniRow['emergency_contact_name'] ?? ''));
+
+                $validDob = $birthMonth >= 1 && $birthMonth <= 12
+                    && $birthDate >= 1 && $birthDate <= 31
+                    && $birthYear >= 1920
+                    && checkdate($birthMonth, $birthDate, $birthYear);
+
+                $profileIncomplete = (
+                    $sex === ''
+                    || ! $validDob
+                    || $emContact === ''
+                    || $emName === ''
+                );
+
+                $alumniPersonalInfo = [
+                    'sex'                    => $sex,
+                    'birth_month'            => $birthMonth > 0 ? $birthMonth : null,
+                    'birth_date'             => $birthDate > 0 ? $birthDate : null,
+                    'birth_year'             => $birthYear > 0 ? $birthYear : null,
+                    'emergency_contact'      => $emContact,
+                    'emergency_contact_name' => $emName,
+                ];
+            }
+        }
+
         return $this->response->setJSON([
-            'success'  => true,
-            'message'  => 'Login successful.',
-            'redirect' => $redirect,
-            'user'     => session('auth_user'),
-            'supabase' => [
+            'success'              => true,
+            'message'              => 'Login successful.',
+            'redirect'             => $redirect,
+            'profile_incomplete'   => $profileIncomplete,
+            'alumni_personal_info' => $alumniPersonalInfo,
+            'user'                 => session('auth_user'),
+            'supabase'             => [
                 'authenticated' => $supabaseSession !== null,
                 'provider'      => $authResult['provider'] ?? 'supabase',
                 'expires_at'    => $supabaseSession['expires_at'] ?? null,

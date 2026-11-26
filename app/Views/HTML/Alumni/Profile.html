@@ -195,6 +195,82 @@
                                 <input type="text" id="profileBarangay" class="minimal-input" readonly>
                             </div>
                         </div>
+
+                        <div class="profile-divider"></div>
+
+                        <!-- Personal & Birthdate Block -->
+                        <div class="profile-form-grid profile-form-grid--4">
+                            <div class="profile-form-field">
+                                <label for="profileSex">
+                                    Sex
+                                    <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
+                                </label>
+                                <select id="profileSex" class="minimal-input" disabled>
+                                    <option value="">Select Sex</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileBirthMonth">
+                                    Birth Month
+                                    <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
+                                </label>
+                                <select id="profileBirthMonth" class="minimal-input" disabled onchange="syncProfileBirthDateOptions()">
+                                    <option value="">Month</option>
+                                    <option value="1">January</option>
+                                    <option value="2">February</option>
+                                    <option value="3">March</option>
+                                    <option value="4">April</option>
+                                    <option value="5">May</option>
+                                    <option value="6">June</option>
+                                    <option value="7">July</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">October</option>
+                                    <option value="11">November</option>
+                                    <option value="12">December</option>
+                                </select>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileBirthDate">
+                                    Birth Date
+                                    <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
+                                </label>
+                                <select id="profileBirthDate" class="minimal-input" disabled>
+                                    <option value="">Day</option>
+                                </select>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileBirthYear">
+                                    Birth Year
+                                    <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
+                                </label>
+                                <select id="profileBirthYear" class="minimal-input" disabled onchange="syncProfileBirthDateOptions()">
+                                    <option value="">Year</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="profile-divider"></div>
+
+                        <!-- Emergency Contact Block -->
+                        <div class="profile-form-grid profile-form-grid--2">
+                            <div class="profile-form-field">
+                                <label for="profileEmergencyContactName">
+                                    Emergency Contact Name
+                                    <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
+                                </label>
+                                <input type="text" id="profileEmergencyContactName" class="minimal-input" placeholder="Not set" maxlength="150" readonly>
+                            </div>
+                            <div class="profile-form-field">
+                                <label for="profileEmergencyContact">
+                                    Emergency Contact Number
+                                    <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
+                                </label>
+                                <input type="tel" id="profileEmergencyContact" class="minimal-input" placeholder="e.g. 09171234567 or +639171234567" maxlength="25" readonly>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="profile-actions" id="personalActions" style="display: none;">
@@ -250,60 +326,179 @@
             loadAlumniProfile();
         }
 
+        function populateProfileBirthYears(selectedYear = '') {
+            const yearEl = document.getElementById('profileBirthYear');
+            if (!yearEl) return;
+            const currentYear = new Date().getFullYear();
+            let html = '<option value="">Year</option>';
+            for (let y = currentYear; y >= 1920; y--) {
+                html += `<option value="${y}">${y}</option>`;
+            }
+            yearEl.innerHTML = html;
+            if (selectedYear) yearEl.value = String(selectedYear);
+        }
+
+        function syncProfileBirthDateOptions(preferredDay = '') {
+            const monthEl = document.getElementById('profileBirthMonth');
+            const dayEl = document.getElementById('profileBirthDate');
+            const yearEl = document.getElementById('profileBirthYear');
+            if (!dayEl) return;
+
+            const prevDay = preferredDay !== '' ? String(preferredDay) : dayEl.value;
+            const m = Number(monthEl?.value || 0);
+            const y = Number(yearEl?.value || 2024);
+            const maxDays = (m >= 1 && m <= 12) ? new Date(y, m, 0).getDate() : 31;
+
+            let html = '<option value="">Day</option>';
+            for (let d = 1; d <= maxDays; d++) {
+                html += `<option value="${d}">${d}</option>`;
+            }
+            dayEl.innerHTML = html;
+            if (prevDay && Number(prevDay) >= 1 && Number(prevDay) <= maxDays) {
+                dayEl.value = prevDay;
+            }
+        }
+
+        function validateEmergencyPhone(raw) {
+            const cleaned = String(raw || '').replace(/[\s\-().]+/g, '');
+            return /^09\d{9}$/.test(cleaned) || /^\+?639\d{9}$/.test(cleaned) || /^\+[1-9]\d{7,14}$/.test(cleaned);
+        }
+
         function enablePersonalEdit() {
             isEditingPersonal = true;
             
             // Store original values
             originalPersonalData = {
-                email: document.getElementById('profileEmail').value
+                email: document.getElementById('profileEmail').value,
+                sex: document.getElementById('profileSex').value,
+                birth_month: document.getElementById('profileBirthMonth').value,
+                birth_date: document.getElementById('profileBirthDate').value,
+                birth_year: document.getElementById('profileBirthYear').value,
+                emergency_contact_name: document.getElementById('profileEmergencyContactName').value,
+                emergency_contact: document.getElementById('profileEmergencyContact').value
             };
 
-            // Enable editable field
+            // Enable editable fields
             const emailInput = document.getElementById('profileEmail');
+            const sexSelect = document.getElementById('profileSex');
+            const monthSelect = document.getElementById('profileBirthMonth');
+            const dateSelect = document.getElementById('profileBirthDate');
+            const yearSelect = document.getElementById('profileBirthYear');
+            const emNameInput = document.getElementById('profileEmergencyContactName');
+            const emContactInput = document.getElementById('profileEmergencyContact');
+
             emailInput.readOnly = false;
+            sexSelect.disabled = false;
+            monthSelect.disabled = false;
+            dateSelect.disabled = false;
+            yearSelect.disabled = false;
+            emNameInput.readOnly = false;
+            emContactInput.readOnly = false;
 
             // Show/hide buttons & tags
             document.getElementById('editPersonalBtn').style.display = 'none';
             document.getElementById('personalActions').style.display = 'flex';
             const editableTag = document.getElementById('emailEditableTag');
             if (editableTag) editableTag.style.display = 'inline-flex';
+            document.querySelectorAll('.personal-editable-tag').forEach(el => { el.style.display = 'inline-flex'; });
 
             // Add edit styling and focus
-            emailInput.classList.add('editable');
+            [emailInput, sexSelect, monthSelect, dateSelect, yearSelect, emNameInput, emContactInput].forEach(el => {
+                if (el) el.classList.add('editable');
+            });
             emailInput.focus();
-            emailInput.select();
         }
 
         function cancelPersonalEdit() {
             isEditingPersonal = false;
 
-            // Restore original values
             const emailInput = document.getElementById('profileEmail');
-            emailInput.value = originalPersonalData.email;
+            const sexSelect = document.getElementById('profileSex');
+            const monthSelect = document.getElementById('profileBirthMonth');
+            const dateSelect = document.getElementById('profileBirthDate');
+            const yearSelect = document.getElementById('profileBirthYear');
+            const emNameInput = document.getElementById('profileEmergencyContactName');
+            const emContactInput = document.getElementById('profileEmergencyContact');
 
-            // Disable field
+            // Restore original values
+            emailInput.value = originalPersonalData.email ?? '';
+            sexSelect.value = originalPersonalData.sex ?? '';
+            monthSelect.value = originalPersonalData.birth_month ?? '';
+            yearSelect.value = originalPersonalData.birth_year ?? '';
+            syncProfileBirthDateOptions(originalPersonalData.birth_date ?? '');
+            emNameInput.value = originalPersonalData.emergency_contact_name ?? '';
+            emContactInput.value = originalPersonalData.emergency_contact ?? '';
+
+            // Disable fields
             emailInput.readOnly = true;
+            sexSelect.disabled = true;
+            monthSelect.disabled = true;
+            dateSelect.disabled = true;
+            yearSelect.disabled = true;
+            emNameInput.readOnly = true;
+            emContactInput.readOnly = true;
 
             // Show/hide buttons & tags
             document.getElementById('editPersonalBtn').style.display = 'inline-flex';
             document.getElementById('personalActions').style.display = 'none';
             const editableTag = document.getElementById('emailEditableTag');
             if (editableTag) editableTag.style.display = 'none';
+            document.querySelectorAll('.personal-editable-tag').forEach(el => { el.style.display = 'none'; });
 
             // Remove edit styling
-            emailInput.classList.remove('editable');
+            [emailInput, sexSelect, monthSelect, dateSelect, yearSelect, emNameInput, emContactInput].forEach(el => {
+                if (el) el.classList.remove('editable');
+            });
         }
 
         async function savePersonalInfo() {
             const email = document.getElementById('profileEmail').value.trim();
+            const sex = document.getElementById('profileSex').value.trim();
+            const birthMonth = document.getElementById('profileBirthMonth').value.trim();
+            const birthDate = document.getElementById('profileBirthDate').value.trim();
+            const birthYear = document.getElementById('profileBirthYear').value.trim();
+            const emergencyContactName = document.getElementById('profileEmergencyContactName').value.trim();
+            const emergencyContact = document.getElementById('profileEmergencyContact').value.trim();
 
-            if (!email) {
-                alert('Please enter your email address.');
+            if (!email || !validateEmail(email)) {
+                alert('Please enter a valid email address.');
                 return;
             }
 
-            if (!validateEmail(email)) {
-                alert('Please enter a valid email address.');
+            if (!['Male', 'Female'].includes(sex)) {
+                alert('Please select a valid Sex option (Male or Female).');
+                return;
+            }
+
+            const m = Number(birthMonth);
+            const d = Number(birthDate);
+            const y = Number(birthYear);
+            const currentYear = new Date().getFullYear();
+            if (!m || !d || !y || m < 1 || m > 12 || y < 1920 || y > currentYear) {
+                alert('Please select a valid Birth Month, Birth Date, and Birth Year.');
+                return;
+            }
+
+            const dobCheck = new Date(y, m - 1, d);
+            if (dobCheck.getFullYear() !== y || dobCheck.getMonth() !== m - 1 || dobCheck.getDate() !== d) {
+                alert('The selected birthdate is not a valid calendar date.');
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (dobCheck > today) {
+                alert('Birthdate cannot be in the future.');
+                return;
+            }
+
+            if (!emergencyContactName) {
+                alert('Please enter an Emergency Contact Name.');
+                return;
+            }
+
+            if (!validateEmergencyPhone(emergencyContact)) {
+                alert('Please enter a valid Emergency Contact Number (e.g., 09171234567, +639171234567, or international format).');
                 return;
             }
 
@@ -312,7 +507,7 @@
                 if (ac) {
                     const confirmed = await ac.basic({
                         title: 'Save Profile Changes?',
-                        message: 'Are you sure you want to update your profile email address?',
+                        message: 'Are you sure you want to update your personal and emergency contact information?',
                         record: email,
                         confirmText: 'Save Changes',
                         icon: 'fa-user-check'
@@ -328,7 +523,13 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        email: email
+                        email: email,
+                        sex: sex,
+                        birth_month: m,
+                        birth_date: d,
+                        birth_year: y,
+                        emergency_contact_name: emergencyContactName,
+                        emergency_contact: emergencyContact
                     }),
                     credentials: 'same-origin'
                 });
@@ -342,10 +543,20 @@
 
                 alert('Profile updated successfully!');
                 
-                // Update session data
+                // Update session data & original snapshot
                 if (result.user) {
                     updateSessionUser(result.user);
                 }
+
+                originalPersonalData = {
+                    email: email,
+                    sex: sex,
+                    birth_month: String(m),
+                    birth_date: String(d),
+                    birth_year: String(y),
+                    emergency_contact_name: emergencyContactName,
+                    emergency_contact: result.personal?.emergency_contact || emergencyContact
+                };
 
                 cancelPersonalEdit();
                 const cardEmail = document.getElementById('profileCardEmail');
@@ -372,6 +583,18 @@
             document.getElementById('profileGraduationYear').value = profileData.graduationYear || '';
             document.getElementById('profileCollege').value = profileData.college || '';
             document.getElementById('profileCourse').value = profileData.course || '';
+
+            // Populate Personal & Emergency Contact fields
+            populateProfileBirthYears(profileData.birth_year || '');
+            const sexEl = document.getElementById('profileSex');
+            if (sexEl) sexEl.value = profileData.sex || '';
+            const monthEl = document.getElementById('profileBirthMonth');
+            if (monthEl) monthEl.value = profileData.birth_month ? String(profileData.birth_month) : '';
+            syncProfileBirthDateOptions(profileData.birth_date ? String(profileData.birth_date) : '');
+            const emNameEl = document.getElementById('profileEmergencyContactName');
+            if (emNameEl) emNameEl.value = profileData.emergency_contact_name || '';
+            const emContactEl = document.getElementById('profileEmergencyContact');
+            if (emContactEl) emContactEl.value = profileData.emergency_contact || '';
 
             // Profile picture card summary
             document.getElementById('profileCardAlumniId').value = profileData.alumni_id || '';
