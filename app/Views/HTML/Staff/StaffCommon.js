@@ -7017,21 +7017,18 @@ function formatMonthsValue(value) {
 }
 
 function renderTimeToFirstJobCardState(state, timing = null) {
+    const cardEl = document.getElementById('timeToFirstJobCard');
     const valueEl = document.getElementById('timeToFirstJobValue');
     const subtextEl = document.getElementById('timeToFirstJobSubtext');
-    const distEl = document.getElementById('timeToFirstJobDistribution');
     if (!valueEl) return;
 
     valueEl.classList.remove('is-loading', 'is-error');
+    if (cardEl) cardEl.removeAttribute('title');
 
     if (state === 'loading') {
         valueEl.classList.add('is-loading');
         valueEl.textContent = 'Loading...';
         if (subtextEl) subtextEl.textContent = 'Calculating from survey responses...';
-        if (distEl) {
-            distEl.innerHTML = '';
-            distEl.hidden = true;
-        }
         return;
     }
 
@@ -7039,10 +7036,6 @@ function renderTimeToFirstJobCardState(state, timing = null) {
         valueEl.classList.add('is-error');
         valueEl.textContent = '--';
         if (subtextEl) subtextEl.textContent = 'Unable to load time-to-first-job data';
-        if (distEl) {
-            distEl.innerHTML = '';
-            distEl.hidden = true;
-        }
         return;
     }
 
@@ -7053,10 +7046,6 @@ function renderTimeToFirstJobCardState(state, timing = null) {
         valueEl.classList.add('is-loading');
         valueEl.textContent = 'No data available';
         if (subtextEl) subtextEl.textContent = 'No valid employment timing responses yet';
-        if (distEl) {
-            distEl.innerHTML = '';
-            distEl.hidden = true;
-        }
         return;
     }
 
@@ -7065,50 +7054,38 @@ function renderTimeToFirstJobCardState(state, timing = null) {
     valueEl.innerHTML = `${formatMonthsValue(avgMonths)} <span class="kpi-stat-unit">months</span>`;
 
     if (subtextEl) {
-        subtextEl.textContent = `${formatAlignmentPercent(withinThreePct)} hired within 3 months (${totalValid} valid)`;
+        subtextEl.textContent = `${formatAlignmentPercent(withinThreePct)} hired within 3 months`;
     }
 
-    if (distEl) {
-        const dist = timing.distribution || {};
-        const items = [
-            { key: 'less_than_a_month', label: 'Less than a month', dotClass: 'is-fast' },
-            { key: 'one_to_three_months', label: '1–3 months', dotClass: 'is-short' },
-            { key: 'three_to_six_months', label: '3–6 months', dotClass: 'is-medium' },
-            { key: 'six_to_twelve_months', label: '6–12 months', dotClass: 'is-long' },
-            { key: 'more_than_a_year', label: 'More than a year', dotClass: 'is-extended' },
-        ];
-
-        distEl.innerHTML = items.map(item => {
-            const entry = dist[item.key] || { count: 0, percentage: 0 };
-            const pctText = formatAlignmentPercent(entry.percentage);
-            const countNum = Number(entry.count || 0);
-            return `
-                <span class="kpi-alignment-item" title="${item.label}: ${pctText} (${countNum})">
-                    <span class="kpi-alignment-dot ${item.dotClass}" aria-hidden="true"></span>
-                    <span>${item.label}: <strong>${pctText}</strong> (${countNum})</span>
-                </span>
-            `;
-        }).join('');
-        distEl.hidden = false;
+    if (cardEl && timing.distribution) {
+        const dist = timing.distribution;
+        const summary = [
+            ['less_than_a_month', 'Less than a month'],
+            ['one_to_three_months', '1–3 months'],
+            ['three_to_six_months', '3–6 months'],
+            ['six_to_twelve_months', '6–12 months'],
+            ['more_than_a_year', 'More than a year'],
+        ].map(([k, label]) => {
+            const entry = dist[k] || { count: 0, percentage: 0 };
+            return `${label}: ${formatAlignmentPercent(entry.percentage)} (${Number(entry.count || 0)})`;
+        }).join(' | ');
+        cardEl.title = summary;
     }
 }
 
 function renderCurriculumAlignmentCardState(state, alignment = null) {
+    const cardEl = document.getElementById('curriculumAlignmentCard');
     const valueEl = document.getElementById('curriculumAlignmentValue');
     const subtextEl = document.getElementById('curriculumAlignmentSubtext');
-    const distEl = document.getElementById('curriculumAlignmentDistribution');
     if (!valueEl) return;
 
     valueEl.classList.remove('is-loading', 'is-error');
+    if (cardEl) cardEl.removeAttribute('title');
 
     if (state === 'loading') {
         valueEl.classList.add('is-loading');
         valueEl.textContent = 'Loading...';
         if (subtextEl) subtextEl.textContent = 'Calculating from survey responses...';
-        if (distEl) {
-            distEl.innerHTML = '';
-            distEl.hidden = true;
-        }
         return;
     }
 
@@ -7116,10 +7093,6 @@ function renderCurriculumAlignmentCardState(state, alignment = null) {
         valueEl.classList.add('is-error');
         valueEl.textContent = '--';
         if (subtextEl) subtextEl.textContent = 'Unable to load alignment data';
-        if (distEl) {
-            distEl.innerHTML = '';
-            distEl.hidden = true;
-        }
         return;
     }
 
@@ -7129,10 +7102,6 @@ function renderCurriculumAlignmentCardState(state, alignment = null) {
     if (!hasData) {
         valueEl.textContent = '0%';
         if (subtextEl) subtextEl.textContent = 'No data available';
-        if (distEl) {
-            distEl.innerHTML = '';
-            distEl.hidden = true;
-        }
         return;
     }
 
@@ -7143,27 +7112,12 @@ function renderCurriculumAlignmentCardState(state, alignment = null) {
         subtextEl.textContent = `Based on ${totalValid} valid response${totalValid === 1 ? '' : 's'}`;
     }
 
-    if (distEl) {
-        const dist = alignment?.distribution || {};
+    if (cardEl && alignment?.distribution) {
+        const dist = alignment.distribution;
         const rel = dist.related || { count: 0, percentage: 0 };
         const mod = dist.moderatelyRelated || { count: 0, percentage: 0 };
         const unrel = dist.unrelated || { count: 0, percentage: 0 };
-
-        distEl.innerHTML = `
-            <span class="kpi-alignment-item" title="Related: ${formatAlignmentPercent(rel.percentage)} (${rel.count})">
-                <span class="kpi-alignment-dot is-related" aria-hidden="true"></span>
-                <span>Related: <strong>${formatAlignmentPercent(rel.percentage)}</strong> (${rel.count})</span>
-            </span>
-            <span class="kpi-alignment-item" title="Moderately Related: ${formatAlignmentPercent(mod.percentage)} (${mod.count})">
-                <span class="kpi-alignment-dot is-moderate" aria-hidden="true"></span>
-                <span>Moderately Related: <strong>${formatAlignmentPercent(mod.percentage)}</strong> (${mod.count})</span>
-            </span>
-            <span class="kpi-alignment-item" title="Unrelated: ${formatAlignmentPercent(unrel.percentage)} (${unrel.count})">
-                <span class="kpi-alignment-dot is-unrelated" aria-hidden="true"></span>
-                <span>Unrelated: <strong>${formatAlignmentPercent(unrel.percentage)}</strong> (${unrel.count})</span>
-            </span>
-        `;
-        distEl.hidden = false;
+        cardEl.title = `Related: ${formatAlignmentPercent(rel.percentage)} (${rel.count}) | Moderately Related: ${formatAlignmentPercent(mod.percentage)} (${mod.count}) | Unrelated: ${formatAlignmentPercent(unrel.percentage)} (${unrel.count})`;
     }
 }
 
