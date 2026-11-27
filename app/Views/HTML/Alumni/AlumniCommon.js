@@ -138,7 +138,7 @@ async function loadAlumniProfile() {
             console.error('Failed to load profile:', response.message);
             return;
         }
-        
+
         displayProfileData(response.profile);
     } catch (error) {
         console.error('Error loading profile:', error);
@@ -150,7 +150,7 @@ function updateSessionUser(updatedUser) {
     if (currentUser) {
         // Update the session user data
         Object.assign(currentUser, updatedUser);
-        
+
         // Update UI elements
         const userNameEl = document.getElementById('alumniUserName');
         if (userNameEl) {
@@ -163,7 +163,7 @@ function getCurrentUser() {
     // Try to get session from cookies first
     const cookies = document.cookie.split(';');
     let sessionCookie = null;
-    
+
     for (let cookie of cookies) {
         const [name, value] = cookie.trim().split('=');
         if (name === 'ci_session') {
@@ -171,7 +171,7 @@ function getCurrentUser() {
             break;
         }
     }
-    
+
     if (sessionCookie) {
         try {
             // Decode session data from cookie
@@ -183,7 +183,7 @@ function getCurrentUser() {
             return null;
         }
     }
-    
+
     return null;
 }
 
@@ -971,7 +971,7 @@ function setupImageLightbox() {
 
     if (!modal || !img) return;
 
-    window.openFeedLightbox = function(src, alt) {
+    window.openFeedLightbox = function (src, alt) {
         img.src = src;
         img.alt = alt || 'Enlarged photo';
         if (caption) caption.textContent = alt || '';
@@ -1295,7 +1295,7 @@ function initCommunityPoll() {
 
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(pollData));
-            } catch (_) {}
+            } catch (_) { }
 
             renderPoll();
             showAlumniToast('Your vote has been counted! Thank you for participating.');
@@ -1567,9 +1567,9 @@ function renderSurveyDetailForm(mountId, survey) {
                         <i class="fas fa-layer-group"></i> Section ${currentCatIndex + 1} of ${totalCategories}
                     </div>
                     <div class="survey-respond-remaining-badge">
-                        ${categoriesLeft > 0 
-                            ? `<i class="fas fa-hourglass-half"></i> ${categoriesLeft} section${categoriesLeft === 1 ? '' : 's'} left` 
-                            : `<i class="fas fa-flag-checkered"></i> Final section`}
+                        ${categoriesLeft > 0
+            ? `<i class="fas fa-hourglass-half"></i> ${categoriesLeft} section${categoriesLeft === 1 ? '' : 's'} left`
+            : `<i class="fas fa-flag-checkered"></i> Final section`}
                     </div>
                 </div>
                 <div class="survey-respond-progress-track">
@@ -1597,38 +1597,38 @@ function renderSurveyDetailForm(mountId, survey) {
                                 <div class="survey-question-text">
                                     <span class="survey-question-num">${questionOffset + index + 1}.</span> 
                                     ${escapeHtml(question.text || '')}
-                                    ${isReq 
-                                        ? '<span class="survey-question-req-star" style="color:#ef4444;font-weight:700;margin-left:4px;" title="Required">*</span>' 
-                                        : ' <span class="survey-question-optional-tag" style="font-size:12px;color:#94a3b8;font-weight:normal;margin-left:4px;">(Optional)</span>'}
+                                    ${isReq
+                        ? '<span class="survey-question-req-star" style="color:#ef4444;font-weight:700;margin-left:4px;" title="Required">*</span>'
+                        : ' <span class="survey-question-optional-tag" style="font-size:12px;color:#94a3b8;font-weight:normal;margin-left:4px;">(Optional)</span>'}
                                 </div>
                                 ${renderSurveyAnswerInput(sid, question, formLocked)}
                             </div>
                             `;
-                        }).join('')}
+            }).join('')}
                 </div>
             </div>
 
             <!-- Stepper Action Navigation -->
             <div class="survey-actions survey-respond-nav-actions">
                 ${!isFirstStep
-                    ? `<button class="button-secondary" type="button" onclick="surveyRespondGoBack(${sid})">
+            ? `<button class="button-secondary" type="button" onclick="surveyRespondGoBack(${sid})">
                         <i class="fas fa-arrow-left"></i> Previous
                     </button>`
-                    : `<div></div>`}
+            : `<div></div>`}
 
                 ${showSubmit
-                    ? (isLastStep
-                        ? `<button class="button-primary survey-btn-submit" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
+            ? (isLastStep
+                ? `<button class="button-primary survey-btn-submit" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
                             <i class="fas fa-paper-plane"></i> Submit answers
                         </button>`
-                        : `<button class="button-primary" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
+                : `<button class="button-primary" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
                             Continue <i class="fas fa-arrow-right"></i>
                         </button>`)
-                    : (!isLastStep
-                        ? `<button class="button-secondary" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
+            : (!isLastStep
+                ? `<button class="button-secondary" type="button" onclick="surveyRespondNextOrSubmit(${sid})">
                             Next section <i class="fas fa-arrow-right"></i>
                         </button>`
-                        : `<p class="section-note survey-actions-note">${closed ? 'This survey is closed.' : 'You have already submitted.'}</p>`)}
+                : `<p class="section-note survey-actions-note">${closed ? 'This survey is closed.' : 'You have already submitted.'}</p>`)}
             </div>
         </div>
     `;
@@ -1945,8 +1945,8 @@ function surveyRespondNextOrSubmit(surveyId) {
                         } else if (rule.action === 'go_to_section') {
                             let targetIdx = -1;
                             if (rule.targetCatId) {
-                                targetIdx = categories.findIndex(c => 
-                                    String(c.id) === String(rule.targetCatId) || 
+                                targetIdx = categories.findIndex(c =>
+                                    String(c.id) === String(rule.targetCatId) ||
                                     (c.id && Number(c.id) === Number(rule.targetCatId))
                                 );
                             }
@@ -2038,7 +2038,7 @@ function renderSurveyAnswerInput(surveyId, question, disabled = false) {
 
     if (type === 'multiple_choice') {
         const choices = Array.isArray(question.choices) && question.choices.length > 0
-            ? question.choices 
+            ? question.choices
             : (Array.isArray(question.options) ? question.options.map((opt, idx) => ({ id: idx + 1, text: opt })) : []);
         return `
             <select data-survey-id="${surveyId}" data-question-id="${questionId}" data-question-type="${escapeHtml(type)}" class="survey-answer-input"${disabledAttr}>

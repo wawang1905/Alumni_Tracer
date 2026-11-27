@@ -218,8 +218,13 @@ function getSurveyCreatePageUrl(surveyId = null) {
     return url.toString();
 }
 
-function getDashboardData() {
-    return new URL('../staff/getDashboardData', window.location.href).toString();
+function getDashboardData(batchYear = null) {
+    const url = new URL('../staff/getDashboardData', window.location.href);
+    const normalizedBatch = String(batchYear || '').trim();
+    if (normalizedBatch && normalizedBatch.toLowerCase() !== 'all') {
+        url.searchParams.set('batchYear', normalizedBatch);
+    }
+    return url.toString();
 }
 
 function getNewsListUrl() {
@@ -2256,6 +2261,10 @@ function applyCentralizedDashboardBatchFilter(nextBatch = 'all') {
     renderAlumniStatusChart();
     renderCollegeDistributionChart();
     renderCourseDistributionChart();
+
+    if (document.getElementById('curriculumAlignmentValue')) {
+        loadDashboardData(selectedDashboardBatchFilter);
+    }
 }
 
 function handleDashboardBatchFilterChange() {
@@ -6911,6 +6920,9 @@ async function initStaffPage() {
         loadRecentActivities(),
         loadSurveys(),
         loadNewsPosts(),
+        document.getElementById('curriculumAlignmentValue') || document.getElementById('totalAlumni')
+            ? loadDashboardData(selectedDashboardBatchFilter)
+            : Promise.resolve(),
     ]);
 
     updateStats();
@@ -6925,53 +6937,145 @@ if (document.readyState === 'loading') {
     initStaffPage();
 }
 
+function formatAlignmentPercent(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '0%';
+    const fixed = num.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+    return `${fixed}%`;
+}
+
+function renderCurriculumAlignmentCardState(state, alignment = null) {
+    const valueEl = document.getElementById('curriculumAlignmentValue');
+    const subtextEl = document.getElementById('curriculumAlignmentSubtext');
+    const distEl = document.getElementById('curriculumAlignmentDistribution');
+    if (!valueEl) return;
+
+    valueEl.classList.remove('is-loading', 'is-error');
+
+    if (state === 'loading') {
+        valueEl.classList.add('is-loading');
+        valueEl.textContent = 'Loading...';
+        if (subtextEl) subtextEl.textContent = 'Calculating from survey responses...';
+        if (distEl) {
+            distEl.innerHTML = '';
+            distEl.hidden = true;
+        }
+        return;
+    }
+
+    if (state === 'error') {
+        valueEl.classList.add('is-error');
+        valueEl.textContent = '--';
+        if (subtextEl) subtextEl.textContent = 'Unable to load alignment data';
+        if (distEl) {
+            distEl.innerHTML = '';
+            distEl.hidden = true;
+        }
+        return;
+    }
+
+    const totalValid = Number(alignment?.totalValidResponses || 0);
+    const hasData = Boolean(alignment?.hasData) && totalValid > 0;
+
+    if (!hasData) {
+        valueEl.textContent = '0%';
+        if (subtextEl) subtextEl.textContent = 'No data available';
+        if (distEl) {
+            distEl.innerHTML = '';
+            distEl.hidden = true;
+        }
+        return;
+    }
+
+    const pct = Number(alignment?.alignmentPercentage ?? 0);
+    valueEl.textContent = formatAlignmentPercent(pct);
+
+    if (subtextEl) {
+        subtextEl.textContent = `Based on ${totalValid} valid response${totalValid === 1 ? '' : 's'}`;
+    }
+
+    if (distEl) {
+        const dist = alignment?.distribution || {};
+        const rel = dist.related || { count: 0, percentage: 0 };
+        const mod = dist.moderatelyRelated || { count: 0, percentage: 0 };
+        const unrel = dist.unrelated || { count: 0, percentage: 0 };
+
+        distEl.innerHTML = `
+            <span class="kpi-alignment-item" title="Related: ${formatAlignmentPercent(rel.percentage)} (${rel.count})">
+                <span class="kpi-alignment-dot is-related" aria-hidden="true"></span>
+                <span>Related: <strong>${formatAlignmentPercent(rel.percentage)}</strong> (${rel.count})</span>
+            </span>
+            <span class="kpi-alignment-item" title="Moderately Related: ${formatAlignmentPercent(mod.percentage)} (${mod.count})">
+                <span class="kpi-alignment-dot is-moderate" aria-hidden="true"></span>
+                <span>Moderately Related: <strong>${formatAlignmentPercent(mod.percentage)}</strong> (${mod.count})</span>
+            </span>
+            <span class="kpi-alignment-item" title="Unrelated: ${formatAlignmentPercent(unrel.percentage)} (${unrel.count})">
+                <span class="kpi-alignment-dot is-unrelated" aria-hidden="true"></span>
+                <span>Unrelated: <strong>${formatAlignmentPercent(unrel.percentage)}</strong> (${unrel.count})</span>
+            </span>
+        `;
+        distEl.hidden = false;
+    }
+}
 
 // Load dashboard data
-// Load dashboard data
-async function loadDashboardData() 
-{
+async function loadDashboardData(batchYear = null, options = {}) {
+    const silent = Boolean(options && options.silent);
+    const activeBatch = batchYear !== null && batchYear !== undefined
+        ? batchYear
+        : (typeof selectedDashboardBatchFilter !== 'undefined' ? selectedDashboardBatchFilter : 'all');
+
+    if (!silent && document.getElementById('curriculumAlignmentValue')) {
+        renderCurriculumAlignmentCardState('loading');
+    }
+
     try {
-        const response = await fetch(getDashboardData(), {
+        const response = await fetch(getDashboardData(activeBatch), {
             method: 'GET',
             credentials: 'same-origin'
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Only update elements that exist in Dashboard.html
         const totalAlumniEl = document.getElementById('totalAlumni');
         const activeAlumniEl = document.getElementById('activeAlumni');
         const totalEventsEl = document.getElementById('totalEvents');
         const engagementRateEl = document.getElementById('engagementRate');
-        
+
         // Update only if elements exist
         if (totalAlumniEl) totalAlumniEl.textContent = data.totalAlumni || 0;
         if (activeAlumniEl) activeAlumniEl.textContent = data.activeAlumni || 0;
         if (totalEventsEl) totalEventsEl.textContent = data.upcomingEvents || 0;
         if (engagementRateEl) {
-            // Calculate engagement rate if not provided
-            const engagementRate = data.engagementRate || 
+            const engagementRate = data.engagementRate ||
                 (data.totalAlumni > 0 ? Math.round((data.activeAlumni / data.totalAlumni) * 100) : 0);
             engagementRateEl.textContent = `${engagementRate}%`;
         }
-        
+
+        if (document.getElementById('curriculumAlignmentValue')) {
+            renderCurriculumAlignmentCardState('ready', data.curriculumAlignment || null);
+        }
     } catch (error) {
         console.error('Error loading dashboard data:', error);
-        
-        // Set default values only for elements that exist
+
         const totalAlumniEl = document.getElementById('totalAlumni');
         const activeAlumniEl = document.getElementById('activeAlumni');
         const totalEventsEl = document.getElementById('totalEvents');
         const engagementRateEl = document.getElementById('engagementRate');
-        
+
         if (totalAlumniEl) totalAlumniEl.textContent = '0';
         if (activeAlumniEl) activeAlumniEl.textContent = '0';
         if (totalEventsEl) totalEventsEl.textContent = '0';
         if (engagementRateEl) engagementRateEl.textContent = '0%';
+
+        if (document.getElementById('curriculumAlignmentValue')) {
+            renderCurriculumAlignmentCardState('error');
+        }
     }
 }
 
@@ -8363,12 +8467,11 @@ function renderSurveyBatchStats(data, surveyStats = null) {
     renderSurveyQuestionMeanTable(surveyStats);
 }
 
-// Load data when page loads - Only run on dashboard page
-if (document.getElementById('totalAlumni')) {
-    document.addEventListener('DOMContentLoaded', () => {
-        loadDashboardData();
-        setInterval(loadDashboardData, 30000);
-    });
+// Periodic background refresh on dashboard page
+if (document.getElementById('totalAlumni') || document.getElementById('curriculumAlignmentValue')) {
+    setInterval(() => {
+        loadDashboardData(null, { silent: true });
+    }, 30000);
 }
 
 // Load report survey selector on Reports page
