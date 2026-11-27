@@ -1345,6 +1345,7 @@ function syncBirthDateSelect(monthEl, dayEl, yearEl, preferredDay = '') {
 
 function validateEmergencyPhoneNumber(raw) {
   const cleaned = String(raw || '').replace(/[\s\-().]+/g, '');
+  if (cleaned.length > 16) return false;
   return /^09\d{9}$/.test(cleaned) || /^\+?639\d{9}$/.test(cleaned) || /^\+[1-9]\d{7,14}$/.test(cleaned);
 }
 
@@ -1424,8 +1425,13 @@ async function handleProfileCompletionSubmit(event) {
     return;
   }
 
+  if (emergencyName.length > 30) {
+    showAlert(alertEl, 'Emergency Contact Name must be 30 characters or fewer.', 'error');
+    return;
+  }
+
   if (!validateEmergencyPhoneNumber(emergencyContact)) {
-    showAlert(alertEl, 'Please enter a valid Emergency Contact Number (e.g., 09171234567, +639171234567, or international format).', 'error');
+    showAlert(alertEl, 'Please enter a valid Emergency Contact Number (max 16 characters, e.g. 09171234567 or +639171234567).', 'error');
     return;
   }
 

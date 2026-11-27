@@ -186,11 +186,11 @@
             <div class="profile-complete-row-2">
               <div class="form-group">
                 <label for="completeEmergencyName">Contact Person Name</label>
-                <input type="text" id="completeEmergencyName" name="emergency_contact_name" placeholder="e.g. Maria Dela Cruz" maxlength="150" required>
+                <input type="text" id="completeEmergencyName" name="emergency_contact_name" placeholder="e.g. Maria Dela Cruz" maxlength="30" required>
               </div>
               <div class="form-group">
                 <label for="completeEmergencyContact">Contact Number</label>
-                <input type="tel" id="completeEmergencyContact" name="emergency_contact" placeholder="09171234567 or +639..." maxlength="25" required>
+                <input type="tel" id="completeEmergencyContact" name="emergency_contact" placeholder="09171234567 or +639..." maxlength="16" required>
               </div>
             </div>
           </div>

@@ -2406,16 +2406,16 @@ XML;
                     'message' => 'Please enter a valid Emergency Contact Name.',
                 ];
             }
-            if (mb_strlen($rawEmName) > 150) {
+            if (mb_strlen($rawEmName) > 30) {
                 return [
                     'valid'   => false,
-                    'message' => 'Emergency Contact Name must be 150 characters or fewer.',
+                    'message' => 'Emergency Contact Name must be 30 characters or fewer.',
                 ];
             }
             $fields['emergency_contact_name'] = preg_replace('/\s+/', ' ', $rawEmName) ?? $rawEmName;
         }
 
-        // 4. Emergency Contact Number (PH 09XXXXXXXXX, +639XXXXXXXXX, or valid international +E.164)
+        // 4. Emergency Contact Number (PH 09XXXXXXXXX, +639XXXXXXXXX, or valid international +E.164, max 16 chars)
         $hasEmContact = array_key_exists('emergency_contact', $input);
         $rawEmContact = $hasEmContact
             ? trim((string) ($input['emergency_contact'] ?? ''))
@@ -2423,6 +2423,12 @@ XML;
 
         if ($requireAll || $hasEmContact) {
             $cleanedPhone = preg_replace('/[\s\-().]+/', '', $rawEmContact) ?? '';
+            if (strlen($cleanedPhone) > 16) {
+                return [
+                    'valid'   => false,
+                    'message' => 'Emergency Contact Number must be 16 characters or fewer.',
+                ];
+            }
             $isValidPhLocal = (bool) preg_match('/^09\d{9}$/', $cleanedPhone);
             $isValidPhIntl = (bool) preg_match('/^\+?639\d{9}$/', $cleanedPhone);
             $isValidIntl = (bool) preg_match('/^\+[1-9]\d{7,14}$/', $cleanedPhone);

@@ -261,14 +261,14 @@
                                     Emergency Contact Name
                                     <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
                                 </label>
-                                <input type="text" id="profileEmergencyContactName" class="minimal-input" placeholder="Not set" maxlength="150" readonly>
+                                <input type="text" id="profileEmergencyContactName" class="minimal-input" placeholder="Not set" maxlength="30" readonly>
                             </div>
                             <div class="profile-form-field">
                                 <label for="profileEmergencyContact">
                                     Emergency Contact Number
                                     <span class="minimal-badge-edit personal-editable-tag" style="display:none;">Editable</span>
                                 </label>
-                                <input type="tel" id="profileEmergencyContact" class="minimal-input" placeholder="e.g. 09171234567 or +639171234567" maxlength="25" readonly>
+                                <input type="tel" id="profileEmergencyContact" class="minimal-input" placeholder="e.g. 09171234567 or +639171234567" maxlength="16" readonly>
                             </div>
                         </div>
                     </div>
@@ -361,6 +361,7 @@
 
         function validateEmergencyPhone(raw) {
             const cleaned = String(raw || '').replace(/[\s\-().]+/g, '');
+            if (cleaned.length > 16) return false;
             return /^09\d{9}$/.test(cleaned) || /^\+?639\d{9}$/.test(cleaned) || /^\+[1-9]\d{7,14}$/.test(cleaned);
         }
 
@@ -497,8 +498,13 @@
                 return;
             }
 
+            if (emergencyContactName.length > 30) {
+                alert('Emergency Contact Name must be 30 characters or fewer.');
+                return;
+            }
+
             if (!validateEmergencyPhone(emergencyContact)) {
-                alert('Please enter a valid Emergency Contact Number (e.g., 09171234567, +639171234567, or international format).');
+                alert('Please enter a valid Emergency Contact Number (max 16 characters, e.g. 09171234567 or +639171234567).');
                 return;
             }
 

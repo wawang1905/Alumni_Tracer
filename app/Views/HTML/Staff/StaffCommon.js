@@ -684,6 +684,12 @@ function renderAlumniTable() {
 
     filtered.forEach((alumni, index) => {
         const row = tbody.insertRow();
+        row.className = 'alumni-clickable-row';
+        row.title = 'Click to view Alumni Profile';
+        row.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
+            openHeadAdminAlumniProfileModal(index);
+        });
         row.innerHTML = `
             <td><span class="alumni-id-code">${escapeHtml(alumni.alumniId || '—')}</span></td>
             <td style="font-weight: 600; color: #0f172a;">${escapeHtml(alumni.lastName || '—')}</td>
@@ -692,13 +698,212 @@ function renderAlumniTable() {
             <td>${escapeHtml(alumni.college || '—')}</td>
             <td>${escapeHtml(alumni.course || '—')}</td>
             <td>
-                <button type="button" class="alumni-view-id-btn" onclick="openAlumniDigitalIdModal(${index})">
-                    <i class="fas fa-id-card" aria-hidden="true"></i>
-                    <span>View</span>
-                </button>
+                <div class="alumni-row-action-group">
+                    <button type="button" class="alumni-view-profile-btn" onclick="openHeadAdminAlumniProfileModal(${index})">
+                        <i class="fas fa-user" aria-hidden="true"></i>
+                        <span>Profile</span>
+                    </button>
+                    <button type="button" class="alumni-view-id-btn" onclick="openAlumniDigitalIdModal(${index})">
+                        <i class="fas fa-id-card" aria-hidden="true"></i>
+                        <span>View Digital ID</span>
+                    </button>
+                </div>
             </td>
         `;
     });
+}
+
+let currentHeadAdminProfileData = null;
+
+async function openHeadAdminAlumniProfileModal(index) {
+    const modal = document.getElementById('alumniProfileModal');
+    const list = Array.isArray(window.currentRenderedCourseAlumni) ? window.currentRenderedCourseAlumni : [];
+    const alumni = list[index];
+    if (!modal || !alumni) return;
+
+    const alumniDbId = Number(alumni.id || 0);
+    currentHeadAdminProfileData = null;
+
+    const loadingEl = document.getElementById('haProfileLoading');
+    const errorEl = document.getElementById('haProfileError');
+    const contentEl = document.getElementById('haProfileContent');
+    const heroBtn = document.getElementById('haViewDigitalIdBtn');
+    const footerBtn = document.getElementById('haFooterViewDigitalIdBtn');
+
+    if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+    }
+    if (contentEl) contentEl.hidden = true;
+    if (loadingEl) loadingEl.hidden = false;
+    if (heroBtn) heroBtn.disabled = true;
+    if (footerBtn) footerBtn.disabled = true;
+
+    modal.style.display = 'flex';
+
+    if (alumniDbId <= 0) {
+        if (loadingEl) loadingEl.hidden = true;
+        if (errorEl) {
+            errorEl.textContent = 'Invalid alumni record ID.';
+            errorEl.hidden = false;
+        }
+        return;
+    }
+
+    try {
+        const endpointUrl = new URL(`../alumni/digital-id/${encodeURIComponent(alumniDbId)}`, window.location.href).toString();
+        const res = await fetch(endpointUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.success || !payload.alumni) {
+            throw new Error(payload.message || `Unable to load alumni profile (HTTP ${res.status}).`);
+        }
+
+        currentHeadAdminProfileData = payload.alumni;
+        populateHeadAdminAlumniProfileModal(payload.alumni);
+
+        if (loadingEl) loadingEl.hidden = true;
+        if (contentEl) contentEl.hidden = false;
+        if (heroBtn) heroBtn.disabled = false;
+        if (footerBtn) footerBtn.disabled = false;
+    } catch (err) {
+        if (loadingEl) loadingEl.hidden = true;
+        if (errorEl) {
+            errorEl.textContent = err?.message || 'Unable to load alumni profile.';
+            errorEl.hidden = false;
+        }
+    }
+}
+
+function populateHeadAdminAlumniProfileModal(data) {
+    const setTxt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+
+    const fullName = String(data.full_name || '').trim() || '—';
+    const alumniId = String(data.alumni_id || '').trim() || '—';
+    const statusRaw = String(data.status || 'pending').trim().toLowerCase();
+    const statusLabel = statusRaw ? statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1) : 'Pending';
+    const course = String(data.course || '').trim();
+    const batch = String(data.graduation_year || '').trim();
+
+    setTxt('haProfileFullName', fullName);
+    setTxt('haProfileAlumniId', alumniId);
+    setTxt('haProfileAcademicLine', [course, batch ? `Batch ${batch}` : ''].filter(Boolean).join(' · ') || '—');
+    setTxt('haProfileAvatarFallback', String(data.initials || 'GV').trim() || 'GV');
+
+    const statusEl = document.getElementById('haProfileStatus');
+    if (statusEl) {
+        statusEl.textContent = statusLabel;
+        statusEl.className = 'ha-profile-pill ha-profile-pill-status ' + (
+            statusRaw === 'active'
+                ? 'is-active'
+                : statusRaw === 'inactive'
+                    ? 'is-inactive'
+                    : statusRaw === 'incomplete'
+                        ? 'is-incomplete'
+                        : 'is-pending'
+        );
+    }
+
+    const photoImg = document.getElementById('haProfilePhotoImg');
+    const avatarFallback = document.getElementById('haProfileAvatarFallback');
+    if (photoImg && avatarFallback) {
+        const photoUrl = String(data.profile_picture_url || '').trim();
+        if (photoUrl) {
+            photoImg.onload = () => {
+                photoImg.hidden = false;
+                avatarFallback.hidden = true;
+            };
+            photoImg.onerror = () => {
+                photoImg.hidden = true;
+                avatarFallback.hidden = false;
+            };
+            photoImg.src = photoUrl;
+        } else {
+            photoImg.removeAttribute('src');
+            photoImg.hidden = true;
+            avatarFallback.hidden = false;
+        }
+    }
+
+    setTxt('haProfileEmail', String(data.email || '').trim() || '—');
+    setTxt('haProfileContact', String(data.contact_number || '').trim() || '—');
+    setTxt('haProfileSex', String(data.sex || '').trim() || '—');
+    setTxt('haProfileBirthdate', String(data.birthdate || '').trim() || '—');
+    setTxt('haProfileCollege', String(data.college || '').trim() || '—');
+    setTxt('haProfileCourse', course || '—');
+    setTxt('haProfileGradYear', batch || '—');
+    setTxt('haProfileAddress', String(data.home_address || '').trim() || '—');
+    setTxt('haProfileEmergencyName', String(data.emergency_contact_name || '').trim() || '—');
+    setTxt('haProfileEmergencyNumber', String(data.emergency_contact_number || '').trim() || '—');
+}
+
+function closeHeadAdminAlumniProfileModal() {
+    const modal = document.getElementById('alumniProfileModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function openDigitalIdFromProfile() {
+    if (!currentHeadAdminProfileData || !currentHeadAdminProfileData.id) return;
+    const selectedData = currentHeadAdminProfileData;
+    closeHeadAdminAlumniProfileModal();
+    openAlumniDigitalIdModalByData(selectedData);
+}
+
+function openAlumniDigitalIdModalByData(data) {
+    const modal = document.getElementById('alumniDigitalIdModal');
+    if (!modal || !data || !data.id) return;
+
+    currentDigitalIdAlumniDbId = Number(data.id);
+    currentDigitalIdIsComplete = data.is_complete === true;
+    currentDigitalIdMissingFields = Array.isArray(data.missing_fields) ? data.missing_fields : [];
+
+    const loadingEl = document.getElementById('alumniDigitalIdLoading');
+    const errorEl = document.getElementById('alumniDigitalIdError');
+    const incompleteEl = document.getElementById('alumniDigitalIdIncompleteNotice');
+    const incompleteTextEl = document.getElementById('alumniDigitalIdIncompleteText');
+    const previewGrid = document.getElementById('alumniDigitalIdPreviewGrid');
+    const printBtn = document.getElementById('printDigitalIdBtn');
+    const downloadBtn = document.getElementById('downloadDigitalIdBtn');
+
+    if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+    }
+    if (loadingEl) loadingEl.hidden = true;
+
+    populateAlumniDigitalIdModal(data);
+
+    if (previewGrid) previewGrid.hidden = false;
+    if (printBtn) printBtn.disabled = false;
+    if (downloadBtn) {
+        downloadBtn.disabled = !currentDigitalIdIsComplete;
+        downloadBtn.title = currentDigitalIdIsComplete
+            ? 'Download Front & Back Digital ID as PDF'
+            : 'Cannot export PDF while required alumni ID information is incomplete';
+    }
+    if (incompleteEl) {
+        if (!currentDigitalIdIsComplete) {
+            const missingList = currentDigitalIdMissingFields.join(', ');
+            if (incompleteTextEl) {
+                incompleteTextEl.textContent = missingList
+                    ? `PDF export is disabled because the alumni information is incomplete. Missing: ${missingList}.`
+                    : 'PDF export is disabled because the alumni information is incomplete.';
+            }
+            incompleteEl.hidden = false;
+        } else {
+            incompleteEl.hidden = true;
+        }
+    }
+
+    modal.style.display = 'flex';
+    updateDigitalIdPrintMode();
 }
 
 let currentDigitalIdAlumniDbId = null;
@@ -936,6 +1141,7 @@ function closeAlumniDigitalIdModal() {
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
         closeAlumniDigitalIdModal();
+        closeHeadAdminAlumniProfileModal();
     }
 });
 
