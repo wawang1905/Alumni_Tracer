@@ -680,6 +680,7 @@ class SurveyController extends BaseController
             'what is your employment status',
             'how long did it take you to find your first job after graduation',
             'is your job related to your degree',
+            'name of employment business or company',
         ];
         if (in_array($normalizedText, $preMadeQuestionTexts, true)) {
             return $this->response->setStatusCode(403)->setJSON([

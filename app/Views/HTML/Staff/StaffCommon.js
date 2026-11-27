@@ -4589,6 +4589,14 @@ const WIZARD_PREMADE_CATEGORIES = [
                     'Unrelated',
                 ],
             },
+            {
+                id: 'q_premade_employment_company_name',
+                text: 'Name of Employment, Business, or Company',
+                type: 'text',
+                required: true,
+                isPreMade: true,
+                options: [],
+            },
         ],
     },
 ];

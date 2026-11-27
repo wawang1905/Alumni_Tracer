@@ -3350,6 +3350,7 @@ class StaffController extends BaseController
             $respAnswers = $answersByResp[$rId] ?? [];
             $choseEmployed = false;
             $foundEmploymentQuestion = false;
+            $exactEmploymentName = '';
             $employmentName = '';
             $supportingDoc = '';
 
@@ -3357,12 +3358,34 @@ class StaffController extends BaseController
                 $val = trim((string) ($ans['choice_text'] ?: $ans['answer_text'] ?: ''));
                 $imgPath = trim((string) ($ans['answer_image_path'] ?? ''));
                 $qText = strtolower(trim((string) ($ans['question_text'] ?? '')));
+                $qNorm = strtolower(trim((string) (preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/i', '', $qText) ?? '') ?? '')));
 
                 if ($imgPath !== '' && $supportingDoc === '') {
                     $supportingDoc = basename($imgPath);
                 }
 
                 if ($val === '') {
+                    continue;
+                }
+
+                $isExactEmploymentNameQ = ($qNorm === 'name of employment business or company');
+                $isEmploymentNameQ = $isExactEmploymentNameQ
+                    || str_contains($qText, 'company')
+                    || str_contains($qText, 'business')
+                    || str_contains($qText, 'employer')
+                    || str_contains($qText, 'organization')
+                    || str_contains($qText, 'workplace')
+                    || str_contains($qText, 'name of employment');
+
+                if ($isExactEmploymentNameQ) {
+                    $exactEmploymentName = $val;
+                    continue;
+                }
+
+                if ($isEmploymentNameQ) {
+                    if ($employmentName === '') {
+                        $employmentName = $val;
+                    }
                     continue;
                 }
 
@@ -3374,11 +3397,9 @@ class StaffController extends BaseController
                         }
                     }
                 }
-
-                if ($employmentName === '' && (str_contains($qText, 'company') || str_contains($qText, 'business') || str_contains($qText, 'employer') || str_contains($qText, 'organization') || str_contains($qText, 'workplace') || str_contains($qText, 'name of employment'))) {
-                    $employmentName = $val;
-                }
             }
+
+            $resolvedEmploymentName = $exactEmploymentName !== '' ? $exactEmploymentName : $employmentName;
 
             if (! $foundEmploymentQuestion) {
                 foreach ($respAnswers as $ans) {
@@ -3392,7 +3413,7 @@ class StaffController extends BaseController
 
             $info = [
                 'status' => $choseEmployed ? 'Employed' : 'Unemployed',
-                'employment' => $choseEmployed ? $employmentName : '',
+                'employment' => $choseEmployed ? $resolvedEmploymentName : '',
                 'supportingDoc' => $supportingDoc,
             ];
 
