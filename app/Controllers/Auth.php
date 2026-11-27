@@ -215,6 +215,19 @@ class Auth extends BaseController
                 $emContact = trim((string) ($alumniRow['emergency_contact'] ?? ''));
                 $emName = trim((string) ($alumniRow['emergency_contact_name'] ?? ''));
 
+                $alumniDbId = (int) ($alumniRow['id'] ?? 0);
+                $alumniFilesModel = new \App\Models\AlumniFilesModel();
+                $activePhoto = $alumniDbId > 0 ? $alumniFilesModel->getActiveProfilePicture($alumniDbId) : null;
+                $hasProfilePicture = is_array($activePhoto);
+                $profilePictureUrl = null;
+                if ($hasProfilePicture) {
+                    $storage = new \App\Services\SupabaseStorageService();
+                    $storedPhotoPath = (string) ($activePhoto['File_Path'] ?? '');
+                    $profilePictureUrl = $storage->isSupabaseReference($storedPhotoPath)
+                        ? $storage->resolvePublicUrl($storedPhotoPath)
+                        : base_url('alumni/profile-picture');
+                }
+
                 $validDob = $birthMonth >= 1 && $birthMonth <= 12
                     && $birthDate >= 1 && $birthDate <= 31
                     && $birthYear >= 1920
@@ -225,6 +238,7 @@ class Auth extends BaseController
                     || ! $validDob
                     || $emContact === ''
                     || $emName === ''
+                    || ! $hasProfilePicture
                 );
 
                 $alumniPersonalInfo = [
@@ -234,6 +248,8 @@ class Auth extends BaseController
                     'birth_year'             => $birthYear > 0 ? $birthYear : null,
                     'emergency_contact'      => $emContact,
                     'emergency_contact_name' => $emName,
+                    'has_profile_picture'    => $hasProfilePicture,
+                    'profile_picture_url'    => $profilePictureUrl,
                 ];
             }
         }

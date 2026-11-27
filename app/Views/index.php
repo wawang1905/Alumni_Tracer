@@ -195,6 +195,36 @@
             </div>
           </div>
 
+          <div class="profile-complete-section">
+            <div class="profile-complete-section-label">Alumni ID Photo <span class="req-star">*</span></div>
+            <div class="profile-complete-photo-row">
+              <div class="profile-complete-photo-preview" id="completePhotoPreviewBox">
+                <img id="completePhotoPreviewImg" src="" alt="ID Photo Preview" hidden>
+                <div id="completePhotoPlaceholder" class="profile-complete-photo-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  <span>ID Photo</span>
+                </div>
+              </div>
+              <div class="profile-complete-photo-controls">
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label for="completeProfilePicture">Upload Picture (JPG, PNG, WEBP &middot; Max 5 MB)</label>
+                  <input type="file" id="completeProfilePicture" name="profile_picture" accept="image/jpeg,image/png,image/webp">
+                </div>
+                <div class="profile-complete-photo-reminder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span><strong>Reminder:</strong> This picture will be used on your official <strong>Alumni Digital ID card</strong>. Please upload a clear, formal front-facing photo.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="profile-complete-actions">
             <button type="submit" class="btn-login profile-complete-submit-btn" id="saveProfileCompletionBtn">
               Save &amp; Continue to Portal
@@ -257,6 +287,7 @@
       }
     });
   </script>
+  <script src="<?= base_url('JS/ActionConfirm.js') ?>?v=<?= time() ?>"></script>
   <script src="<?= base_url('JS/Main.js') ?>?v=<?= time() ?>"></script>
 </body>
 </html>

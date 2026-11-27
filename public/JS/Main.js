@@ -1310,6 +1310,7 @@ async function handleLogin() {
 }
 
 let pendingProfileCompletionRedirect = 'alumni/Main.html';
+let pendingProfileHasPhoto = false;
 
 function getDaysInCalendarMonth(month, year) {
   const m = Number(month);
@@ -1358,6 +1359,9 @@ function openAlumniProfileCompletionModal(prefill = {}, redirectUrl = 'alumni/Ma
   const yearEl = document.getElementById('completeBirthYear');
   const emNameEl = document.getElementById('completeEmergencyName');
   const emContactEl = document.getElementById('completeEmergencyContact');
+  const photoInputEl = document.getElementById('completeProfilePicture');
+  const photoImgEl = document.getElementById('completePhotoPreviewImg');
+  const photoPlaceholderEl = document.getElementById('completePhotoPlaceholder');
   const alertEl = document.getElementById('profileCompleteAlert');
 
   if (!modal) {
@@ -1377,8 +1381,60 @@ function openAlumniProfileCompletionModal(prefill = {}, redirectUrl = 'alumni/Ma
   if (emNameEl) emNameEl.value = prefill.emergency_contact_name || '';
   if (emContactEl) emContactEl.value = prefill.emergency_contact || '';
 
+  pendingProfileHasPhoto = Boolean(prefill.has_profile_picture);
+  if (photoInputEl) photoInputEl.value = '';
+  if (photoImgEl && photoPlaceholderEl) {
+    if (pendingProfileHasPhoto && prefill.profile_picture_url) {
+      photoImgEl.src = prefill.profile_picture_url;
+      photoImgEl.hidden = false;
+      photoPlaceholderEl.hidden = true;
+    } else {
+      photoImgEl.removeAttribute('src');
+      photoImgEl.hidden = true;
+      photoPlaceholderEl.hidden = false;
+    }
+  }
+
   modal.hidden = false;
   if (sexEl && !sexEl.value) sexEl.focus();
+}
+
+function handleProfileCompletionPhotoChange(event) {
+  const input = event.target;
+  const file = input?.files?.[0] || null;
+  const alertEl = document.getElementById('profileCompleteAlert');
+  const photoImgEl = document.getElementById('completePhotoPreviewImg');
+  const photoPlaceholderEl = document.getElementById('completePhotoPlaceholder');
+
+  if (!file) return;
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    showAlert(alertEl, 'Please upload a valid JPG, PNG, or WEBP image for your Alumni ID photo.', 'error');
+    input.value = '';
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    showAlert(alertEl, 'ID photo file size must not exceed 5 MB.', 'error');
+    input.value = '';
+    return;
+  }
+
+  if (alertEl) {
+    alertEl.style.display = 'none';
+    alertEl.textContent = '';
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    if (photoImgEl && photoPlaceholderEl) {
+      photoImgEl.src = String(e.target?.result || '');
+      photoImgEl.hidden = false;
+      photoPlaceholderEl.hidden = true;
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 async function handleProfileCompletionSubmit(event) {
@@ -1392,6 +1448,7 @@ async function handleProfileCompletionSubmit(event) {
   const birthYear = (document.getElementById('completeBirthYear')?.value || '').trim();
   const emergencyName = (document.getElementById('completeEmergencyName')?.value || '').trim();
   const emergencyContact = (document.getElementById('completeEmergencyContact')?.value || '').trim();
+  const photoFile = document.getElementById('completeProfilePicture')?.files?.[0] || null;
 
   if (!['Male', 'Female'].includes(sex)) {
     showAlert(alertEl, 'Please select your Sex (Male or Female).', 'error');
@@ -1435,12 +1492,70 @@ async function handleProfileCompletionSubmit(event) {
     return;
   }
 
+  if (!photoFile && !pendingProfileHasPhoto) {
+    showAlert(alertEl, 'Please upload a picture. This photo will be used on your official Alumni Digital ID card.', 'error');
+    return;
+  }
+
+  if (photoFile) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(photoFile.type)) {
+      showAlert(alertEl, 'Only JPG, PNG, and WEBP images are allowed for your Alumni ID photo.', 'error');
+      return;
+    }
+    if (photoFile.size > 5 * 1024 * 1024) {
+      showAlert(alertEl, 'ID photo file size must not exceed 5 MB.', 'error');
+      return;
+    }
+  }
+
+  // Ask alumni to confirm all entered information and ID photo before saving & proceeding
+  const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const summaryText = `${sex} · Born ${monthNames[m]} ${d}, ${y} · Emergency: ${emergencyName} (${emergencyContact})`;
+
+  let confirmed = false;
+  if (window.ActionConfirm && typeof window.ActionConfirm.basic === 'function') {
+    confirmed = await window.ActionConfirm.basic({
+      title: 'Confirm Your Information?',
+      message: 'Are you sure all the information you entered is correct? Your uploaded picture will be used on your official Alumni Digital ID card.',
+      record: summaryText,
+      confirmText: 'Yes, Confirm & Continue',
+      cancelText: 'Review Again',
+    });
+  } else {
+    confirmed = window.confirm(
+      `Are you sure you want to confirm this information and proceed?\n\n${summaryText}\n\nReminder: Your uploaded picture will be used on your official Alumni Digital ID card.`
+    );
+  }
+
+  if (!confirmed) {
+    return;
+  }
+
   if (saveBtn) {
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
+    saveBtn.textContent = photoFile ? 'Uploading Photo & Saving...' : 'Saving...';
   }
 
   try {
+    // 1. Upload alumni ID photo via existing profile-picture endpoint (Supabase Storage)
+    if (photoFile) {
+      const photoForm = new FormData();
+      photoForm.append('profile_picture', photoFile);
+      const photoEndpoint = new URL('alumni/profile-picture', window.appBaseUrl || window.location.href).toString();
+      const photoRes = await fetch(photoEndpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: photoForm,
+      });
+      const photoData = await photoRes.json().catch(() => ({}));
+      if (!photoRes.ok || !photoData.success) {
+        throw new Error(photoData.message || 'Unable to upload your Alumni ID photo.');
+      }
+      pendingProfileHasPhoto = true;
+    }
+
+    // 2. Save personal & emergency contact information
     const endpoint = new URL('alumni/complete-personal-info', window.appBaseUrl || window.location.href).toString();
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -1479,12 +1594,14 @@ function initProfileCompletionModalListeners() {
   const monthEl = document.getElementById('completeBirthMonth');
   const dayEl = document.getElementById('completeBirthDate');
   const yearEl = document.getElementById('completeBirthYear');
+  const photoInputEl = document.getElementById('completeProfilePicture');
 
   populateBirthYearSelect(yearEl);
   syncBirthDateSelect(monthEl, dayEl, yearEl);
 
   monthEl?.addEventListener('change', () => syncBirthDateSelect(monthEl, dayEl, yearEl));
   yearEl?.addEventListener('change', () => syncBirthDateSelect(monthEl, dayEl, yearEl));
+  photoInputEl?.addEventListener('change', handleProfileCompletionPhotoChange);
   form?.addEventListener('submit', handleProfileCompletionSubmit);
 }
 

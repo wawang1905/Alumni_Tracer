@@ -1240,7 +1240,7 @@ body {
 .profile-complete-modal {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1404,6 +1404,86 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.profile-complete-photo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.profile-complete-photo-preview {
+  width: 82px;
+  height: 92px;
+  border-radius: 10px;
+  border: 1.5px solid #94a3b8;
+  background: #f1f5f9;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-complete-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.profile-complete-photo-preview [hidden] {
+  display: none !important;
+}
+
+.profile-complete-photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.profile-complete-photo-placeholder svg {
+  width: 26px;
+  height: 26px;
+}
+
+.profile-complete-photo-controls {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-complete-photo-controls input[type="file"] {
+  height: auto !important;
+  padding: 8px 10px !important;
+  font-size: 12.5px !important;
+}
+
+.profile-complete-photo-reminder {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.profile-complete-photo-reminder svg {
+  width: 16px;
+  height: 16px;
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .profile-complete-actions {
