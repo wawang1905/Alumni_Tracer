@@ -891,6 +891,16 @@ class SurveyController extends BaseController
             ]);
         }
 
+        // Enforce that all required and pre-made questions in visited (non-skipped) sections are answered.
+        // Sections skipped via configured question_logic (go_to_section / submit) are allowed to remain unanswered.
+        $requiredError = $this->validateRequiredAndPreMadeAnswers($surveyId, $normalizedAnswers);
+        if ($requiredError !== null) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => $requiredError,
+            ]);
+        }
+
         $currentUser = session('auth_user');
         $respondentEmail = $isStaffProxy
             ? $this->normalizeSurveyEmail($rawUserEmail)
@@ -1784,6 +1794,142 @@ class SurveyController extends BaseController
         }
 
         return $categoriesBySurvey;
+    }
+
+    /**
+     * Walks the survey sections following configured question_logic rules (go_to_section / submit)
+     * and ensures every required or pre-made question in visited sections has a non-empty answer.
+     * Sections skipped by branching logic are allowed to remain unanswered.
+     *
+     * @param array<int, array<string, mixed>> $normalizedAnswers
+     */
+    private function validateRequiredAndPreMadeAnswers(int $surveyId, array $normalizedAnswers): ?string
+    {
+        $categories = $this->getCategoriesForSurvey($surveyId);
+        if ($categories === []) {
+            return null;
+        }
+
+        $answerByQid = [];
+        foreach ($normalizedAnswers as $ans) {
+            $qid = (int) ($ans['question_id'] ?? 0);
+            if ($qid > 0) {
+                $answerByQid[$qid] = $ans;
+            }
+        }
+
+        $preMadeRequiredTexts = [
+            'what is your employment status',
+            'how long did it take you to find your first job after graduation',
+            'is your job related to your degree',
+            'name of employment business or company',
+        ];
+
+        $totalCategories = count($categories);
+        $currentIndex = 0;
+        $visited = [];
+
+        while ($currentIndex >= 0 && $currentIndex < $totalCategories && ! isset($visited[$currentIndex])) {
+            $visited[$currentIndex] = true;
+            $category = $categories[$currentIndex];
+            $questions = is_array($category['questions'] ?? null) ? $category['questions'] : [];
+
+            foreach ($questions as $question) {
+                $qId = (int) ($question['id'] ?? 0);
+                $qText = trim((string) ($question['text'] ?? ''));
+                $qNorm = strtolower(trim((string) (preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/i', '', $qText) ?? '') ?? '')));
+
+                $isRequired = filter_var($question['required'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                    || in_array($qNorm, $preMadeRequiredTexts, true);
+
+                if (! $isRequired) {
+                    continue;
+                }
+
+                $submitted = $answerByQid[$qId] ?? null;
+                $hasValue = is_array($submitted) && (
+                    ! empty($submitted['choice_id'])
+                    || (isset($submitted['answer_text']) && trim((string) $submitted['answer_text']) !== '')
+                    || ! empty($submitted['answer_image'])
+                );
+
+                if (! $hasValue) {
+                    return 'Please answer the required question: "' . ($qText !== '' ? $qText : ('Question #' . $qId)) . '"';
+                }
+            }
+
+            // Evaluate section branching logic (go_to_section / submit) for multiple-choice questions
+            $nextIndex = $currentIndex + 1;
+            $submitNow = false;
+
+            foreach ($questions as $question) {
+                if (($question['type'] ?? '') !== 'multiple_choice') {
+                    continue;
+                }
+                $logic = $question['logic'] ?? null;
+                if (! is_array($logic) || empty($logic['enabled']) || ! is_array($logic['rules'] ?? null)) {
+                    continue;
+                }
+
+                $qId = (int) ($question['id'] ?? 0);
+                $choiceId = (int) ($answerByQid[$qId]['choice_id'] ?? 0);
+                if ($choiceId <= 0) {
+                    continue;
+                }
+
+                $choices = is_array($question['choices'] ?? null) ? $question['choices'] : [];
+                $choiceIndex = -1;
+                foreach ($choices as $idx => $ch) {
+                    if ((int) ($ch['id'] ?? 0) === $choiceId) {
+                        $choiceIndex = (int) $idx;
+                        break;
+                    }
+                }
+                if ($choiceIndex < 0) {
+                    continue;
+                }
+
+                foreach ($logic['rules'] as $rule) {
+                    if ((int) ($rule['optionIndex'] ?? -1) !== $choiceIndex) {
+                        continue;
+                    }
+                    $action = (string) ($rule['action'] ?? 'continue');
+                    if ($action === 'submit') {
+                        $submitNow = true;
+                        break 2;
+                    }
+                    if ($action === 'go_to_section') {
+                        $targetIdx = -1;
+                        $targetCatId = $rule['targetCatId'] ?? null;
+                        if ($targetCatId !== null && $targetCatId !== '') {
+                            foreach ($categories as $cIdx => $catItem) {
+                                if ((string) ($catItem['id'] ?? '') === (string) $targetCatId) {
+                                    $targetIdx = (int) $cIdx;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($targetIdx < 0 && isset($rule['targetCatIndex']) && $rule['targetCatIndex'] !== null) {
+                            $candidate = (int) $rule['targetCatIndex'];
+                            if ($candidate >= 0 && $candidate < $totalCategories) {
+                                $targetIdx = $candidate;
+                            }
+                        }
+                        if ($targetIdx >= 0) {
+                            $nextIndex = $targetIdx;
+                            break 2;
+                        }
+                    }
+                }
+            }
+
+            if ($submitNow) {
+                break;
+            }
+            $currentIndex = $nextIndex;
+        }
+
+        return null;
     }
 
     /**

@@ -1591,7 +1591,7 @@ function renderSurveyDetailForm(mountId, survey) {
                     ${(currentCategory.questions || []).length === 0 
                         ? `<div style="text-align:center;padding:30px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:24px;margin-bottom:8px;display:block;"></i>No questions in this section.</div>`
                         : currentCategory.questions.map((question, index) => {
-                            const isReq = question.required === true || question.required === 1 || question.required === '1' || question.required === 'true';
+                            const isReq = isAlumniSurveyQuestionRequired(question);
                             return `
                             <div class="survey-question-item">
                                 <div class="survey-question-text">
@@ -1736,12 +1736,64 @@ function pruneDivergentAnswers(categories) {
     });
 }
 
+const ALUMNI_PREMADE_REQUIRED_QUESTIONS = new Set([
+    'what is your employment status',
+    'how long did it take you to find your first job after graduation',
+    'is your job related to your degree',
+    'name of employment business or company',
+]);
+
+function normalizeAlumniSurveyQuestionText(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function isAlumniSurveyQuestionRequired(question) {
+    if (!question) return false;
+    if (
+        question.required === true
+        || question.required === 1
+        || question.required === '1'
+        || question.required === 'true'
+        || question.isPreMade === true
+    ) {
+        return true;
+    }
+    const norm = normalizeAlumniSurveyQuestionText(question.text || question.question_text || '');
+    return ALUMNI_PREMADE_REQUIRED_QUESTIONS.has(norm);
+}
+
+function showSurveySectionValidationError(message) {
+    let banner = document.getElementById('surveySectionValidationError');
+    const host = document.querySelector('.survey-question-list');
+    if (!host) return;
+
+    if (!message) {
+        if (banner) banner.remove();
+        return;
+    }
+
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'surveySectionValidationError';
+        banner.setAttribute('role', 'alert');
+        banner.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:13px;font-weight:600;';
+        host.parentElement?.insertBefore(banner, host);
+    }
+    banner.innerHTML = `<i class="fas fa-circle-exclamation" aria-hidden="true"></i><span>${escapeHtml(message)}</span>`;
+}
+
 function validateCategoryAnswers(surveyId, category) {
+    showSurveySectionValidationError('');
     if (!category || !Array.isArray(category.questions) || category.questions.length === 0) {
         return { valid: true };
     }
 
     let valid = true;
+    let missingCount = 0;
     let firstUnansweredItem = null;
     let firstUnansweredInput = null;
 
@@ -1750,9 +1802,8 @@ function validateCategoryAnswers(surveyId, category) {
     document.querySelectorAll('.survey-answer-input.input-error').forEach((el) => el.classList.remove('input-error'));
 
     category.questions.forEach((question) => {
-        const isRequired = question.required === true || question.required === 1 || question.required === '1' || question.required === 'true';
-        if (!isRequired) {
-            // Optional question: allow it to be blank or null!
+        if (!isAlumniSurveyQuestionRequired(question)) {
+            // Optional question: allow it to be blank or null
             return;
         }
 
@@ -1769,13 +1820,14 @@ function validateCategoryAnswers(surveyId, category) {
             const val = String(input.value || '').trim();
             hasAnswer = val !== '';
         } else {
-            // Text answer
+            // Text answer (reject whitespace-only)
             const val = String(input.value || '').trim();
             hasAnswer = val.length > 0;
         }
 
         if (!hasAnswer) {
             valid = false;
+            missingCount++;
 
             input.classList.add('input-error');
             const questionItem = input.closest('.survey-question-item');
@@ -1795,6 +1847,9 @@ function validateCategoryAnswers(surveyId, category) {
                 if (questionItem) {
                     questionItem.classList.remove('survey-question-item--error');
                 }
+                if (document.querySelectorAll('.survey-question-item--error').length === 0) {
+                    showSurveySectionValidationError('');
+                }
                 input.removeEventListener('input', clearHandler);
                 input.removeEventListener('change', clearHandler);
             };
@@ -1804,6 +1859,11 @@ function validateCategoryAnswers(surveyId, category) {
     });
 
     if (!valid) {
+        showSurveySectionValidationError(
+            missingCount === 1
+                ? 'Please answer the required question highlighted below before continuing.'
+                : `Please answer all ${missingCount} required questions highlighted below before continuing.`
+        );
         const targetToScroll = firstUnansweredItem || firstUnansweredInput;
         if (targetToScroll) {
             targetToScroll.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1818,6 +1878,35 @@ function validateCategoryAnswers(surveyId, category) {
     }
 
     return { valid };
+}
+
+function validateAllVisitedRequiredAnswers(categories) {
+    const visitedIndices = Array.from(new Set(surveyRespondSession.history || [0]));
+    for (const idx of visitedIndices) {
+        const cat = categories[idx];
+        if (!cat || !Array.isArray(cat.questions)) continue;
+        for (const question of cat.questions) {
+            if (!isAlumniSurveyQuestionRequired(question)) continue;
+            const qId = Number(question.id || 0) || question.id;
+            const ans = surveyRespondSession.answers[qId];
+            let hasAnswer = false;
+            if (question.type === 'image') {
+                hasAnswer = Boolean(ans?.file);
+            } else if (question.type === 'multiple_choice') {
+                hasAnswer = Boolean(ans?.choice_id && String(ans.choice_id).trim() !== '');
+            } else {
+                hasAnswer = Boolean(ans?.answer_text && String(ans.answer_text).trim() !== '');
+            }
+            if (!hasAnswer) {
+                return {
+                    valid: false,
+                    categoryIndex: idx,
+                    questionText: question.text || 'Required question',
+                };
+            }
+        }
+    }
+    return { valid: true };
 }
 
 function surveyRespondNextOrSubmit(surveyId) {
@@ -1880,6 +1969,13 @@ function surveyRespondNextOrSubmit(surveyId) {
     if (shouldSubmitImmediately) {
         if (!formLocked) {
             pruneDivergentAnswers(categories);
+            const visitedCheck = validateAllVisitedRequiredAnswers(categories);
+            if (!visitedCheck.valid) {
+                surveyRespondSession.currentCatIndex = visitedCheck.categoryIndex;
+                renderSurveyDetailForm('alumniSurveyDetailMount', survey);
+                validateCategoryAnswers(surveyId, categories[visitedCheck.categoryIndex]);
+                return;
+            }
             promptSubmitSurveyConfirmation(surveyId);
         }
         return;
@@ -1907,6 +2003,13 @@ function surveyRespondNextOrSubmit(surveyId) {
     // Final step: submit
     if (!formLocked) {
         pruneDivergentAnswers(categories);
+        const visitedCheck = validateAllVisitedRequiredAnswers(categories);
+        if (!visitedCheck.valid) {
+            surveyRespondSession.currentCatIndex = visitedCheck.categoryIndex;
+            renderSurveyDetailForm('alumniSurveyDetailMount', survey);
+            validateCategoryAnswers(surveyId, categories[visitedCheck.categoryIndex]);
+            return;
+        }
         promptSubmitSurveyConfirmation(surveyId);
     }
 }
