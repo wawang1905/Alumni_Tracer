@@ -349,14 +349,16 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .profile-hero-title-group {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
-    width: 100%;
+    flex: 1 1 220px;
+    min-width: 0;
 }
 
 .profile-hero-name {
@@ -675,29 +677,85 @@ body {
 }
 
 @media (max-width: 640px) {
+    .profile-container--minimal {
+        padding: 12px !important;
+        gap: 14px !important;
+    }
+
     .profile-hero-card {
         flex-direction: column;
         align-items: center;
         text-align: center;
         padding: 20px 16px;
-        gap: 16px;
+        gap: 14px;
     }
 
-    .profile-hero-top,
-    .profile-hero-title-group,
-    .profile-hero-badges {
-        justify-content: center;
+    .profile-hero-body {
+        width: 100%;
+        align-items: center;
     }
 
-    .profile-hero-meta {
+    .profile-hero-top {
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
         gap: 12px;
     }
 
-    .profile-card {
-        padding: 20px 16px;
+    .profile-hero-title-group {
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
     }
 
+    .profile-hero-name {
+        width: 100%;
+        text-align: center;
+        font-size: 18px;
+    }
+
+    .profile-hero-badges {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .btn-view-my-alumni-id {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 16px;
+    }
+
+    .profile-hero-meta {
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .profile-meta-item {
+        max-width: 100%;
+        justify-content: center;
+    }
+
+    .profile-meta-input {
+        text-align: center;
+        max-width: 100%;
+    }
+
+    .profile-card {
+        padding: 16px 14px;
+    }
+
+    .profile-card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .profile-form-grid--4,
     .profile-form-grid--3,
     .profile-form-grid--2 {
         grid-template-columns: 1fr;
@@ -705,6 +763,7 @@ body {
 
     .profile-actions {
         flex-direction: column-reverse;
+        gap: 8px;
     }
 
     .btn-minimal-save,
@@ -4142,14 +4201,17 @@ select.minimal-input:disabled {
     background: #475569;
 }
 
-/* CR80 Landscape USTP Digital ID Artwork (85.6mm x 53.98mm) */
+/* CR80 Landscape USTP Digital ID Artwork (85.6mm x 53.98mm)
+   Uses container-type: inline-size + cqw units so the exact layout and typography
+   scale identically across mobile, tablet, and desktop screens. */
 .alumni-ustp-card {
     position: relative;
     width: 100%;
     aspect-ratio: 85.6 / 53.98;
+    container-type: inline-size;
     background: #ffffff;
     border: 1px solid #d5dde7;
-    border-radius: 14px;
+    border-radius: 3.5cqw;
     overflow: hidden;
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
@@ -4196,7 +4258,7 @@ select.minimal-input:disabled {
     width: 37.5%;
     height: 54%;
     background: #8f9fb4;
-    border-radius: 26px;
+    border-radius: 6.5cqw;
     transform: rotate(-16deg);
     pointer-events: none;
 }
@@ -4218,8 +4280,8 @@ select.minimal-input:disabled {
     top: 13.8%;
     width: 28.6%;
     height: 47.4%;
-    border: 1.5px solid #8f9db1;
-    border-radius: 10px;
+    border: 0.4cqw solid #8f9db1;
+    border-radius: 2.5cqw;
     background: #ffffff;
     overflow: hidden;
     z-index: 2;
@@ -4244,7 +4306,7 @@ select.minimal-input:disabled {
     justify-content: center;
     background: #e2e8f0;
     color: #475569;
-    font-size: 26px;
+    font-size: 6.6cqw;
     font-weight: 800;
 }
 
@@ -4279,32 +4341,32 @@ select.minimal-input:disabled {
 }
 
 .alumni-ustp-front-name {
-    font-size: 13px;
+    font-size: 3.3cqw;
     font-weight: 800;
-    letter-spacing: 0.35px;
+    letter-spacing: 0.09cqw;
     line-height: 1.2;
-    margin-bottom: 4px;
+    margin-bottom: 1cqw;
     word-break: break-word;
 }
 
 .alumni-ustp-front-id-num {
-    font-size: 11.5px;
+    font-size: 2.9cqw;
     font-weight: 700;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
+    letter-spacing: 0.13cqw;
+    margin-bottom: 1cqw;
 }
 
 .alumni-ustp-front-member {
-    font-size: 12.5px;
+    font-size: 3.15cqw;
     font-weight: 800;
-    letter-spacing: 0.45px;
-    margin-bottom: 3px;
+    letter-spacing: 0.11cqw;
+    margin-bottom: 0.75cqw;
 }
 
 .alumni-ustp-front-batch {
-    font-size: 10.5px;
+    font-size: 2.65cqw;
     font-weight: 700;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.1cqw;
 }
 
 .alumni-ustp-back-accent-tl {
@@ -4334,9 +4396,9 @@ select.minimal-input:disabled {
     left: 8%;
     top: 9.2%;
     z-index: 2;
-    font-size: 12.5px;
+    font-size: 3.15cqw;
     font-weight: 800;
-    letter-spacing: 2.2px;
+    letter-spacing: 0.55cqw;
     color: #5a6470;
 }
 
@@ -4346,7 +4408,7 @@ select.minimal-input:disabled {
     top: 7.5%;
     z-index: 2;
     text-align: right;
-    font-size: 7px;
+    font-size: 1.78cqw;
     font-weight: 700;
     line-height: 1.38;
     color: #5f6975;
@@ -4359,13 +4421,13 @@ select.minimal-input:disabled {
     top: 20.5%;
     z-index: 2;
     color: #55606d;
-    font-size: 9px;
+    font-size: 2.28cqw;
     line-height: 1.42;
     font-weight: 700;
 }
 
 .alumni-ustp-back-row {
-    margin-bottom: 2.5px;
+    margin-bottom: 0.65cqw;
     word-break: break-word;
 }
 
@@ -4374,17 +4436,17 @@ select.minimal-input:disabled {
 }
 
 .alumni-ustp-back-indent {
-    padding-left: 9px;
+    padding-left: 2.3cqw;
 }
 
 .alumni-ustp-back-em-lbl {
-    margin-top: 4px;
-    font-size: 7.8px;
+    margin-top: 1cqw;
+    font-size: 1.98cqw;
 }
 
 .alumni-ustp-back-em-val {
-    padding-left: 9px;
-    font-size: 9px;
+    padding-left: 2.3cqw;
+    font-size: 2.28cqw;
 }
 
 .alumni-ustp-back-sig-block {
@@ -4398,21 +4460,21 @@ select.minimal-input:disabled {
 }
 
 .alumni-ustp-back-sig-svg {
-    width: 90px;
-    height: 34px;
+    width: 68%;
+    height: auto;
     display: block;
-    margin: 0 auto 2px auto;
+    margin: 0 auto 0.5cqw auto;
 }
 
 .alumni-ustp-back-sig-name {
-    font-size: 9px;
+    font-size: 2.28cqw;
     font-weight: 800;
 }
 
 .alumni-ustp-back-sig-title {
-    font-size: 6.8px;
+    font-size: 1.72cqw;
     font-weight: 700;
-    margin-top: 1px;
+    margin-top: 0.25cqw;
 }
 
 .alumni-my-id-footer {
