@@ -6944,6 +6944,155 @@ function formatAlignmentPercent(value) {
     return `${fixed}%`;
 }
 
+function renderTracedGraduatesCardState(state, traced = null) {
+    const valueEl = document.getElementById('tracedGraduatesValue');
+    const rateEl = document.getElementById('tracedGraduatesRate');
+    if (!valueEl) return;
+
+    valueEl.classList.remove('is-loading', 'is-error');
+
+    if (state === 'loading') {
+        valueEl.classList.add('is-loading');
+        valueEl.textContent = 'Loading...';
+        if (rateEl) rateEl.textContent = 'Calculating...';
+        return;
+    }
+
+    if (state === 'error') {
+        valueEl.classList.add('is-error');
+        valueEl.textContent = '--';
+        if (rateEl) rateEl.textContent = 'Unable to load';
+        return;
+    }
+
+    const tracedCount = Number(traced?.tracedCount ?? 0);
+    const totalAlumni = Number(traced?.totalAlumni ?? 0);
+    const responseRate = Number(traced?.responseRate ?? 0);
+
+    valueEl.innerHTML = `${tracedCount.toLocaleString()} <span class="kpi-stat-Total">/ ${totalAlumni.toLocaleString()}</span>`;
+    if (rateEl) {
+        rateEl.textContent = totalAlumni > 0
+            ? `${formatAlignmentPercent(responseRate)} response rate`
+            : 'No alumni records';
+    }
+}
+
+function renderEmploymentRateCardState(state, employment = null) {
+    const valueEl = document.getElementById('employmentRateValue');
+    const subtextEl = document.getElementById('employmentRateSubtext');
+    if (!valueEl) return;
+
+    valueEl.classList.remove('is-loading', 'is-error');
+
+    if (state === 'loading') {
+        valueEl.classList.add('is-loading');
+        valueEl.textContent = 'Loading...';
+        if (subtextEl) subtextEl.textContent = 'Calculating...';
+        return;
+    }
+
+    if (state === 'error') {
+        valueEl.classList.add('is-error');
+        valueEl.textContent = '--';
+        if (subtextEl) subtextEl.textContent = 'Unable to load employment data';
+        return;
+    }
+
+    const employedCount = Number(employment?.employedCount ?? 0);
+    const totalAlumni = Number(employment?.totalAlumni ?? 0);
+    const rate = Number(employment?.employmentRate ?? 0);
+
+    valueEl.textContent = formatAlignmentPercent(rate);
+    if (subtextEl) {
+        subtextEl.textContent = totalAlumni > 0
+            ? `${employedCount.toLocaleString()} of ${totalAlumni.toLocaleString()} alumni employed`
+            : 'No alumni records';
+    }
+}
+
+function formatMonthsValue(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '0';
+    return num.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+
+function renderTimeToFirstJobCardState(state, timing = null) {
+    const valueEl = document.getElementById('timeToFirstJobValue');
+    const subtextEl = document.getElementById('timeToFirstJobSubtext');
+    const distEl = document.getElementById('timeToFirstJobDistribution');
+    if (!valueEl) return;
+
+    valueEl.classList.remove('is-loading', 'is-error');
+
+    if (state === 'loading') {
+        valueEl.classList.add('is-loading');
+        valueEl.textContent = 'Loading...';
+        if (subtextEl) subtextEl.textContent = 'Calculating from survey responses...';
+        if (distEl) {
+            distEl.innerHTML = '';
+            distEl.hidden = true;
+        }
+        return;
+    }
+
+    if (state === 'error') {
+        valueEl.classList.add('is-error');
+        valueEl.textContent = '--';
+        if (subtextEl) subtextEl.textContent = 'Unable to load time-to-first-job data';
+        if (distEl) {
+            distEl.innerHTML = '';
+            distEl.hidden = true;
+        }
+        return;
+    }
+
+    const totalValid = Number(timing?.totalValidResponses || 0);
+    const hasData = Boolean(timing?.hasData) && totalValid > 0 && timing?.averageMonths !== null && timing?.averageMonths !== undefined;
+
+    if (!hasData) {
+        valueEl.classList.add('is-loading');
+        valueEl.textContent = 'No data available';
+        if (subtextEl) subtextEl.textContent = 'No valid employment timing responses yet';
+        if (distEl) {
+            distEl.innerHTML = '';
+            distEl.hidden = true;
+        }
+        return;
+    }
+
+    const avgMonths = Number(timing.averageMonths);
+    const withinThreePct = Number(timing.withinThreeMonthsPercentage ?? 0);
+    valueEl.innerHTML = `${formatMonthsValue(avgMonths)} <span class="kpi-stat-unit">months</span>`;
+
+    if (subtextEl) {
+        subtextEl.textContent = `${formatAlignmentPercent(withinThreePct)} hired within 3 months (${totalValid} valid)`;
+    }
+
+    if (distEl) {
+        const dist = timing.distribution || {};
+        const items = [
+            { key: 'less_than_a_month', label: 'Less than a month', dotClass: 'is-fast' },
+            { key: 'one_to_three_months', label: '1–3 months', dotClass: 'is-short' },
+            { key: 'three_to_six_months', label: '3–6 months', dotClass: 'is-medium' },
+            { key: 'six_to_twelve_months', label: '6–12 months', dotClass: 'is-long' },
+            { key: 'more_than_a_year', label: 'More than a year', dotClass: 'is-extended' },
+        ];
+
+        distEl.innerHTML = items.map(item => {
+            const entry = dist[item.key] || { count: 0, percentage: 0 };
+            const pctText = formatAlignmentPercent(entry.percentage);
+            const countNum = Number(entry.count || 0);
+            return `
+                <span class="kpi-alignment-item" title="${item.label}: ${pctText} (${countNum})">
+                    <span class="kpi-alignment-dot ${item.dotClass}" aria-hidden="true"></span>
+                    <span>${item.label}: <strong>${pctText}</strong> (${countNum})</span>
+                </span>
+            `;
+        }).join('');
+        distEl.hidden = false;
+    }
+}
+
 function renderCurriculumAlignmentCardState(state, alignment = null) {
     const valueEl = document.getElementById('curriculumAlignmentValue');
     const subtextEl = document.getElementById('curriculumAlignmentSubtext');
@@ -7025,8 +7174,19 @@ async function loadDashboardData(batchYear = null, options = {}) {
         ? batchYear
         : (typeof selectedDashboardBatchFilter !== 'undefined' ? selectedDashboardBatchFilter : 'all');
 
-    if (!silent && document.getElementById('curriculumAlignmentValue')) {
-        renderCurriculumAlignmentCardState('loading');
+    if (!silent) {
+        if (document.getElementById('tracedGraduatesValue')) {
+            renderTracedGraduatesCardState('loading');
+        }
+        if (document.getElementById('employmentRateValue')) {
+            renderEmploymentRateCardState('loading');
+        }
+        if (document.getElementById('curriculumAlignmentValue')) {
+            renderCurriculumAlignmentCardState('loading');
+        }
+        if (document.getElementById('timeToFirstJobValue')) {
+            renderTimeToFirstJobCardState('loading');
+        }
     }
 
     try {
@@ -7057,8 +7217,17 @@ async function loadDashboardData(batchYear = null, options = {}) {
             engagementRateEl.textContent = `${engagementRate}%`;
         }
 
+        if (document.getElementById('tracedGraduatesValue')) {
+            renderTracedGraduatesCardState('ready', data.tracedGraduates || null);
+        }
+        if (document.getElementById('employmentRateValue')) {
+            renderEmploymentRateCardState('ready', data.employmentRate || null);
+        }
         if (document.getElementById('curriculumAlignmentValue')) {
             renderCurriculumAlignmentCardState('ready', data.curriculumAlignment || null);
+        }
+        if (document.getElementById('timeToFirstJobValue')) {
+            renderTimeToFirstJobCardState('ready', data.timeToFirstEmployment || null);
         }
     } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -7073,8 +7242,17 @@ async function loadDashboardData(batchYear = null, options = {}) {
         if (totalEventsEl) totalEventsEl.textContent = '0';
         if (engagementRateEl) engagementRateEl.textContent = '0%';
 
+        if (document.getElementById('tracedGraduatesValue')) {
+            renderTracedGraduatesCardState('error');
+        }
+        if (document.getElementById('employmentRateValue')) {
+            renderEmploymentRateCardState('error');
+        }
         if (document.getElementById('curriculumAlignmentValue')) {
             renderCurriculumAlignmentCardState('error');
+        }
+        if (document.getElementById('timeToFirstJobValue')) {
+            renderTimeToFirstJobCardState('error');
         }
     }
 }

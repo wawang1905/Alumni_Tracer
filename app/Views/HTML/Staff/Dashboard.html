@@ -129,30 +129,29 @@
 
                 <!-- Minimalist KPI Strip -->
                 <div class="stats-grid dashboard-kpi-strip">
-                    <div class="stat-card kpi-stat-card">
+                    <div class="stat-card kpi-stat-card" id="tracedGraduatesCard">
                         <div class="kpi-stat-header">
                             <span class="kpi-stat-title">Traced Graduates</span>
                             <div class="kpi-stat-icon">
                                 <i class="fas fa-user-graduate"></i>
                             </div>
                         </div>
-                        <div class="kpi-stat-value">1,280 <span class="kpi-stat-Total">/ 1,600</span></div>
+                        <div class="kpi-stat-value" id="tracedGraduatesValue">Loading...</div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-badge-neutral">80.0% response rate</span>
+                            <span class="kpi-badge-neutral" id="tracedGraduatesRate">Calculating...</span>
                         </div>
                     </div>
 
-                    <div class="stat-card kpi-stat-card">
+                    <div class="stat-card kpi-stat-card" id="employmentRateCard">
                         <div class="kpi-stat-header">
                             <span class="kpi-stat-title">Employment Rate</span>
                             <div class="kpi-stat-icon">
                                 <i class="fas fa-briefcase"></i>
                             </div>
                         </div>
-                        <div class="kpi-stat-value">85.2%</div>
+                        <div class="kpi-stat-value" id="employmentRateValue">Loading...</div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-trend positive">+2.8%</span>
-                            <span class="kpi-subtext-note">vs. AY 2023–2024</span>
+                            <span class="kpi-subtext-note" id="employmentRateSubtext">Calculating...</span>
                         </div>
                     </div>
 
@@ -170,17 +169,18 @@
                         <div class="kpi-alignment-dist" id="curriculumAlignmentDistribution" hidden></div>
                     </div>
 
-                    <div class="stat-card kpi-stat-card">
+                    <div class="stat-card kpi-stat-card" id="timeToFirstJobCard">
                         <div class="kpi-stat-header">
                             <span class="kpi-stat-title">Avg. Time to First Job</span>
                             <div class="kpi-stat-icon">
                                 <i class="fas fa-clock"></i>
                             </div>
                         </div>
-                        <div class="kpi-stat-value">3.2 <span class="kpi-stat-unit">mos</span></div>
+                        <div class="kpi-stat-value" id="timeToFirstJobValue">Loading...</div>
                         <div class="kpi-stat-subtext">
-                            <span class="kpi-subtext-note">64% hired within 3 months</span>
+                            <span class="kpi-subtext-note" id="timeToFirstJobSubtext">Calculating from survey responses...</span>
                         </div>
+                        <div class="kpi-alignment-dist" id="timeToFirstJobDistribution" hidden></div>
                     </div>
                 </div>
 

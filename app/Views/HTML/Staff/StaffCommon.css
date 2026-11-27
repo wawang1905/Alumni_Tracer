@@ -1057,6 +1057,26 @@ html.staff-sidebar-collapsed .main-content {
     background-color: #dc2626;
 }
 
+.kpi-alignment-dot.is-fast {
+    background-color: #16a34a;
+}
+
+.kpi-alignment-dot.is-short {
+    background-color: #22c55e;
+}
+
+.kpi-alignment-dot.is-medium {
+    background-color: #eab308;
+}
+
+.kpi-alignment-dot.is-long {
+    background-color: #f97316;
+}
+
+.kpi-alignment-dot.is-extended {
+    background-color: #dc2626;
+}
+
 .kpi-stat-value.is-loading {
     font-size: 15px;
     color: #64748b;
