@@ -2688,6 +2688,130 @@ XML;
     }
 
     /**
+     * Alumni ONLY: Return the Digital ID belonging strictly to the currently authenticated alumni.
+     * Ownership is enforced solely from session('auth_user'); any URL/query parameters are ignored.
+     */
+    public function myDigitalId(): ResponseInterface
+    {
+        if (! $this->isAlumniAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized. Please log in as an alumni account.',
+            ]);
+        }
+
+        $currentUser = session('auth_user');
+        $sessionEmail = strtolower(trim((string) ($currentUser['email'] ?? '')));
+        $sessionAccountId = trim((string) ($currentUser['account_id'] ?? ''));
+
+        if ($sessionEmail === '' && $sessionAccountId === '') {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Unable to verify your alumni session. Please log in again.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $row = null;
+
+        if ($sessionEmail !== '') {
+            $row = $db->table('alumni a')
+                ->select('a.id, a.alumni_id, a."FirstName", a."LastName", a."Email", a."GraduationYear", a."Status", a."College_ID", a."Department_ID", a."Province", a."Municipality", a."Barangay", a."Contact_Number", a.sex, a.birth_month, a.birth_date, a.birth_year, a.emergency_contact, a.emergency_contact_name, c."College_Name", c."Campus_ID", d."Department_Name", cmp."Campus" AS "Campus_Name"')
+                ->join('colleges c', 'c."College_ID" = a."College_ID"', 'left')
+                ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
+                ->join('campuses cmp', 'cmp."Campus_ID" = c."Campus_ID"', 'left')
+                ->where('LOWER(a."Email")', $sessionEmail)
+                ->get()
+                ->getRowArray();
+        }
+
+        if (! is_array($row) && $sessionAccountId !== '') {
+            $row = $db->table('alumni a')
+                ->select('a.id, a.alumni_id, a."FirstName", a."LastName", a."Email", a."GraduationYear", a."Status", a."College_ID", a."Department_ID", a."Province", a."Municipality", a."Barangay", a."Contact_Number", a.sex, a.birth_month, a.birth_date, a.birth_year, a.emergency_contact, a.emergency_contact_name, c."College_Name", c."Campus_ID", d."Department_Name", cmp."Campus" AS "Campus_Name"')
+                ->join('colleges c', 'c."College_ID" = a."College_ID"', 'left')
+                ->join('departments d', 'd."Department_ID" = a."Department_ID"', 'left')
+                ->join('campuses cmp', 'cmp."Campus_ID" = c."Campus_ID"', 'left')
+                ->where('a.alumni_id', $sessionAccountId)
+                ->get()
+                ->getRowArray();
+        }
+
+        $alumniIdNum = is_array($row) ? trim((string) ($row['alumni_id'] ?? '')) : '';
+        if (! is_array($row) || $alumniIdNum === '') {
+            return $this->response->setJSON([
+                'success'   => true,
+                'available' => false,
+                'message'   => 'Your Digital ID is not yet available. Please contact the Alumni Office.',
+            ]);
+        }
+
+        $alumniDbId = (int) ($row['id'] ?? 0);
+        $firstName = trim((string) ($row['FirstName'] ?? ''));
+        $lastName = trim((string) ($row['LastName'] ?? ''));
+        $fullName = trim($firstName . ' ' . $lastName);
+        $initials = strtoupper(
+            ($firstName !== '' ? mb_substr($firstName, 0, 1) : '') .
+            ($lastName !== '' ? mb_substr($lastName, 0, 1) : '')
+        ) ?: 'GV';
+
+        $addressParts = array_values(array_filter([
+            trim((string) ($row['Barangay'] ?? '')),
+            trim((string) ($row['Municipality'] ?? '')),
+            trim((string) ($row['Province'] ?? '')),
+        ], static fn (string $part): bool => $part !== ''));
+        $homeAddress = $addressParts !== [] ? implode(', ', $addressParts) : '';
+
+        $extra = $this->extractOptionalSurveyPersonalDetails(trim((string) ($row['Email'] ?? '')));
+        $dbSex = trim((string) ($row['sex'] ?? ''));
+        $dbBirthMonth = (int) ($row['birth_month'] ?? 0);
+        $dbBirthDate = (int) ($row['birth_date'] ?? 0);
+        $dbBirthYear = (int) ($row['birth_year'] ?? 0);
+        $dbBirthdateFormatted = ($dbBirthMonth >= 1 && $dbBirthMonth <= 12 && $dbBirthDate >= 1 && $dbBirthDate <= 31 && $dbBirthYear >= 1920 && checkdate($dbBirthMonth, $dbBirthDate, $dbBirthYear))
+            ? ($dbBirthMonth . '/' . $dbBirthDate . '/' . $dbBirthYear)
+            : '';
+        $dbEmName = trim((string) ($row['emergency_contact_name'] ?? ''));
+        $dbEmContact = trim((string) ($row['emergency_contact'] ?? ''));
+
+        $activePhoto = $alumniDbId > 0 ? $this->alumniFilesModel->getActiveProfilePicture($alumniDbId) : null;
+        $hasProfilePicture = is_array($activePhoto);
+        $profilePictureUrl = null;
+        if ($hasProfilePicture) {
+            $storedPath = (string) ($activePhoto['File_Path'] ?? '');
+            $profilePictureUrl = $this->storage->isSupabaseReference($storedPath)
+                ? $this->storage->resolvePublicUrl($storedPath)
+                : base_url('alumni/profile-picture');
+        }
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'available' => true,
+            'alumni'    => [
+                'alumni_id'                => $alumniIdNum,
+                'first_name'               => $firstName,
+                'last_name'                => $lastName,
+                'full_name'                => $fullName,
+                'initials'                 => $initials,
+                'email'                    => trim((string) ($row['Email'] ?? '')),
+                'graduation_year'          => trim((string) ($row['GraduationYear'] ?? '')),
+                'status'                   => trim((string) ($row['Status'] ?? 'pending')),
+                'college'                  => trim((string) ($row['College_Name'] ?? '')),
+                'course'                   => trim((string) ($row['Department_Name'] ?? '')),
+                'campus'                   => trim((string) ($row['Campus_Name'] ?? '')),
+                'contact_number'           => trim((string) ($row['Contact_Number'] ?? '')),
+                'home_address'             => $homeAddress,
+                'sex'                      => $dbSex !== '' ? $dbSex : $extra['sex'],
+                'birthdate'                => $dbBirthdateFormatted !== '' ? $dbBirthdateFormatted : $extra['birthdate'],
+                'emergency_contact_name'   => $dbEmName !== '' ? $dbEmName : $extra['emergency_contact_name'],
+                'emergency_contact_number' => $dbEmContact !== '' ? $dbEmContact : $extra['emergency_contact_number'],
+                'membership_label'         => 'LIFETIME MEMBER',
+                'has_profile_picture'      => $hasProfilePicture,
+                'profile_picture_url'      => $profilePictureUrl,
+                'logo_url'                 => base_url('images/ustp-alumni-logo.jpg'),
+            ],
+        ]);
+    }
+
+    /**
      * Head Admin ONLY: Download print-ready Back-to-Back Digital ID PDF (Front & Back at CR80 85.6mm x 53.98mm).
      * Supports ?mode=sheet (both sides on one sheet) and ?mode=duplex (2-page centered duplex layout).
      */

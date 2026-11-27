@@ -177,7 +177,7 @@
                                         <th>Email</th>
                                         <th>College</th>
                                         <th>Department</th>
-                                        <th>Actions</th>
+                                        <th>Digital ID</th>
                                     </tr>
                                 </thead>
                                 <tbody id="alumniTableBody"></tbody>
@@ -287,80 +287,6 @@
             <div class="modal-buttons">
                 <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeExportAlumniModal()">Cancel</button>
                 <button class="alumni-btn alumni-btn-primary" type="button" onclick="confirmExportAlumniExcel()">Export</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Head Admin Alumni Profile Modal -->
-    <div id="alumniProfileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="alumniProfileModalTitle" onclick="if (event.target === this) closeHeadAdminAlumniProfileModal();">
-        <div class="modal-content ha-alumni-profile-modal-content">
-            <div class="cm-header">
-                <div class="cm-header-text">
-                    <h3 id="alumniProfileModalTitle">Alumni Profile</h3>
-                    <p class="cm-subtitle" id="haProfileSubtitle">Verified alumni record within your assigned campus.</p>
-                </div>
-                <button type="button" class="cm-close" onclick="closeHeadAdminAlumniProfileModal()" aria-label="Close modal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="cm-body ha-alumni-profile-body">
-                <div id="haProfileLoading" class="ustp-id-loading" hidden>
-                    <i class="fas fa-circle-notch fa-spin"></i>
-                    <span>Loading alumni profile...</span>
-                </div>
-                <div id="haProfileError" class="ustp-id-error" hidden></div>
-
-                <div id="haProfileContent" class="ha-profile-content" hidden>
-                    <div class="ha-profile-hero">
-                        <div class="ha-profile-avatar-wrap">
-                            <img id="haProfilePhotoImg" class="ha-profile-photo" src="" alt="Alumni Photograph" hidden>
-                            <div id="haProfileAvatarFallback" class="ha-profile-avatar-fallback">GV</div>
-                        </div>
-                        <div class="ha-profile-hero-info">
-                            <h4 id="haProfileFullName">—</h4>
-                            <div class="ha-profile-badges">
-                                <span class="ha-profile-pill ha-profile-pill-id"><i class="fas fa-id-badge"></i> <span id="haProfileAlumniId">—</span></span>
-                                <span class="ha-profile-pill ha-profile-pill-status" id="haProfileStatus">Pending</span>
-                            </div>
-                            <div class="ha-profile-submeta" id="haProfileAcademicLine">—</div>
-                        </div>
-                        <div class="ha-profile-hero-actions">
-                            <button type="button" class="alumni-btn alumni-btn-primary" id="haViewDigitalIdBtn" onclick="openDigitalIdFromProfile()">
-                                <i class="fas fa-id-card" aria-hidden="true"></i>
-                                <span>View Digital ID</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="ha-profile-section">
-                        <div class="ha-profile-section-title"><i class="fas fa-user"></i> Personal &amp; Academic Information</div>
-                        <div class="ha-profile-grid">
-                            <div class="ha-profile-field"><label>Email</label><span id="haProfileEmail">—</span></div>
-                            <div class="ha-profile-field"><label>Contact Number</label><span id="haProfileContact">—</span></div>
-                            <div class="ha-profile-field"><label>Sex</label><span id="haProfileSex">—</span></div>
-                            <div class="ha-profile-field"><label>Birthdate</label><span id="haProfileBirthdate">—</span></div>
-                            <div class="ha-profile-field"><label>College</label><span id="haProfileCollege">—</span></div>
-                            <div class="ha-profile-field"><label>Department / Course</label><span id="haProfileCourse">—</span></div>
-                            <div class="ha-profile-field"><label>Graduation Year</label><span id="haProfileGradYear">—</span></div>
-                            <div class="ha-profile-field"><label>Home Address</label><span id="haProfileAddress">—</span></div>
-                        </div>
-                    </div>
-
-                    <div class="ha-profile-section">
-                        <div class="ha-profile-section-title"><i class="fas fa-phone-volume"></i> Emergency Contact</div>
-                        <div class="ha-profile-grid">
-                            <div class="ha-profile-field"><label>Emergency Contact Name</label><span id="haProfileEmergencyName">—</span></div>
-                            <div class="ha-profile-field"><label>Emergency Contact Number</label><span id="haProfileEmergencyNumber">—</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="cm-footer modal-buttons">
-                <button class="alumni-btn alumni-btn-secondary" type="button" onclick="closeHeadAdminAlumniProfileModal()">Close</button>
-                <button class="alumni-btn alumni-btn-primary" type="button" id="haFooterViewDigitalIdBtn" onclick="openDigitalIdFromProfile()">
-                    <i class="fas fa-id-card" aria-hidden="true"></i>
-                    <span>View Digital ID</span>
-                </button>
             </div>
         </div>
     </div>

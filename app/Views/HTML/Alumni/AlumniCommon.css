@@ -3940,3 +3940,568 @@ select.minimal-input:disabled {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   Alumni Side - View My Alumni ID Button & Responsive Back-to-Back ID Modal
+   ========================================================================== */
+.profile-snapshot-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.btn-view-my-alumni-id {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1e4a76 0%, #2563eb 100%);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    transition: transform 0.14s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    white-space: nowrap;
+}
+
+.btn-view-my-alumni-id:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.34);
+}
+
+.btn-view-my-alumni-id:active {
+    transform: translateY(0);
+}
+
+.alumni-my-id-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(9, 13, 22, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.alumni-my-id-modal [hidden],
+.alumni-my-id-modal[hidden] {
+    display: none !important;
+}
+
+.alumni-my-id-dialog {
+    width: min(880px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #dbe4f0;
+    box-shadow: 0 28px 64px rgba(2, 6, 23, 0.42);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.alumni-my-id-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 22px;
+    background: linear-gradient(135deg, #0f2b4c 0%, #1e4a76 60%, #2563eb 100%);
+    color: #ffffff;
+}
+
+.alumni-my-id-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.alumni-my-id-header p {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.alumni-my-id-close-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-size: 15px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.alumni-my-id-close-icon:hover {
+    background: rgba(255, 255, 255, 0.26);
+}
+
+.alumni-my-id-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 22px;
+    background: #f1f5f9;
+}
+
+.alumni-my-id-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.alumni-my-id-unavailable {
+    text-align: center;
+    padding: 36px 24px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    max-width: 440px;
+    margin: 8px auto;
+}
+
+.alumni-my-id-unavailable i {
+    font-size: 36px;
+    color: #94a3b8;
+    margin-bottom: 12px;
+}
+
+.alumni-my-id-unavailable h4 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.alumni-my-id-unavailable p {
+    margin: 0;
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.alumni-my-id-mobile-hint,
+.alumni-my-id-mobile-flip-wrap {
+    display: none;
+}
+
+/* Desktop: show BOTH Front and Back side-by-side */
+.alumni-my-id-stage {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+    justify-items: center;
+}
+
+.alumni-my-id-face {
+    width: 100%;
+    max-width: 396px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alumni-my-id-side-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.alumni-my-id-side-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #1e4a76;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+}
+
+.alumni-my-id-side-pill.is-back {
+    background: #475569;
+}
+
+/* CR80 Landscape USTP Digital ID Artwork (85.6mm x 53.98mm) */
+.alumni-ustp-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 85.6 / 53.98;
+    background: #ffffff;
+    border: 1px solid #d5dde7;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    user-select: none;
+}
+
+.alumni-ustp-front-blob-bl {
+    position: absolute;
+    left: -11%;
+    bottom: -15%;
+    width: 40%;
+    height: 67%;
+    background: #f9ebaa;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.alumni-ustp-front-dot-yellow {
+    position: absolute;
+    left: 30%;
+    top: 3.5%;
+    width: 6.4%;
+    height: 10.2%;
+    background: #f7e69b;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.alumni-ustp-front-dot-slate {
+    position: absolute;
+    left: 33.4%;
+    top: 9.8%;
+    width: 4.9%;
+    height: 7.8%;
+    background: #92a1b6;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.alumni-ustp-front-slate-shape {
+    position: absolute;
+    left: 39.5%;
+    top: -17%;
+    width: 37.5%;
+    height: 54%;
+    background: #8f9fb4;
+    border-radius: 26px;
+    transform: rotate(-16deg);
+    pointer-events: none;
+}
+
+.alumni-ustp-front-corner-br {
+    position: absolute;
+    right: -9%;
+    bottom: -15%;
+    width: 26%;
+    height: 37%;
+    background: #f1d86e;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.alumni-ustp-front-photo-frame {
+    position: absolute;
+    left: 6%;
+    top: 13.8%;
+    width: 28.6%;
+    height: 47.4%;
+    border: 1.5px solid #8f9db1;
+    border-radius: 10px;
+    background: #ffffff;
+    overflow: hidden;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.alumni-ustp-front-photo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+}
+
+.alumni-ustp-front-photo-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 26px;
+    font-weight: 800;
+}
+
+.alumni-ustp-front-logo-wrap {
+    position: absolute;
+    right: 5.2%;
+    top: 8.8%;
+    width: 20.5%;
+    aspect-ratio: 1 / 1;
+    background: #ffffff;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.alumni-ustp-front-logo-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.alumni-ustp-front-text-block {
+    position: absolute;
+    left: 30%;
+    right: 6%;
+    bottom: 11%;
+    z-index: 2;
+    text-align: center;
+    color: #4f5763;
+}
+
+.alumni-ustp-front-name {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.35px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.alumni-ustp-front-id-num {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.alumni-ustp-front-member {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.45px;
+    margin-bottom: 3px;
+}
+
+.alumni-ustp-front-batch {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.alumni-ustp-back-accent-tl {
+    position: absolute;
+    left: -8%;
+    top: -13%;
+    width: 21%;
+    height: 33%;
+    background: #b5c1d0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.alumni-ustp-back-accent-br {
+    position: absolute;
+    right: -8%;
+    bottom: 13%;
+    width: 16%;
+    height: 33%;
+    background: #8a95a0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.alumni-ustp-back-header-left {
+    position: absolute;
+    left: 8%;
+    top: 9.2%;
+    z-index: 2;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 2.2px;
+    color: #5a6470;
+}
+
+.alumni-ustp-back-header-right {
+    position: absolute;
+    right: 5%;
+    top: 7.5%;
+    z-index: 2;
+    text-align: right;
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1.38;
+    color: #5f6975;
+}
+
+.alumni-ustp-back-details {
+    position: absolute;
+    left: 8%;
+    right: 34%;
+    top: 20.5%;
+    z-index: 2;
+    color: #55606d;
+    font-size: 9px;
+    line-height: 1.42;
+    font-weight: 700;
+}
+
+.alumni-ustp-back-row {
+    margin-bottom: 2.5px;
+    word-break: break-word;
+}
+
+.alumni-ustp-back-lbl {
+    color: #4b5563;
+}
+
+.alumni-ustp-back-indent {
+    padding-left: 9px;
+}
+
+.alumni-ustp-back-em-lbl {
+    margin-top: 4px;
+    font-size: 7.8px;
+}
+
+.alumni-ustp-back-em-val {
+    padding-left: 9px;
+    font-size: 9px;
+}
+
+.alumni-ustp-back-sig-block {
+    position: absolute;
+    right: 5.5%;
+    bottom: 8.5%;
+    width: 33%;
+    z-index: 2;
+    text-align: center;
+    color: #4f5966;
+}
+
+.alumni-ustp-back-sig-svg {
+    width: 90px;
+    height: 34px;
+    display: block;
+    margin: 0 auto 2px auto;
+}
+
+.alumni-ustp-back-sig-name {
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.alumni-ustp-back-sig-title {
+    font-size: 6.8px;
+    font-weight: 700;
+    margin-top: 1px;
+}
+
+.alumni-my-id-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 22px;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+}
+
+.alumni-my-id-close-btn {
+    padding: 8px 20px;
+    border-radius: 9px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.alumni-my-id-close-btn:hover {
+    background: #f1f5f9;
+}
+
+/* Mobile (<= 768px): Show ONLY Front initially, tap to 3D flip to Back */
+@media (max-width: 768px) {
+    .alumni-my-id-body {
+        padding: 16px;
+    }
+
+    .alumni-my-id-content {
+        perspective: 1200px;
+        -webkit-perspective: 1200px;
+    }
+
+    .alumni-my-id-stage {
+        display: block;
+        position: relative;
+        width: 100%;
+        max-width: 396px;
+        margin: 0 auto;
+        transform-style: preserve-3d;
+        -webkit-transform-style: preserve-3d;
+        transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .alumni-my-id-stage.is-flipped {
+        transform: rotateY(180deg);
+    }
+
+    .alumni-my-id-face {
+        width: 100%;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+    }
+
+    .alumni-my-id-face--front {
+        position: relative;
+        transform: rotateY(0deg);
+        z-index: 2;
+    }
+
+    .alumni-my-id-face--back {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: rotateY(180deg);
+    }
+
+    .alumni-my-id-mobile-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        margin: 14px auto 0;
+        max-width: 396px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        font-size: 12.5px;
+        font-weight: 600;
+        text-align: center;
+    }
+}

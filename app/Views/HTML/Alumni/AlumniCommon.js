@@ -60,6 +60,10 @@ function getProfileUrl() {
     return alumniUrl('../alumni/profile');
 }
 
+function getMyDigitalIdUrl() {
+    return alumniUrl('../alumni/my-digital-id');
+}
+
 function getUpdateProfileUrl() {
     return alumniUrl('../alumni/update');
 }
@@ -301,6 +305,290 @@ function injectAlumniUser(user) {
     setupSidebarMenu();
     setupProfileDropdown();
 }
+
+/* ==========================================================================
+   Alumni Side - View My Alumni Digital ID Modal (Desktop Dual + Mobile Flip)
+   ========================================================================== */
+function ensureMyAlumniDigitalIdModal() {
+    let modal = document.getElementById('myAlumniDigitalIdModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'myAlumniDigitalIdModal';
+    modal.className = 'alumni-my-id-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'myAlumniDigitalIdTitle');
+    modal.hidden = true;
+
+    modal.innerHTML = `
+        <div class="alumni-my-id-dialog">
+            <div class="alumni-my-id-header">
+                <div>
+                    <h3 id="myAlumniDigitalIdTitle">My Alumni Digital ID</h3>
+                    <p id="myAlumniDigitalIdSubtitle">Official USTP Alumni Association Digital Identification</p>
+                </div>
+                <button type="button" class="alumni-my-id-close-icon" onclick="closeMyAlumniDigitalIdModal()" aria-label="Close Digital ID">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="alumni-my-id-body">
+                <div id="myAlumniIdLoading" class="alumni-my-id-state" hidden>
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                    <span>Loading your Alumni Digital ID...</span>
+                </div>
+                <div id="myAlumniIdUnavailable" class="alumni-my-id-unavailable" hidden>
+                    <i class="fas fa-id-card"></i>
+                    <h4>Digital ID Not Yet Available</h4>
+                    <p id="myAlumniIdUnavailableMsg">Your Digital ID is not yet available. Please contact the Alumni Office.</p>
+                </div>
+
+                <div id="myAlumniIdContent" class="alumni-my-id-content" hidden>
+                    <div id="myAlumniIdStage" class="alumni-my-id-stage" tabindex="0" role="button" aria-label="Alumni Digital ID Card (tap to flip on mobile)">
+                        <!-- FRONT SIDE -->
+                        <div class="alumni-my-id-face alumni-my-id-face--front">
+                            <div class="alumni-my-id-side-label">
+                                <span class="alumni-my-id-side-pill">FRONT SIDE</span>
+                            </div>
+                            <div class="alumni-ustp-card alumni-ustp-front">
+                                <div class="alumni-ustp-front-blob-bl" aria-hidden="true"></div>
+                                <div class="alumni-ustp-front-dot-yellow" aria-hidden="true"></div>
+                                <div class="alumni-ustp-front-dot-slate" aria-hidden="true"></div>
+                                <div class="alumni-ustp-front-slate-shape" aria-hidden="true"></div>
+                                <div class="alumni-ustp-front-corner-br" aria-hidden="true"></div>
+
+                                <div class="alumni-ustp-front-photo-frame">
+                                    <img id="myIdPhotoImg" class="alumni-ustp-front-photo-img" src="" alt="Alumni Photograph" hidden>
+                                    <div id="myIdAvatarFallback" class="alumni-ustp-front-photo-fallback">GV</div>
+                                </div>
+
+                                <div class="alumni-ustp-front-logo-wrap">
+                                    <img id="myIdOfficialLogo" src="../images/ustp-alumni-logo.jpg" alt="USTP Alumni Association Claveria Campus Logo">
+                                </div>
+
+                                <div class="alumni-ustp-front-text-block">
+                                    <div class="alumni-ustp-front-name" id="myIdFullName">—</div>
+                                    <div class="alumni-ustp-front-id-num" id="myIdNumber">—</div>
+                                    <div class="alumni-ustp-front-member">LIFETIME MEMBER</div>
+                                    <div class="alumni-ustp-front-batch" id="myIdBatch">BATCH —</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BACK SIDE -->
+                        <div class="alumni-my-id-face alumni-my-id-face--back">
+                            <div class="alumni-my-id-side-label">
+                                <span class="alumni-my-id-side-pill is-back">BACK SIDE</span>
+                            </div>
+                            <div class="alumni-ustp-card alumni-ustp-back">
+                                <div class="alumni-ustp-back-accent-tl" aria-hidden="true"></div>
+                                <div class="alumni-ustp-back-accent-br" aria-hidden="true"></div>
+
+                                <div class="alumni-ustp-back-header-left">PERSONAL DETAILS</div>
+                                <div class="alumni-ustp-back-header-right">
+                                    THE BEARER WHOSE PICTURE APPEARS HEREIN<br>
+                                    IS A BONA FIDE MEMBER OF USTPAA-CLAVERIA
+                                </div>
+
+                                <div class="alumni-ustp-back-details">
+                                    <div class="alumni-ustp-back-row"><span class="alumni-ustp-back-lbl">SEX:</span> <span id="myIdSex">—</span></div>
+                                    <div class="alumni-ustp-back-row"><span class="alumni-ustp-back-lbl">BIRTHDATE:</span> <span id="myIdBirthdate">—</span></div>
+                                    <div class="alumni-ustp-back-row"><span class="alumni-ustp-back-lbl">DEGREE/PROGRAM:</span> <span id="myIdCourse">—</span></div>
+                                    <div class="alumni-ustp-back-row"><span class="alumni-ustp-back-lbl">CONTACT NUMBER:</span> <span id="myIdContact">—</span></div>
+                                    <div class="alumni-ustp-back-row"><span class="alumni-ustp-back-lbl">HOME ADDRESS:</span></div>
+                                    <div class="alumni-ustp-back-row alumni-ustp-back-indent" id="myIdAddress">—</div>
+                                    <div class="alumni-ustp-back-row alumni-ustp-back-em-lbl">IN CASE OF EMERGENCY, PLEASE CONTACT:</div>
+                                    <div class="alumni-ustp-back-row alumni-ustp-back-em-val" id="myIdEmergencyName">—</div>
+                                    <div class="alumni-ustp-back-row alumni-ustp-back-em-val" id="myIdEmergencyNumber">—</div>
+                                </div>
+
+                                <div class="alumni-ustp-back-sig-block">
+                                    <svg class="alumni-ustp-back-sig-svg" viewBox="0 0 140 52" aria-hidden="true">
+                                        <path d="M22,38 C28,12 42,6 44,18 C46,28 32,36 30,26 C28,18 46,16 56,14 C54,28 50,42 54,44 C58,46 66,22 72,20 C76,18 70,36 78,34 C84,32 90,22 96,24 C100,25 94,35 104,33 C112,31 118,27 128,26" fill="none" stroke="#3f4650" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M40,42 C62,38 88,36 118,39" fill="none" stroke="#3f4650" stroke-width="1.3" stroke-linecap="round"/>
+                                    </svg>
+                                    <div class="alumni-ustp-back-sig-name">GERUM O. SALATAN</div>
+                                    <div class="alumni-ustp-back-sig-title">USTPAA-CLAVERIA PRESIDENT</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alumni-my-id-mobile-hint">
+                        <i class="fas fa-rotate" aria-hidden="true"></i>
+                        <span id="myAlumniIdFlipHintText">Tap your ID to view the back.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="alumni-my-id-footer">
+                <button type="button" class="alumni-my-id-close-btn" onclick="closeMyAlumniDigitalIdModal()">Close</button>
+            </div>
+        </div>
+    `;
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeMyAlumniDigitalIdModal();
+        }
+    });
+
+    const stage = modal.querySelector('#myAlumniIdStage');
+    if (stage) {
+        stage.addEventListener('click', () => {
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                toggleMyAlumniIdFlip();
+            }
+        });
+        stage.addEventListener('keydown', (event) => {
+            if ((event.key === 'Enter' || event.key === ' ') && window.matchMedia('(max-width: 768px)').matches) {
+                event.preventDefault();
+                toggleMyAlumniIdFlip();
+            }
+        });
+    }
+
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function toggleMyAlumniIdFlip(forceFlipped) {
+    const stage = document.getElementById('myAlumniIdStage');
+    const hintText = document.getElementById('myAlumniIdFlipHintText');
+    if (!stage) return;
+
+    const isFlipped = typeof forceFlipped === 'boolean'
+        ? forceFlipped
+        : !stage.classList.contains('is-flipped');
+
+    stage.classList.toggle('is-flipped', isFlipped);
+    if (hintText) {
+        hintText.textContent = isFlipped
+            ? 'Tap your ID to view the front.'
+            : 'Tap your ID to view the back.';
+    }
+}
+
+async function openMyAlumniDigitalIdModal() {
+    const modal = ensureMyAlumniDigitalIdModal();
+    const loadingEl = document.getElementById('myAlumniIdLoading');
+    const unavailableEl = document.getElementById('myAlumniIdUnavailable');
+    const unavailableMsg = document.getElementById('myAlumniIdUnavailableMsg');
+    const contentEl = document.getElementById('myAlumniIdContent');
+
+    toggleMyAlumniIdFlip(false);
+    if (unavailableEl) unavailableEl.hidden = true;
+    if (contentEl) contentEl.hidden = true;
+    if (loadingEl) loadingEl.hidden = false;
+
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    try {
+        const res = await fetch(getMyDigitalIdUrl(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+        });
+        const payload = await res.json().catch(() => ({}));
+
+        if (loadingEl) loadingEl.hidden = true;
+
+        if (!res.ok || !payload.success) {
+            if (unavailableMsg) {
+                unavailableMsg.textContent = payload.message || 'Unable to load your Digital ID right now. Please try again.';
+            }
+            if (unavailableEl) unavailableEl.hidden = false;
+            return;
+        }
+
+        if (payload.available !== true || !payload.alumni) {
+            if (unavailableMsg) {
+                unavailableMsg.textContent = payload.message || 'Your Digital ID is not yet available. Please contact the Alumni Office.';
+            }
+            if (unavailableEl) unavailableEl.hidden = false;
+            return;
+        }
+
+        populateMyAlumniDigitalId(payload.alumni);
+        if (contentEl) contentEl.hidden = false;
+    } catch (err) {
+        if (loadingEl) loadingEl.hidden = true;
+        if (unavailableMsg) {
+            unavailableMsg.textContent = 'Unable to load your Digital ID right now. Please try again.';
+        }
+        if (unavailableEl) unavailableEl.hidden = false;
+    }
+}
+
+function populateMyAlumniDigitalId(data) {
+    const setTxt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+
+    const fullName = String(data.full_name || '').trim() || 'ALUMNI MEMBER';
+    const alumniId = String(data.alumni_id || '').trim() || '—';
+    const batchYear = String(data.graduation_year || '').trim() || '—';
+    const initials = String(data.initials || 'GV').trim() || 'GV';
+
+    setTxt('myAlumniDigitalIdSubtitle', `${fullName} · ID: ${alumniId}`);
+    setTxt('myIdFullName', fullName.toUpperCase());
+    setTxt('myIdNumber', alumniId);
+    setTxt('myIdBatch', `BATCH ${batchYear}`);
+    setTxt('myIdAvatarFallback', initials);
+
+    const logoEl = document.getElementById('myIdOfficialLogo');
+    if (logoEl && data.logo_url) {
+        logoEl.src = data.logo_url;
+    }
+
+    const photoImg = document.getElementById('myIdPhotoImg');
+    const avatarFallback = document.getElementById('myIdAvatarFallback');
+    if (photoImg && avatarFallback) {
+        const photoUrl = String(data.profile_picture_url || '').trim();
+        if (photoUrl) {
+            photoImg.onload = () => {
+                photoImg.hidden = false;
+                avatarFallback.hidden = true;
+            };
+            photoImg.onerror = () => {
+                photoImg.hidden = true;
+                avatarFallback.hidden = false;
+            };
+            photoImg.src = photoUrl;
+        } else {
+            photoImg.removeAttribute('src');
+            photoImg.hidden = true;
+            avatarFallback.hidden = false;
+        }
+    }
+
+    setTxt('myIdSex', String(data.sex || '').trim() || '—');
+    setTxt('myIdBirthdate', String(data.birthdate || '').trim() || '—');
+    setTxt('myIdCourse', String(data.course || '').trim().toUpperCase() || '—');
+    setTxt('myIdContact', String(data.contact_number || '').trim() || '—');
+    setTxt('myIdAddress', String(data.home_address || '').trim() || '—');
+    setTxt('myIdEmergencyName', String(data.emergency_contact_name || '').trim() || '—');
+    setTxt('myIdEmergencyNumber', String(data.emergency_contact_number || '').trim() || '—');
+}
+
+function closeMyAlumniDigitalIdModal() {
+    const modal = document.getElementById('myAlumniDigitalIdModal');
+    if (modal) {
+        modal.hidden = true;
+    }
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('myAlumniDigitalIdModal');
+        if (modal && !modal.hidden) {
+            closeMyAlumniDigitalIdModal();
+        }
+    }
+});
 
 function closeSidebarMenu() {
     const shell = document.querySelector('.alumni-shell');

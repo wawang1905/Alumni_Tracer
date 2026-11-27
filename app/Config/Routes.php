@@ -210,6 +210,7 @@ $routes->group('', ['filter' => 'role:alumni'], static function (RouteCollection
     $routes->get('alumni/SurveyRespond.html', 'AlumniController::surveyRespondPage');
     $routes->get('alumni/Profile.html', 'AlumniController::profilePage');
     $routes->get('alumni/profile', 'AlumniController::profile');
+    $routes->get('alumni/my-digital-id', 'AlumniController::myDigitalId');
     $routes->post('alumni/update', 'AlumniController::update');
     $routes->post('alumni/complete-personal-info', 'AlumniController::completePersonalInfo');
     $routes->post('alumni/profile-picture', 'AlumniController::uploadProfilePicture');
