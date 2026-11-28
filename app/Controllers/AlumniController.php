@@ -439,6 +439,131 @@ class AlumniController extends BaseController
         ]);
     }
 
+    public function batchCatalog(int $graduationYear): ResponseInterface
+    {
+        if (! $this->isStaffAuthorized()) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Unauthorized.']);
+        }
+
+        $scope = (new \App\Services\AssignmentScopeService())->resolveCurrentUserScope();
+        if ($scope === null || ($scope['valid'] ?? false) !== true || ($scope['role'] ?? '') !== 'head_admin') {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden.']);
+        }
+
+        $campusId = (int) $scope['campus_id'];
+        $this->ensureMultiCampusBatchSchema();
+        $db = \Config\Database::connect();
+
+        try {
+            $collegeRows = $db->table('colleges')
+                ->select('"College_ID", "College_Name", "Abbreviation"')
+                ->where('"Campus_ID"', $campusId)
+                ->orderBy('"College_Name"', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            $deptRows = $db->table('departments')
+                ->select('"Department_ID", "College_ID", "Department_Name", "Abbreviation"')
+                ->where('"Campus_ID"', $campusId)
+                ->orderBy('"Department_Name"', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            $linkedCollegeIds = [];
+            $bcRows = $db->table('alumni_batch_colleges')
+                ->select('"College_ID"')
+                ->where('"Campus_ID"', $campusId)
+                ->where('"GraduationYear"', $graduationYear)
+                ->get()
+                ->getResultArray();
+            foreach ($bcRows as $r) {
+                $cid = (int) ($r['College_ID'] ?? 0);
+                if ($cid > 0) {
+                    $linkedCollegeIds[$cid] = true;
+                }
+            }
+
+            $linkedDeptIds = [];
+            $bdRows = $db->table('alumni_batch_departments abd')
+                ->select('abd."College_ID", abd."Department_ID"')
+                ->join('colleges c', 'c."College_ID" = abd."College_ID"', 'inner')
+                ->where('c."Campus_ID"', $campusId)
+                ->where('abd."GraduationYear"', $graduationYear)
+                ->get()
+                ->getResultArray();
+            foreach ($bdRows as $r) {
+                $cid = (int) ($r['College_ID'] ?? 0);
+                $did = (int) ($r['Department_ID'] ?? 0);
+                if ($cid > 0) {
+                    $linkedCollegeIds[$cid] = true;
+                }
+                if ($did > 0) {
+                    $linkedDeptIds[$did] = true;
+                }
+            }
+
+            $alumniRows = $db->table('alumni a')
+                ->select('DISTINCT a."College_ID", a."Department_ID"', false)
+                ->join('colleges c', 'c."College_ID" = a."College_ID"', 'inner')
+                ->where('c."Campus_ID"', $campusId)
+                ->where('TRIM(a."GraduationYear"::text)', (string) $graduationYear)
+                ->get()
+                ->getResultArray();
+            foreach ($alumniRows as $r) {
+                $cid = (int) ($r['College_ID'] ?? 0);
+                $did = (int) ($r['Department_ID'] ?? 0);
+                if ($cid > 0) {
+                    $linkedCollegeIds[$cid] = true;
+                }
+                if ($did > 0) {
+                    $linkedDeptIds[$did] = true;
+                }
+            }
+
+            $deptsByCollege = [];
+            foreach ($deptRows as $d) {
+                $cid = (int) ($d['College_ID'] ?? 0);
+                $did = (int) ($d['Department_ID'] ?? 0);
+                if ($cid <= 0 || $did <= 0) {
+                    continue;
+                }
+                $deptsByCollege[$cid][] = [
+                    'department_id'   => $did,
+                    'department_name' => trim((string) ($d['Department_Name'] ?? '')),
+                    'abbreviation'    => trim((string) ($d['Abbreviation'] ?? '')),
+                    'in_batch'        => isset($linkedDeptIds[$did]),
+                ];
+            }
+
+            $catalog = [];
+            foreach ($collegeRows as $c) {
+                $cid = (int) ($c['College_ID'] ?? 0);
+                if ($cid <= 0) {
+                    continue;
+                }
+                $catalog[] = [
+                    'college_id'   => $cid,
+                    'college_name' => trim((string) ($c['College_Name'] ?? '')),
+                    'abbreviation' => trim((string) ($c['Abbreviation'] ?? '')),
+                    'in_batch'     => isset($linkedCollegeIds[$cid]),
+                    'departments'  => $deptsByCollege[$cid] ?? [],
+                ];
+            }
+
+            return $this->response->setJSON([
+                'success'         => true,
+                'graduation_year' => $graduationYear,
+                'colleges'        => $catalog,
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'AlumniController::batchCatalog failed: {msg}', ['msg' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Unable to load available colleges and departments.',
+            ]);
+        }
+    }
+
     public function addBatchCollege(int $graduationYear): ResponseInterface
     {
         if (! $this->isStaffAuthorized()) {
@@ -458,6 +583,10 @@ class AlumniController extends BaseController
 
         $collegeName = trim((string) ($payload['college_name'] ?? $payload['collegeName'] ?? ''));
         $abbreviation = trim((string) ($payload['abbreviation'] ?? ''));
+        $rawDeptIds = $payload['department_ids'] ?? $payload['departmentIds'] ?? [];
+        $requestedDeptIds = is_array($rawDeptIds)
+            ? array_values(array_unique(array_filter(array_map('intval', $rawDeptIds), static fn (int $id): bool => $id > 0)))
+            : [];
 
         if ($collegeName === '') {
             return $this->response->setStatusCode(422)->setJSON(['success' => false, 'message' => 'College name is required.']);
@@ -469,6 +598,7 @@ class AlumniController extends BaseController
         $this->ensureMultiCampusBatchSchema();
         $db = \Config\Database::connect();
         $collegeModel = new \App\Models\CollegeModel();
+        $deptModel = new \App\Models\DepartmentModel();
         $importSvc = new \App\Services\BatchStructureImportService();
 
         $db->transBegin();
@@ -478,6 +608,7 @@ class AlumniController extends BaseController
                 ->where('LOWER("College_Name")', strtolower($collegeName))
                 ->first();
 
+            $linkedDeptCount = 0;
             if (is_array($existing)) {
                 $collegeId = (int) $existing['College_ID'];
                 $alreadyLinked = $db->table('alumni_batch_colleges')
@@ -486,15 +617,53 @@ class AlumniController extends BaseController
                     ->where('"College_ID"', $collegeId)
                     ->countAllResults() > 0;
 
-                if ($alreadyLinked) {
+                // Validate requested existing departments strictly under this campus & college
+                $validDeptIdsToLink = [];
+                if ($requestedDeptIds !== []) {
+                    $validDepts = $deptModel
+                        ->where('Campus_ID', $campusId)
+                        ->where('College_ID', $collegeId)
+                        ->whereIn('Department_ID', $requestedDeptIds)
+                        ->findAll();
+                    foreach ($validDepts as $vd) {
+                        $did = (int) ($vd['Department_ID'] ?? 0);
+                        if ($did <= 0) {
+                            continue;
+                        }
+                        $deptAlreadyLinked = $db->table('alumni_batch_departments')
+                            ->where('"GraduationYear"', $graduationYear)
+                            ->where('"Department_ID"', $did)
+                            ->countAllResults() > 0;
+                        if (! $deptAlreadyLinked) {
+                            $validDeptIdsToLink[] = $did;
+                        }
+                    }
+                }
+
+                if ($alreadyLinked && $validDeptIdsToLink === []) {
                     $db->transRollback();
                     return $this->response->setStatusCode(409)->setJSON([
                         'success' => false,
                         'message' => 'This college is already added to Batch ' . $graduationYear . '.',
                     ]);
                 }
-                $importSvc->linkBatchCollege($db, $campusId, $graduationYear, $collegeId);
-                $message = 'Existing campus college linked to Batch ' . $graduationYear . '.';
+
+                if (! $alreadyLinked) {
+                    $importSvc->linkBatchCollege($db, $campusId, $graduationYear, $collegeId);
+                }
+
+                foreach ($validDeptIdsToLink as $did) {
+                    $importSvc->linkBatchDepartment($db, $graduationYear, $collegeId, $did);
+                    $linkedDeptCount++;
+                }
+
+                if ($alreadyLinked && $linkedDeptCount > 0) {
+                    $message = $linkedDeptCount . ' department(s) linked to ' . $existing['College_Name'] . ' in Batch ' . $graduationYear . '.';
+                } elseif ($linkedDeptCount > 0) {
+                    $message = 'Existing campus college and ' . $linkedDeptCount . ' department(s) linked to Batch ' . $graduationYear . '.';
+                } else {
+                    $message = 'Existing campus college linked to Batch ' . $graduationYear . '.';
+                }
             } else {
                 $collegeId = (int) $collegeModel->insert([
                     'Campus_ID'    => $campusId,
@@ -507,9 +676,10 @@ class AlumniController extends BaseController
 
             $db->transCommit();
             return $this->response->setJSON([
-                'success'    => true,
-                'message'    => $message,
-                'college_id' => $collegeId,
+                'success'                  => true,
+                'message'                  => $message,
+                'college_id'               => $collegeId,
+                'linked_departments_count' => $linkedDeptCount,
             ]);
         } catch (\Throwable $e) {
             $db->transRollback();

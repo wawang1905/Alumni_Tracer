@@ -242,11 +242,11 @@
 
     <!-- Add Department Manually Under Selected College Modal -->
     <div id="addBatchDepartmentModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addBatchDepartmentModalTitle" onclick="if (event.target === this) closeAddBatchDepartmentModal();">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 560px; width: min(560px, 100%);">
             <div class="cm-header">
                 <div class="cm-header-text">
                     <h3 id="addBatchDepartmentModalTitle">Add Department</h3>
-                    <p class="cm-subtitle">Create a department directly under the currently selected college.</p>
+                    <p class="cm-subtitle">Select an existing department under this college, or enter a new department below.</p>
                 </div>
                 <button type="button" class="cm-close" onclick="closeAddBatchDepartmentModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
             </div>
@@ -255,9 +255,18 @@
                     <label class="cm-label" for="batchManualDeptCollege">Selected College</label>
                     <input type="text" id="batchManualDeptCollege" readonly>
                 </div>
+                <div class="batch-catalog-panel" id="batchCatalogSingleCollegeDeptsSection">
+                    <div class="batch-catalog-header">
+                        <span class="batch-catalog-title"><i class="fas fa-network-wired"></i> Available Departments under this College</span>
+                        <span class="batch-catalog-hint">Click to auto-fill</span>
+                    </div>
+                    <div class="batch-catalog-list" id="batchCatalogSingleCollegeDeptsList">
+                        <div class="batch-catalog-empty">Loading available departments...</div>
+                    </div>
+                </div>
                 <div class="cm-field">
                     <label class="cm-label" for="batchManualDeptName">Department Name <span class="cm-required">*</span></label>
-                    <input type="text" id="batchManualDeptName" placeholder="e.g. BS Information Technology" maxlength="150">
+                    <input type="text" id="batchManualDeptName" placeholder="e.g. BS Information Technology" maxlength="150" oninput="handleManualDeptInputChange()">
                 </div>
                 <div class="cm-field">
                     <label class="cm-label" for="batchManualDeptAbbr">Department Abbreviation (Optional)</label>

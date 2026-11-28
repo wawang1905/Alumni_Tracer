@@ -131,6 +131,7 @@ $routes->group('', ['filter' => 'role:staff'], static function (RouteCollection 
     $routes->get('alumni/batches/colleges-template', 'AlumniController::downloadBatchCollegesTemplate');
     $routes->get('alumni/batches/departments-template', 'AlumniController::downloadBatchDepartmentsTemplate');
     $routes->get('alumni/batches/(:num)/structure', 'AlumniController::batchStructure/$1');
+    $routes->get('alumni/batches/(:num)/catalog', 'AlumniController::batchCatalog/$1');
     $routes->post('alumni/batches/(:num)/colleges', 'AlumniController::addBatchCollege/$1');
     $routes->post('alumni/batches/(:num)/colleges/import/preview', 'AlumniController::previewBatchCollegesImport/$1');
     $routes->post('alumni/batches/(:num)/colleges/import', 'AlumniController::importBatchColleges/$1');

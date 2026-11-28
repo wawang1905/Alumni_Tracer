@@ -9425,16 +9425,178 @@ async function refreshBatchDetailsWithStructure() {
     }
 }
 
+// Batch College & Department Catalog State
+let batchCatalogCache = [];
+let selectedBatchCatalogCollegeId = null;
+
+async function fetchBatchCatalog(batchYear) {
+    if (!batchYear) return [];
+    const res = await fetch(resolveStaffAppUrl(`alumni/batches/${encodeURIComponent(batchYear)}/catalog`), {
+        method: 'GET',
+        credentials: 'same-origin'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.colleges)) {
+        return [];
+    }
+    batchCatalogCache = data.colleges;
+    return batchCatalogCache;
+}
+
+function renderBatchCatalogColleges() {
+    const listEl = document.getElementById('batchCatalogCollegesList');
+    if (!listEl) return;
+
+    if (!Array.isArray(batchCatalogCache) || batchCatalogCache.length === 0) {
+        listEl.innerHTML = '<div class="batch-catalog-empty">No existing colleges found in your campus yet. Enter a new college below.</div>';
+        return;
+    }
+
+    listEl.innerHTML = batchCatalogCache.map(col => {
+        const isSelected = Number(selectedBatchCatalogCollegeId) === Number(col.college_id);
+        const deptCount = Array.isArray(col.departments) ? col.departments.length : 0;
+        const unlinkedCount = Array.isArray(col.departments) ? col.departments.filter(d => !d.in_batch).length : 0;
+        const badgeHtml = col.in_batch
+            ? `<span class="batch-catalog-badge">${unlinkedCount > 0 ? 'In Batch · +' + unlinkedCount + ' depts' : 'In Batch'}</span>`
+            : `<span class="batch-catalog-count">${deptCount} dept${deptCount === 1 ? '' : 's'}</span>`;
+        const abbrHtml = col.abbreviation ? `<span class="batch-catalog-abbr">${escapeHtml(col.abbreviation)}</span>` : '';
+        return `
+            <button type="button"
+                    class="batch-catalog-item${isSelected ? ' is-selected' : ''}${col.in_batch ? ' is-in-batch' : ''}"
+                    onclick="selectBatchCatalogCollege(${Number(col.college_id)})">
+                <span>${escapeHtml(col.college_name)}</span>
+                ${abbrHtml}
+                ${badgeHtml}
+            </button>
+        `;
+    }).join('');
+}
+
+function selectBatchCatalogCollege(collegeId) {
+    const col = batchCatalogCache.find(c => Number(c.college_id) === Number(collegeId));
+    if (!col) return;
+
+    selectedBatchCatalogCollegeId = Number(col.college_id);
+    const nameEl = document.getElementById('batchManualCollegeName');
+    const abbrEl = document.getElementById('batchManualCollegeAbbr');
+    if (nameEl) nameEl.value = col.college_name || '';
+    if (abbrEl) abbrEl.value = col.abbreviation || '';
+
+    renderBatchCatalogColleges();
+    renderBatchCatalogDepartmentsForCollege(col);
+}
+
+function renderBatchCatalogDepartmentsForCollege(col) {
+    const sectionEl = document.getElementById('batchCatalogDeptsSection');
+    const labelEl = document.getElementById('batchCatalogSelectedCollegeLabel');
+    const listEl = document.getElementById('batchCatalogDeptsList');
+    const toggleBtn = document.getElementById('batchCatalogToggleDeptsBtn');
+    if (!sectionEl || !listEl) return;
+
+    const depts = Array.isArray(col?.departments) ? col.departments : [];
+    if (labelEl) labelEl.textContent = col?.college_name || 'Selected College';
+
+    if (depts.length === 0) {
+        listEl.innerHTML = '<div class="batch-catalog-empty">No existing departments under this college yet.</div>';
+        if (toggleBtn) toggleBtn.hidden = true;
+        sectionEl.hidden = false;
+        return;
+    }
+
+    const selectableCount = depts.filter(d => !d.in_batch).length;
+    if (toggleBtn) {
+        toggleBtn.hidden = selectableCount === 0;
+        toggleBtn.textContent = 'Deselect All';
+    }
+
+    listEl.innerHTML = depts.map(d => {
+        const abbrHtml = d.abbreviation ? `<span class="batch-catalog-abbr">${escapeHtml(d.abbreviation)}</span>` : '';
+        if (d.in_batch) {
+            return `
+                <label class="batch-catalog-dept-row is-disabled">
+                    <input type="checkbox" checked disabled>
+                    <span>${escapeHtml(d.department_name)}</span>
+                    ${abbrHtml}
+                    <span class="batch-catalog-badge">In Batch</span>
+                </label>
+            `;
+        }
+        return `
+            <label class="batch-catalog-dept-row">
+                <input type="checkbox" class="batch-catalog-dept-checkbox" value="${Number(d.department_id)}" checked onchange="updateBatchCatalogDeptsToggleLabel()">
+                <span>${escapeHtml(d.department_name)}</span>
+                ${abbrHtml}
+            </label>
+        `;
+    }).join('');
+    sectionEl.hidden = false;
+}
+
+function updateBatchCatalogDeptsToggleLabel() {
+    const toggleBtn = document.getElementById('batchCatalogToggleDeptsBtn');
+    if (!toggleBtn) return;
+    const boxes = Array.from(document.querySelectorAll('#batchCatalogDeptsList .batch-catalog-dept-checkbox'));
+    if (boxes.length === 0) {
+        toggleBtn.hidden = true;
+        return;
+    }
+    const allChecked = boxes.every(b => b.checked);
+    toggleBtn.textContent = allChecked ? 'Deselect All' : 'Select All';
+}
+
+function toggleAllBatchCatalogDepts() {
+    const boxes = Array.from(document.querySelectorAll('#batchCatalogDeptsList .batch-catalog-dept-checkbox'));
+    if (boxes.length === 0) return;
+    const shouldCheck = !boxes.every(b => b.checked);
+    boxes.forEach(b => { b.checked = shouldCheck; });
+    updateBatchCatalogDeptsToggleLabel();
+}
+
+function handleManualCollegeInputChange() {
+    const nameEl = document.getElementById('batchManualCollegeName');
+    const typed = (nameEl ? nameEl.value.trim().toLowerCase() : '');
+    const matched = batchCatalogCache.find(c => (c.college_name || '').trim().toLowerCase() === typed);
+    if (matched) {
+        if (Number(selectedBatchCatalogCollegeId) !== Number(matched.college_id)) {
+            selectedBatchCatalogCollegeId = Number(matched.college_id);
+            const abbrEl = document.getElementById('batchManualCollegeAbbr');
+            if (abbrEl && !abbrEl.value.trim() && matched.abbreviation) {
+                abbrEl.value = matched.abbreviation;
+            }
+            renderBatchCatalogColleges();
+            renderBatchCatalogDepartmentsForCollege(matched);
+        }
+    } else if (selectedBatchCatalogCollegeId !== null) {
+        selectedBatchCatalogCollegeId = null;
+        renderBatchCatalogColleges();
+        const deptSection = document.getElementById('batchCatalogDeptsSection');
+        if (deptSection) deptSection.hidden = true;
+    }
+}
+
 // Manual Add College to Batch
-function openAddBatchCollegeModal() {
+async function openAddBatchCollegeModal() {
     const modal = document.getElementById('addBatchCollegeModal');
     if (!modal) return;
     const nameEl = document.getElementById('batchManualCollegeName');
     const abbrEl = document.getElementById('batchManualCollegeAbbr');
+    const deptSection = document.getElementById('batchCatalogDeptsSection');
+    const listEl = document.getElementById('batchCatalogCollegesList');
+    selectedBatchCatalogCollegeId = null;
     if (nameEl) nameEl.value = '';
     if (abbrEl) abbrEl.value = '';
+    if (deptSection) deptSection.hidden = true;
+    if (listEl) listEl.innerHTML = '<div class="batch-catalog-empty">Loading available colleges...</div>';
     modal.style.display = 'flex';
     nameEl?.focus();
+
+    try {
+        await fetchBatchCatalog(selectedAlumniBatchYear);
+        renderBatchCatalogColleges();
+    } catch (e) {
+        if (listEl) listEl.innerHTML = '<div class="batch-catalog-empty">Unable to load existing colleges. You can still type one below.</div>';
+    }
 }
 
 function closeAddBatchCollegeModal() {
@@ -9450,16 +9612,25 @@ async function submitAddBatchCollege() {
     const abbreviation = abbrEl ? abbrEl.value.trim() : '';
 
     if (!collegeName) {
-        alert('Please enter a college name.');
+        alert('Please select or enter a college name.');
         nameEl?.focus();
         return;
     }
 
+    const selectedDeptIds = selectedBatchCatalogCollegeId
+        ? Array.from(document.querySelectorAll('#batchCatalogDeptsList .batch-catalog-dept-checkbox:checked'))
+            .map(cb => Number(cb.value))
+            .filter(id => Number.isInteger(id) && id > 0)
+        : [];
+
     const ac = await ensureStaffActionConfirm();
     if (ac) {
+        const deptNote = selectedDeptIds.length > 0
+            ? ` along with ${selectedDeptIds.length} selected department${selectedDeptIds.length === 1 ? '' : 's'}`
+            : '';
         const confirmed = await ac.basic({
             title: 'Add College to Batch?',
-            message: `Add "${collegeName}" to Batch ${selectedAlumniBatchYear} without requiring departments yet?`,
+            message: `Add "${collegeName}"${deptNote} to Batch ${selectedAlumniBatchYear}?`,
             record: abbreviation ? `${collegeName} (${abbreviation})` : collegeName,
             confirmText: 'Add College',
             icon: 'fa-building-columns'
@@ -9473,7 +9644,11 @@ async function submitAddBatchCollege() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ college_name: collegeName, abbreviation })
+            body: JSON.stringify({
+                college_name: collegeName,
+                abbreviation,
+                department_ids: selectedDeptIds
+            })
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
@@ -9627,18 +9802,96 @@ async function executeImportBatchColleges() {
     }
 }
 
+let selectedBatchCatalogSingleDeptId = null;
+
+function renderBatchCatalogSingleCollegeDepts(collegeId) {
+    const listEl = document.getElementById('batchCatalogSingleCollegeDeptsList');
+    if (!listEl) return;
+
+    const col = batchCatalogCache.find(c => Number(c.college_id) === Number(collegeId))
+        || batchCatalogCache.find(c => (c.college_name || '').trim().toLowerCase() === (selectedAlumniCollege || '').trim().toLowerCase());
+    const depts = Array.isArray(col?.departments) ? col.departments : [];
+
+    if (depts.length === 0) {
+        listEl.innerHTML = '<div class="batch-catalog-empty">No existing departments found under this college yet. Enter a new department below.</div>';
+        return;
+    }
+
+    listEl.innerHTML = depts.map(d => {
+        const isSelected = Number(selectedBatchCatalogSingleDeptId) === Number(d.department_id);
+        const abbrHtml = d.abbreviation ? `<span class="batch-catalog-abbr">${escapeHtml(d.abbreviation)}</span>` : '';
+        const badgeHtml = d.in_batch ? '<span class="batch-catalog-badge">In Batch</span>' : '';
+        return `
+            <button type="button"
+                    class="batch-catalog-item${isSelected ? ' is-selected' : ''}${d.in_batch ? ' is-in-batch' : ''}"
+                    ${d.in_batch ? 'disabled title="Already added to this batch"' : `onclick="selectBatchCatalogSingleDept(${Number(d.department_id)})"`}>
+                <span>${escapeHtml(d.department_name)}</span>
+                ${abbrHtml}
+                ${badgeHtml}
+            </button>
+        `;
+    }).join('');
+}
+
+function selectBatchCatalogSingleDept(deptId) {
+    const colObj = getSelectedCollegeStructureObj();
+    const col = batchCatalogCache.find(c => Number(c.college_id) === Number(colObj?.college_id))
+        || batchCatalogCache.find(c => (c.college_name || '').trim().toLowerCase() === (selectedAlumniCollege || '').trim().toLowerCase());
+    const dept = (col?.departments || []).find(d => Number(d.department_id) === Number(deptId));
+    if (!dept || dept.in_batch) return;
+
+    selectedBatchCatalogSingleDeptId = Number(dept.department_id);
+    const nameEl = document.getElementById('batchManualDeptName');
+    const abbrEl = document.getElementById('batchManualDeptAbbr');
+    if (nameEl) nameEl.value = dept.department_name || '';
+    if (abbrEl) abbrEl.value = dept.abbreviation || '';
+    renderBatchCatalogSingleCollegeDepts(col.college_id);
+}
+
+function handleManualDeptInputChange() {
+    const nameEl = document.getElementById('batchManualDeptName');
+    const typed = (nameEl ? nameEl.value.trim().toLowerCase() : '');
+    const colObj = getSelectedCollegeStructureObj();
+    const col = batchCatalogCache.find(c => Number(c.college_id) === Number(colObj?.college_id))
+        || batchCatalogCache.find(c => (c.college_name || '').trim().toLowerCase() === (selectedAlumniCollege || '').trim().toLowerCase());
+    const matched = (col?.departments || []).find(d => !d.in_batch && (d.department_name || '').trim().toLowerCase() === typed);
+
+    if (matched) {
+        selectedBatchCatalogSingleDeptId = Number(matched.department_id);
+        const abbrEl = document.getElementById('batchManualDeptAbbr');
+        if (abbrEl && !abbrEl.value.trim() && matched.abbreviation) {
+            abbrEl.value = matched.abbreviation;
+        }
+        renderBatchCatalogSingleCollegeDepts(col.college_id);
+    } else if (selectedBatchCatalogSingleDeptId !== null) {
+        selectedBatchCatalogSingleDeptId = null;
+        if (col) renderBatchCatalogSingleCollegeDepts(col.college_id);
+    }
+}
+
 // Manual Add Department under Selected College
-function openAddBatchDepartmentModal() {
+async function openAddBatchDepartmentModal() {
     const modal = document.getElementById('addBatchDepartmentModal');
     if (!modal) return;
     const colInput = document.getElementById('batchManualDeptCollege');
     const nameEl = document.getElementById('batchManualDeptName');
     const abbrEl = document.getElementById('batchManualDeptAbbr');
+    const listEl = document.getElementById('batchCatalogSingleCollegeDeptsList');
+    selectedBatchCatalogSingleDeptId = null;
     if (colInput) colInput.value = selectedAlumniCollege || '';
     if (nameEl) nameEl.value = '';
     if (abbrEl) abbrEl.value = '';
+    if (listEl) listEl.innerHTML = '<div class="batch-catalog-empty">Loading available departments...</div>';
     modal.style.display = 'flex';
     nameEl?.focus();
+
+    const colObj = getSelectedCollegeStructureObj();
+    try {
+        await fetchBatchCatalog(selectedAlumniBatchYear);
+        renderBatchCatalogSingleCollegeDepts(colObj?.college_id);
+    } catch (e) {
+        if (listEl) listEl.innerHTML = '<div class="batch-catalog-empty">Unable to load existing departments. You can still type one below.</div>';
+    }
 }
 
 function closeAddBatchDepartmentModal() {

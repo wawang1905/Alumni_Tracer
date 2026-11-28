@@ -242,18 +242,36 @@
 
     <!-- Add College Manually to Batch Modal -->
     <div id="addBatchCollegeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addBatchCollegeModalTitle" onclick="if (event.target === this) closeAddBatchCollegeModal();">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 600px; width: min(600px, 100%);">
             <div class="cm-header">
                 <div class="cm-header-text">
                     <h3 id="addBatchCollegeModalTitle">Add College to Batch</h3>
-                    <p class="cm-subtitle">Create a college without departments yet. You can add or import departments after opening the college.</p>
+                    <p class="cm-subtitle">Select an existing college (and its departments) from your campus, or enter a new college below.</p>
                 </div>
                 <button type="button" class="cm-close" onclick="closeAddBatchCollegeModal()" aria-label="Close modal"><i class="fas fa-times"></i></button>
             </div>
             <div class="cm-body">
+                <div class="batch-catalog-panel" id="batchCatalogCollegesSection">
+                    <div class="batch-catalog-header">
+                        <span class="batch-catalog-title"><i class="fas fa-building-columns"></i> Available Campus Colleges</span>
+                        <span class="batch-catalog-hint">Click a college to auto-fill</span>
+                    </div>
+                    <div class="batch-catalog-list" id="batchCatalogCollegesList">
+                        <div class="batch-catalog-empty">Loading available colleges...</div>
+                    </div>
+                </div>
+
+                <div class="batch-catalog-panel" id="batchCatalogDeptsSection" hidden>
+                    <div class="batch-catalog-header">
+                        <span class="batch-catalog-title"><i class="fas fa-network-wired"></i> Departments under <span id="batchCatalogSelectedCollegeLabel">Selected College</span></span>
+                        <button type="button" class="batch-catalog-toggle-btn" id="batchCatalogToggleDeptsBtn" onclick="toggleAllBatchCatalogDepts()">Select All</button>
+                    </div>
+                    <div class="batch-catalog-dept-list" id="batchCatalogDeptsList"></div>
+                </div>
+
                 <div class="cm-field">
                     <label class="cm-label" for="batchManualCollegeName">College Name <span class="cm-required">*</span></label>
-                    <input type="text" id="batchManualCollegeName" placeholder="e.g. College of Engineering" maxlength="150">
+                    <input type="text" id="batchManualCollegeName" placeholder="e.g. College of Engineering" maxlength="150" oninput="handleManualCollegeInputChange()">
                 </div>
                 <div class="cm-field">
                     <label class="cm-label" for="batchManualCollegeAbbr">College Abbreviation (Optional)</label>
