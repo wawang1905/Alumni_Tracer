@@ -213,10 +213,7 @@
 <script>
 (function(){
     'use strict';
-    var allAlumni=[],filtered=[],currentPage=1,PAGE_SIZE=10,currentSort='last_name_asc',searchTimer=null,resizeTimer=null,measuredRowHeight=56;
-    var tableCard=document.querySelector('.alumni-table-card');
-    var tableWrap=document.querySelector('.alumni-table-wrap');
-    var tableHead=document.querySelector('#alumniTable thead');
+    var allAlumni=[],filtered=[],currentPage=1,PAGE_SIZE=10,currentSort='last_name_asc',searchTimer=null;
     var tbody=document.getElementById('alumniTableBody');
     var searchInput=document.getElementById('alumniSearchInput');
     var sortSelect=document.getElementById('alumniSortSelect');
@@ -228,37 +225,6 @@
     var overlay=document.getElementById('drawerOverlay');
     var drawer=document.getElementById('alumniDrawer');
     var drawerClose=document.getElementById('drawerCloseBtn');
-
-    function computeDynamicPageSize(){
-        if(!tableCard||!tableWrap) return PAGE_SIZE;
-        var cardHeight=tableCard.clientHeight||0;
-        var pagHeight=(pagination&&pagination.style.display!=='none')?(pagination.offsetHeight||52):52;
-        var headHeight=(tableHead&&tableHead.offsetHeight)?tableHead.offsetHeight:40;
-        var availableBodyHeight=cardHeight-pagHeight-headHeight-2;
-        if(availableBodyHeight<=0) return Math.max(1,PAGE_SIZE);
-
-        var dataRows=tbody?tbody.querySelectorAll('tr[data-id]'):[];
-        if(dataRows.length>0){
-            var totalRowH=0;
-            dataRows.forEach(function(r){totalRowH+=r.getBoundingClientRect().height;});
-            var avgRowH=totalRowH/dataRows.length;
-            if(avgRowH>24) measuredRowHeight=avgRowH;
-        }
-
-        return Math.max(1,Math.floor(availableBodyHeight/measuredRowHeight));
-    }
-
-    function syncPageSizeAndRender(preservePosition){
-        var firstIdx=preservePosition?(currentPage-1)*PAGE_SIZE:0;
-        var nextSize=computeDynamicPageSize();
-        if(nextSize!==PAGE_SIZE){
-            PAGE_SIZE=nextSize;
-            if(preservePosition&&filtered.length>0){
-                currentPage=Math.floor(firstIdx/PAGE_SIZE)+1;
-            }
-            if(filtered.length>0) renderPage(false);
-        }
-    }
 
     async function loadSession(){
         try{
@@ -291,15 +257,14 @@
             currentPage=1;
             deptText.textContent=data.college||'Assigned College';
             countNum.textContent=data.total;
-            PAGE_SIZE=computeDynamicPageSize();
-            renderPage(true);
+            renderPage();
         }catch(e){
             tbody.innerHTML='<tr class="alumni-table-state"><td colspan="7"><div class="state-icon"><i class="fas fa-circle-exclamation"></i></div><strong>Failed to load alumni</strong><span>'+esc(e.message)+'</span></td></tr>';
             countNum.textContent='-';
         }
     }
 
-    function renderPage(allowRecalc){
+    function renderPage(){
         var total=filtered.length;
         var pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
         if(currentPage>pages) currentPage=pages;
@@ -337,12 +302,6 @@
         pagInfo.textContent='Showing '+(start+1)+'-'+end+' of '+total;
         renderPag(pages);
         pagination.style.display='flex';
-
-        if(allowRecalc){
-            requestAnimationFrame(function(){
-                syncPageSizeAndRender(true);
-            });
-        }
     }
 
     function renderPag(pages){
@@ -406,22 +365,6 @@
 
     function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     function cap(s){return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();}
-
-    window.addEventListener('resize',function(){
-        clearTimeout(resizeTimer);
-        resizeTimer=setTimeout(function(){
-            syncPageSizeAndRender(true);
-        },120);
-    });
-
-    if(typeof ResizeObserver==='function'&&tableCard){
-        new ResizeObserver(function(){
-            clearTimeout(resizeTimer);
-            resizeTimer=setTimeout(function(){
-                syncPageSizeAndRender(true);
-            },120);
-        }).observe(tableCard);
-    }
 
     loadSession();
     loadAlumni(currentSort);
