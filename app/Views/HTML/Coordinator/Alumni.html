@@ -17,6 +17,8 @@
         })();
     </script>
     <style>
+        .coordinator-main{display:flex;flex-direction:column;overflow:hidden}
+        .topbar,.alumni-toolbar{flex-shrink:0}
         .alumni-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
         .alumni-search-wrap{position:relative;flex:1;min-width:200px;max-width:360px}
         .alumni-search-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8fa5bb;font-size:13px;pointer-events:none}
@@ -26,8 +28,8 @@
         .dept-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,rgba(26,58,92,.1),rgba(26,58,92,.06));border:1px solid rgba(26,58,92,.18);color:#1a3a5c;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap}
         .dept-badge i{font-size:11px;opacity:.7}
         .alumni-count-tag{display:inline-flex;align-items:center;gap:5px;background:#f0f6ff;border:1px solid #cce0ff;color:#2a6496;font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;margin-left:auto}
-        .alumni-table-card{background:#fff;border:1px solid #dce5ec;border-radius:10px;box-shadow:0 4px 20px rgba(18,38,63,.06);overflow:hidden}
-        .alumni-table-wrap{overflow-x:auto;scrollbar-width:thin;scrollbar-color:#c4d0e0 transparent}
+        .alumni-table-card{background:#fff;border:1px solid #dce5ec;border-radius:10px;box-shadow:0 4px 20px rgba(18,38,63,.06);overflow:hidden;flex:1;min-height:260px;display:flex;flex-direction:column}
+        .alumni-table-wrap{flex:1;min-height:0;overflow-x:auto;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#c4d0e0 transparent}
         .alumni-table-wrap::-webkit-scrollbar{height:5px}
         .alumni-table-wrap::-webkit-scrollbar-thumb{background:#c4d0e0;border-radius:4px}
         .alumni-table{width:100%;min-width:820px;border-collapse:collapse;font-size:13px}
@@ -51,7 +53,11 @@
         .alumni-table-state strong{display:block;font-size:15px;color:#44566a;margin-bottom:4px}
         .alumni-table-state span{font-size:13px}
         .empty-val{color:#b0bec5;font-style:italic}
-        .alumni-pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid #e8eff5;font-size:12px;color:#66788a;gap:12px;flex-wrap:wrap}
+        .alumni-pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid #e8eff5;font-size:12px;color:#66788a;gap:12px;flex-wrap:wrap;flex-shrink:0;background:#fff}
+        @media (max-width: 980px){
+            .coordinator-main{height:auto;overflow-y:auto}
+            .alumni-table-card{flex:none;height:calc(100vh - 240px);min-height:320px}
+        }
         .pag-btns{display:flex;gap:4px}
         .pag-btn{width:30px;height:30px;border:1px solid #d5e0eb;border-radius:6px;background:#fff;color:#44566a;font-size:12px;cursor:pointer;display:grid;place-items:center;transition:background .15s,border-color .15s}
         .pag-btn:hover{background:#eef4f9;border-color:#b0c8dc}
@@ -207,7 +213,10 @@
 <script>
 (function(){
     'use strict';
-    var allAlumni=[],filtered=[],currentPage=1,PAGE_SIZE=10,currentSort='last_name_asc',searchTimer=null;
+    var allAlumni=[],filtered=[],currentPage=1,PAGE_SIZE=10,currentSort='last_name_asc',searchTimer=null,resizeTimer=null,measuredRowHeight=56;
+    var tableCard=document.querySelector('.alumni-table-card');
+    var tableWrap=document.querySelector('.alumni-table-wrap');
+    var tableHead=document.querySelector('#alumniTable thead');
     var tbody=document.getElementById('alumniTableBody');
     var searchInput=document.getElementById('alumniSearchInput');
     var sortSelect=document.getElementById('alumniSortSelect');
@@ -219,6 +228,37 @@
     var overlay=document.getElementById('drawerOverlay');
     var drawer=document.getElementById('alumniDrawer');
     var drawerClose=document.getElementById('drawerCloseBtn');
+
+    function computeDynamicPageSize(){
+        if(!tableCard||!tableWrap) return PAGE_SIZE;
+        var cardHeight=tableCard.clientHeight||0;
+        var pagHeight=(pagination&&pagination.style.display!=='none')?(pagination.offsetHeight||52):52;
+        var headHeight=(tableHead&&tableHead.offsetHeight)?tableHead.offsetHeight:40;
+        var availableBodyHeight=cardHeight-pagHeight-headHeight-2;
+        if(availableBodyHeight<=0) return Math.max(1,PAGE_SIZE);
+
+        var dataRows=tbody?tbody.querySelectorAll('tr[data-id]'):[];
+        if(dataRows.length>0){
+            var totalRowH=0;
+            dataRows.forEach(function(r){totalRowH+=r.getBoundingClientRect().height;});
+            var avgRowH=totalRowH/dataRows.length;
+            if(avgRowH>24) measuredRowHeight=avgRowH;
+        }
+
+        return Math.max(1,Math.floor(availableBodyHeight/measuredRowHeight));
+    }
+
+    function syncPageSizeAndRender(preservePosition){
+        var firstIdx=preservePosition?(currentPage-1)*PAGE_SIZE:0;
+        var nextSize=computeDynamicPageSize();
+        if(nextSize!==PAGE_SIZE){
+            PAGE_SIZE=nextSize;
+            if(preservePosition&&filtered.length>0){
+                currentPage=Math.floor(firstIdx/PAGE_SIZE)+1;
+            }
+            if(filtered.length>0) renderPage(false);
+        }
+    }
 
     async function loadSession(){
         try{
@@ -251,14 +291,15 @@
             currentPage=1;
             deptText.textContent=data.college||'Assigned College';
             countNum.textContent=data.total;
-            renderPage();
+            PAGE_SIZE=computeDynamicPageSize();
+            renderPage(true);
         }catch(e){
             tbody.innerHTML='<tr class="alumni-table-state"><td colspan="7"><div class="state-icon"><i class="fas fa-circle-exclamation"></i></div><strong>Failed to load alumni</strong><span>'+esc(e.message)+'</span></td></tr>';
             countNum.textContent='-';
         }
     }
 
-    function renderPage(){
+    function renderPage(allowRecalc){
         var total=filtered.length;
         var pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
         if(currentPage>pages) currentPage=pages;
@@ -296,6 +337,12 @@
         pagInfo.textContent='Showing '+(start+1)+'-'+end+' of '+total;
         renderPag(pages);
         pagination.style.display='flex';
+
+        if(allowRecalc){
+            requestAnimationFrame(function(){
+                syncPageSizeAndRender(true);
+            });
+        }
     }
 
     function renderPag(pages){
@@ -359,6 +406,22 @@
 
     function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     function cap(s){return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();}
+
+    window.addEventListener('resize',function(){
+        clearTimeout(resizeTimer);
+        resizeTimer=setTimeout(function(){
+            syncPageSizeAndRender(true);
+        },120);
+    });
+
+    if(typeof ResizeObserver==='function'&&tableCard){
+        new ResizeObserver(function(){
+            clearTimeout(resizeTimer);
+            resizeTimer=setTimeout(function(){
+                syncPageSizeAndRender(true);
+            },120);
+        }).observe(tableCard);
+    }
 
     loadSession();
     loadAlumni(currentSort);
